@@ -999,6 +999,7 @@ Qed.
 (* true -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
 (* false -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
 
+<<<<<<< HEAD
 Lemma staton_bus_exponentialE P (t : R) U :
   let N := ((2 / 7%:R) * exp1560 3%:R +
             (5%:R / 7%:R) * exp1560 10%:R)%R in
@@ -1013,3 +1014,24 @@ by rewrite addr_gt0// mulr_gt0//= ?divr_gt0// ?ltr0n// exp_density_gt0 ?ltr0n.
 Qed.
 
 End staton_bus_exponential.
+=======
+Lemma program4E (t : T) (U : _) : program4 t U =
+  ((twoseven R)%:num)%:E * (poisson 3%:R 4)%:E * \d_(true) U +
+  ((fiveseven R)%:num)%:E * (poisson 10%:R 4)%:E * \d_(false) U.
+Proof.
+rewrite /program4.
+rewrite letin_sample_bernoulli27.
+rewrite -!muleA.
+congr (_ * _ + _ * _).
+  rewrite letin_ureturn //.
+  rewrite letin_ite_true//.
+  rewrite letin_returnu//.
+  by rewrite ScoreE// => r r0; exact: poisson_ge0.
+rewrite letin_ureturn //.
+rewrite letin_ite_false//.
+rewrite letin_returnu//.
+by rewrite ScoreE// => r r0; exact: poisson_ge0.
+Qed.
+
+End program4.
+>>>>>>> s-finite kernels for ite and examples
