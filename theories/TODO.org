@@ -1,0 +1,8 @@
+* interp_type
+  * TODO: P(A) is mesurable ?
+    * TODO: pointedType
+  * TODO: (A, B) is mesurable -> [the measurable _ of (A * B)%type]
+    * TODO: measurable d ~~ measurable (d, d).-prod
+* denote_d
+  * TODO: denote T_app
+  * TODO: denote T_var
