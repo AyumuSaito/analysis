@@ -18,6 +18,267 @@ Local Open Scope ereal_scope.
 Require Import String ZArith.
 Local Open Scope string.
 
+
+(* Section v7.
+Variable (R : realType).
+Let variable := string.
+
+Section def.
+
+Inductive mtype :=
+| ty_unit
+| ty_bool
+| ty_real
+.
+
+Inductive type :=
+| mty : mtype -> type
+| ty_prob : mtype -> type
+.
+
+Inductive context :=
+| empty
+(* | extend : context -> variable -> mtype -> context *)
+.
+
+Inductive val : Type :=
+(* | val_var : V -> val *)
+| val_unit : val
+| val_bool : bool -> val
+| val_real : R -> val
+(* | val_unif : val *)
+| val_bernoulli : R -> val
+with expD : Type :=
+| exp_val : val -> expD 
+| exp_if : expD -> expD -> expD -> expD
+with expP : Type :=
+| exp_letin : variable -> expP -> expP -> expP
+| exp_sample : expD -> expP
+| exp_score : expD -> expP
+| exp_return : expD -> expP
+.
+End def.
+
+Section interp.
+
+End interp. *)
+
+Section dist_salgebra_instance.
+Variables (d : _) (T : measurableType d) (R : realType).
+Variables p0 : probability T R.
+
+Definition prob_pointed := Pointed.Class (Choice.Class gen_eqMixin (Choice.Class gen_eqMixin gen_choiceMixin)) p0.
+
+Canonical probability_eqType := EqType (probability T R) prob_pointed.
+Canonical probability_choiceType := ChoiceType (probability T R) prob_pointed.
+Canonical probability_ptType := PointedType (probability T R) prob_pointed.
+
+Definition mset (U : set T) (r : R) := [set mu : probability T R | mu U < r%:E].
+
+Definition pset : set (set (probability T R)) :=
+  [set mset U r | r in `[0%R, 1%R]%classic & U in @measurable d T].
+
+Definition sset := [the measurableType pset.-sigma of salgebraType pset].
+
+End dist_salgebra_instance.
+
+(* Section v7.
+Variable (R : realType).
+Let variable := string.
+Inductive type :=
+| ty_unit
+| ty_bool
+| ty_real
+| ty_prob : type -> type
+.
+
+Let mR := Real_sort__canonical__measure_Measurable R.
+Let munit := Datatypes_unit__canonical__measure_Measurable.
+Let mbool := Datatypes_bool__canonical__measure_Measurable.
+
+Check sset.
+
+Fixpoint interp_type (ty : type) : measurableType _ :=
+  match ty with
+  | ty_unit => munit
+  | ty_bool => mbool
+  | ty_real => mR
+  | ty_prob ty0 => sset (probability mbool R)
+  end.
+
+Definition interp_type (ty : type) : Type :=
+  match ty with 
+  | mty t => interp_mtype t
+  | ty_prob t => probability (interp_mtype t) R
+  end.
+
+End v7. *)
+
+Section v6.
+Variable (R : realType).
+Let variable := string.
+
+Section def.
+
+Inductive mtype :=
+| ty_unit
+| ty_bool
+| ty_real
+.
+
+Inductive type :=
+| mty : mtype -> type
+| ty_prob : mtype -> type
+.
+
+Inductive context :=
+| empty
+| extend : context -> variable -> mtype -> context
+.
+
+Inductive val : Type :=
+| val_var : variable -> val
+| val_unit : val
+| val_bool : bool -> val
+| val_real : R -> val
+(* | val_unif : val *)
+| val_bernoulli : R -> val
+with expD : Type :=
+| exp_val : val -> expD 
+| exp_if : expD -> expD -> expD -> expD
+with expP : Type :=
+| exp_letin : variable -> expP -> expP -> expP
+| exp_sample : expD -> expP
+| exp_score : expD -> expP
+| exp_return : expD -> expP
+.
+
+Coercion exp_val : val >-> expD.
+
+Definition pgm1 := exp_letin "x" (exp_sample (exp_val (val_bernoulli 1%R))) (exp_return (exp_val (val_var "x"))).
+
+
+Inductive wf_val (G : context) : val -> type -> Type :=
+(* | wf_val_var {x} : wf_val G (val_var x) (G x) *)
+| wf_val_unit : wf_val G val_unit (mty ty_unit)
+| wf_val_bool b : wf_val G (val_bool b) (mty ty_bool)
+| wf_val_real r : wf_val G (val_real r) (mty ty_real)
+(* | wf_val_unif : wf_val G val_unif (ty_prob ty_real) *)
+| wf_val_bernoulli r : wf_val G (val_bernoulli r) (ty_prob ty_bool)
+
+with wf_expD (G : context) : expD -> type -> Type :=
+| wf_exp_val {v T} : wf_val G v T -> wf_expD G v T
+| wf_exp_if {e1 e2 e3 T} :
+    wf_expD G e1 (mty ty_bool) -> wf_expD G e2 T -> wf_expD G e3 T ->
+    wf_expD G (exp_if e1 e2 e3) T
+
+with wf_expP (G : context) : expP -> mtype -> Type :=
+(* | wf_exp_letin {x t u A B} :
+    wf_expP G t A -> wf_expP (extend G x A) u B -> wf_expP G (exp_letin x t u) B *)
+| wf_exp_sample {e T} : 
+    wf_expD G e (ty_prob T) -> wf_expP G (exp_sample e) T
+| wf_exp_return {e T} : 
+    wf_expD G e (mty T) -> wf_expP G (exp_return e) T
+.
+
+(* Example wf5 :=
+  @wf_exp_letin empty "x" _ _ _ _ 
+    (wf_exp_sample (wf_exp_val (wf_val_bernoulli empty (5 / 7)%R)))
+    (wf_exp_return (wf_exp_val (wf_val_real (extend empty "x" ty_bool) 1))). *)
+
+
+End def.
+
+Section interp.
+
+Let mR := Real_sort__canonical__measure_Measurable R.
+Let munit := Datatypes_unit__canonical__measure_Measurable.
+Let mbool := Datatypes_bool__canonical__measure_Measurable.
+
+Axiom prob_measurableType : forall (d : measure_display) (T : measurableType d) (R : realType), measurableType d.
+
+Definition interp_mtype (mty : mtype) :=
+  match mty with
+  | ty_unit => munit
+  | ty_bool => mbool
+  | ty_real => mR
+  end.
+
+Definition interp_type (ty : type) : Type :=
+  match ty with 
+  | mty t => interp_mtype t
+  | ty_prob t => probability (interp_mtype t) R
+  end.
+
+Fixpoint G_to_mdisp (G : context) :=
+  match G with
+  | empty => default_measure_display
+  | extend G' x T => (G_to_mdisp G', default_measure_display).-prod%mdisp
+  end.
+
+Fixpoint interp_context (G : context) : measurableType (G_to_mdisp G) :=
+  match G with
+  | empty => munit : measurableType (G_to_mdisp empty)
+  | extend G' x T => [the measurableType _ of (interp_context G' * interp_mtype T)%type]
+  end.
+
+Definition interp_wf_val {G a T} (wf : wf_val G a T) 
+  : interp_context G -> interp_type T :=
+  match wf with
+  | wf_val_unit => fun _ => tt
+  | wf_val_bool b => fun _ => b
+  | wf_val_real r => fun _ => r
+  | wf_val_bernoulli r => fun _ => [the probability mbool R of bernoulli27 R]
+  (* | _ => fun _ => tt *)
+  end.
+
+Fixpoint interp_wf_expD {G a T} (wf : wf_expD G a T) 
+  : interp_context G -> interp_type T :=
+  match wf with 
+  | wf_exp_val _ _ w => interp_wf_val w
+  | wf_exp_if _ _ _ T w1 w2 w3 => fun p => 
+    if interp_wf_expD w1 p then interp_wf_expD w2 p else interp_wf_expD w3 p
+  end.
+
+Axiom tmp : forall (G : context) a T (w : wf_expD G a (mty T)),
+measurable_fun [set: interp_context G] (interp_wf_expD w).
+
+Require Import Program.
+Obligation Tactic := idtac.
+Fixpoint interp_wf_expP {G a T} (wf : wf_expP G a T)
+  : R.-sfker interp_context G ~> interp_mtype T :=
+  match wf with
+  (* | wf_exp_letin _ _ _ _ _ w1 w2 => letin (interp_wf_expP w1) (interp_wf_expP w2) *)
+  | wf_exp_sample a' T' w => sample (interp_context G) (interp_wf_expD w point)
+  (* sample _ (interp_wf_expD w tt) : R.-sfker munit ~> _ *)
+  | wf_exp_return _ _ w => @Return _ _ _ _ _ (interp_wf_expD w) (@tmp _ _ _ w)
+  end.
+
+Example wf1 := 
+  wf_exp_val (wf_val_bool empty true).
+Example interp1 : interp_wf_expD wf1 = fun => true.
+Proof. by []. Qed.
+Example wf2 := 
+  wf_exp_if (wf_exp_val (wf_val_bool empty false)) 
+            (wf_exp_val (wf_val_real empty 10)) 
+            (wf_exp_val (wf_val_real empty 3)).
+Example interp2 : interp_wf_expD wf2 tt = 3%R.
+Proof. by []. Qed.
+Example wf3 :=
+  wf_exp_val (wf_val_bernoulli empty 1%R).
+Example interp3 : interp_wf_expD wf3 tt = [the probability _ _ of bernoulli27 R].
+Proof. by []. Qed.
+Example wf4 :=
+  wf_exp_sample (wf_exp_val (wf_val_bernoulli empty 1%R)).
+Example interp4 :
+  interp_wf_expP wf4 = sample_bernoulli27 R _.
+Proof. by []. Qed.
+
+End interp.
+
+End v6.
+
+
 Section v5.
 Variable (R : realType).
 
@@ -63,7 +324,7 @@ Inductive wf_val (G : context) : val -> type -> Type :=
 | wf_val_bool b : wf_val G (val_bool b) ty_bool
 | wf_val_real r : wf_val G (val_real r) ty_real
 (* | wf_val_unif : wf_val G val_unif (ty_prob ty_real) *)
-| wf_val_bernoulli r : wf_val G (val_bernoulli r) (ty_prob ty_bool)
+(* | wf_val_bernoulli r : wf_val G (val_bernoulli r) (ty_prob ty_bool) *)
 
 with wf_expD (G : context) : expD -> type -> Type :=
 | wf_exp_val {v T} : wf_val G v T -> wf_expD G v T
@@ -73,7 +334,7 @@ with wf_expD (G : context) : expD -> type -> Type :=
 
 with wf_expP (G : context) : expP -> type -> Type :=
 | wf_exp_sample {e T} : 
-  wf_expD G e (ty_prob T) -> wf_expP G (exp_sample e) T
+    wf_expD G e (ty_prob T) -> wf_expP G (exp_sample e) T
 .
 
 End def.
@@ -102,34 +363,55 @@ Fixpoint interp_type (ty : type) : {d & measurableType d} :=
     (* [the measurableType d of probability A R] *)
   end.
 
+Fixpoint type_to_measuredisplay (ty : type) : measure_display :=
+  match ty with
+  | ty_pair t1 t2 => (type_to_measuredisplay t1, type_to_measuredisplay t2).-prod
+  (* | ty_prob t => let: existT d A := interp_type t in d *)
+  | _ => default_measure_display
+  end.
+
+Fixpoint interp_type_2 (ty : type) : measurableType (type_to_measuredisplay ty) :=
+  match ty with
+  (* | ty_unit => munit *)
+  | ty_bool => mbool
+  | ty_real => mR
+    (* [the measurableType _ of \bar R] *)
+  | ty_pair t1 t2 => 
+    [the measurableType _ of (interp_type_2 t1 * interp_type_2 t2)%type]
+  (* | ty_prob t =>  *)
+    (* prob_measurableType (interp_type_2 t) R *)
+    (* [the measurableType d of probability A R] *)
+  | _ => (munit : measurableType (type_to_measuredisplay ty_unit))
+  end.
+
 Definition interp_context (G : context) :=
   match G with
   | empty => unit
   end.
 
-Fail Definition interp_wf_val {G a T} (wf : wf_val G a T) 
-  : interp_context empty -> interp_type T :=
+Definition interp_wf_val {G a T} (wf : wf_val G a T) 
+  : interp_context empty -> interp_type_2 T :=
   match wf with
-  | wf_val_unit => fun _ => tt
+  | wf_val_unit => fun _ => (tt : interp_type_2 ty_unit)
   | wf_val_bool b => fun _ => b
   | wf_val_real r => fun _ => r
-  | wf_val_bernoulli r => fun _ => [the probability mbool R of bernoulli27 R]
+  (* | wf_val_bernoulli r => fun _ => [the probability mbool R of bernoulli27 R] *)
   (* | _ => fun _ => tt *)
   end.
 
-Fail Fixpoint interp_wf_expD {G a T} (wf : wf_expD G a T) 
-  : interp_context empty -> interp_type T :=
+Fixpoint interp_wf_expD {G a T} (wf : wf_expD G a T) 
+  : interp_context empty -> interp_type_2 T :=
   match wf with 
   | wf_exp_val _ _ w => interp_wf_val w
   | wf_exp_if _ _ _ T w1 w2 w3 => fun p => 
     if (interp_wf_expD w1 p) then (interp_wf_expD w2 p) else (interp_wf_expD w3 p)
   end.
 
-(* Fixpoint interp_wf_expP {G a T} (wf : wf_expP G a T)
-  : R.-sfker _ ~> interp_type T :=
+Fixpoint interp_wf_expP {G a T} (wf : wf_expP G a T)
+  : R.-sfker _ ~> interp_type_2 T :=
   match wf with
   | wf_exp_sample _ _ w => sample (interp_wf_expD w tt)
-  end. *)
+  end.
 
 Example wf1 := 
   wf_exp_val (wf_val_bool empty true).
