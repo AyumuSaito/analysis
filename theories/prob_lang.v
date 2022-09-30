@@ -919,6 +919,28 @@ Definition kstaton_bus : R.-sfker T ~> mbool :=
       (score (measurable_funT_comp mh var3of3)))
     (ret var2of3)).
 
+Notation var2of4 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)(measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_fst _ _ _ _))).
+
+Definition kstaton_bus'' : R.-sfker munit ~> _ :=
+  letin
+    (sample (bernoulli p27) : _.-sfker munit ~> mbool)
+    (letin
+      (ite var2of2 
+        (ret (@k3 _ _ _))
+        (ret (@k10 _ _ _))
+      : _.-sfker [the measurableType _ of (munit * mbool)%type] ~> _)
+      (letin
+        (score (measurable_fun_comp (@mpoisson R 4) var3of3)
+        : _.-sfker [the measurableType _ of (munit * bool * R)%type] ~> munit)
+        (ret var2of4
+        : _.-sfker [the measurableType _ of (munit * mbool * R * munit)%type] ~> mbool)
+      : R.-sfker [the measurableType _ of (munit * bool * R)%type] ~> mbool) 
+    : R.-sfker [the measurableType _ of (munit * mbool)%type] ~> mbool).
+
+Check kstaton_bus'' tt : measure R mbool.
+Lemma __ : kstaton_bus'' tt set0 = 0.
+Proof. rewrite //. Qed.
+
 Definition staton_bus := normalize kstaton_bus.
 
 End staton_bus.
