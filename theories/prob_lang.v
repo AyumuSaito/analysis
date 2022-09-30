@@ -428,7 +428,6 @@ Lemma retE (f : X -> Y) (mf : measurable_fun setT f) x :
   ret mf x = \d_(f x) :> (_ -> \bar R).
 Proof. by []. Qed.
 
-<<<<<<< HEAD
 Lemma sampleE (P : probability Y R) (x : X) : sample P x = P.
 Proof. by []. Qed.
 
@@ -455,74 +454,6 @@ rewrite /ite; unlock => /=.
 rewrite /kcomp/= integral_dirac//=.
 rewrite indicT mul1e.
 rewrite -/(measure_add (ITE.kiteT k1 (x, f x)) (ITE.kiteF k2 (x, f x))).
-=======
-Definition letin (d d' d3 : _)
-  (X : measurableType d) (Y : measurableType d') (Z : measurableType d3)
-  (l : R.-sfker X ~> Y)
-  (k : R.-sfker [the measurableType (d, d').-prod of (X * Y)%type] ~> Z)
-  : R.-sfker X ~> Z :=
-  [the sfinite_kernel _ _ _ of l \; k].
-
-Definition Return (d d' : _) (T : measurableType d) (T' : measurableType d')
-  (f : T -> T') (mf : measurable_fun setT f) : R.-sfker T ~> T' :=
-  [the sfinite_kernel _ _ _ of @kernel_mfun _ _ T T' R f mf].
-
-Definition sample (d : _) (T : measurableType d) (m : probability T R) := 
-  [the sfinite_kernel T _ _ of kernel_probability m].
-
-Definition sample_ber := sample [the probability _ _ of bernoulli27 R].
-
-Definition sample_bernoulli27 (d : _) (T : measurableType d) :=
-  [the sfinite_kernel T _ _ of
-   kernel_probability [the probability _ _ of bernoulli27 R]] .
-
-(* NB: score r = observe 0 from exp r,
-       the density of the exponential distribution exp(r) at 0 is r = r e^(-r * 0)
-       more generally, score (r e^(-r * t)) = observe t from exp(r),
-       score (f(r)) = observe r from p where f is the density of p *)
-Definition Score (d : _) (T : measurableType d) (r : T -> R) (mr : measurable_fun setT r) :
-    R.-sfker T ~> Datatypes_unit__canonical__measure_Measurable :=
-  [the sfinite_kernel _ _ R of @kernel_score R _ _ r mr].
-
-Lemma ScoreE (d : _) (T : measurableType d) (t : T) (U : set bool) (n : nat)  (b : bool)
-  (f : R -> R) (f0 : forall r, (0 <= r)%R -> (0 <= f r)%R) (mf : measurable_fun setT f) :
-  Score (measurable_fun_comp mf (@measurable_fun_snd _ _ _ _))
-    (t, b, cst n%:R (t, b))
-    ((fun y : unit => (snd \o fst) (t, b, y)) @^-1` U) =
-  (f n%:R)%:E * \d_b U.
-Proof.
-rewrite /Score/= /score/= diracE.
-have [U0|U0] := set_unit ((fun=> b) @^-1` U).
-- rewrite U0 eqxx memNset ?mule0//.
-  move=> Ub.
-  move: U0.
-  move/seteqP => [/(_ tt)] /=.
-  by move/(_ Ub).
-- rewrite U0 setT_unit ifF//; last first.
-    by apply/negbTE/negP => /eqP/seteqP[/(_ tt erefl)].
-  rewrite /= mem_set//; last first.
-    by move: U0 => /seteqP[_]/(_ tt)/=; exact.
-  by rewrite mule1 ger0_norm// f0.
-Qed.
-
-Definition Ite (d d' : _) (T : measurableType d) (T' : measurableType d')
-    (f : T -> bool) (mf : measurable_fun setT f)
-    (u1 u2 : R.-sfker T ~> T')
-    : R.-sfker T ~> T' :=
-  [the R.-sfker _ ~> _ of mite u1 u2 mf].
-
-Lemma IteE (d d' : _) (T : measurableType d) (T' : measurableType d')
-    (f : T -> bool) (mf : measurable_fun setT f)
-    (u1 u2 : R.-sfker T ~> T') tb U :
-  Ite mf u1 u2 tb U = ite u1 u2 mf tb U.
-Proof.
-rewrite /= /kcomp /ite.
-rewrite integral_dirac//=.
-rewrite indicT /cst.
-rewrite mul1e.
-rewrite -/(measure_add (ITE.ite_true u1 (tb, f tb))
-                       (ITE.ite_false u2 (tb, f tb))).
->>>>>>> wip
 rewrite measure_addE.
 rewrite /ITE.kiteT /ITE.kiteF/=.
 by case: ifPn => fx /=; rewrite /mzero ?(adde0,add0e).
