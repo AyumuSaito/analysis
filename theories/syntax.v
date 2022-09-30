@@ -19,7 +19,7 @@ Require Import String ZArith.
 Local Open Scope string.
 
 
-(* Section v7.
+Section v7.
 Variable (R : realType).
 Let variable := string.
 
@@ -38,30 +38,113 @@ Inductive type :=
 
 Inductive context :=
 | empty
-(* | extend : context -> variable -> mtype -> context *)
+| extend : context -> variable -> mtype -> context
 .
 
-Inductive val : Type :=
-(* | val_var : V -> val *)
-| val_unit : val
-| val_bool : bool -> val
-| val_real : R -> val
+Inductive exp : Type :=
+| exp_var : variable -> exp
+| exp_unit : exp
+| exp_bool : bool -> exp
+| exp_real : R -> exp
 (* | val_unif : val *)
-| val_bernoulli : R -> val
-with expD : Type :=
-| exp_val : val -> expD 
-| exp_if : expD -> expD -> expD -> expD
-with expP : Type :=
-| exp_letin : variable -> expP -> expP -> expP
-| exp_sample : expD -> expP
-| exp_score : expD -> expP
-| exp_return : expD -> expP
+| exp_bernoulli : R -> exp
+| exp_if : exp -> exp -> exp -> exp
+| exp_letin : variable -> exp -> exp -> exp
+| exp_sample : exp -> exp
+| exp_score : exp -> exp
+| exp_return : exp -> exp
 .
 End def.
 
-Section interp.
+Section eval.
+Let mR := Real_sort__canonical__measure_Measurable R.
+Let munit := Datatypes_unit__canonical__measure_Measurable.
+Let mbool := Datatypes_bool__canonical__measure_Measurable.
 
-End interp. *)
+Definition interp_mtype (mty : mtype) :=
+  match mty with
+  | ty_unit => munit
+  | ty_bool => mbool
+  | ty_real => mR
+  end.
+
+Definition interp_type (ty : type) : Type :=
+  match ty with 
+  | mty t => interp_mtype t
+  | ty_prob t => probability (interp_mtype t) R
+  end.
+
+Fixpoint G_to_mdisp (G : context) :=
+  match G with
+  | empty => default_measure_display
+  | extend G' x T => (G_to_mdisp G', default_measure_display).-prod%mdisp
+  end.
+
+Fixpoint interp_context (G : context) : measurableType (G_to_mdisp G) :=
+  match G with
+  | empty => munit : measurableType (G_to_mdisp empty)
+  | extend G' x T => [the measurableType _ of (interp_context G' * interp_mtype T)%type]
+  end.
+
+Inductive evalD : 
+forall d (G : measurableType d) dT (T : measurableType dT) (e : exp) (f : G -> T), measurable_fun setT f -> Prop :=
+| E_unit : forall d G, @evalD d G _ munit exp_unit (fun _ => tt) (@measurable_fun_cst _ _ _ _ setT _)
+| E_bool : forall d G b, @evalD d G _ mbool (exp_bool b) (fun _ => b) (@measurable_fun_cst _ _ _ _ setT _)
+| E_real : forall d G r, @evalD d G _ mR (exp_real r) (fun _ => r) (@measurable_fun_cst _ _ _ _ setT _)
+.
+
+Example eval1 d G r : @evalD d G _ mR (exp_real r) (fun _ => r) (@measurable_fun_cst _ _ _ _ setT _).
+Proof. apply E_real. Qed.
+
+(*
+TODO: function to kernel
+*)
+
+Check (sample (bernoulli p27)) : _.-sfker _ ~> _.
+(* Check [the R.-sfker _ ~> mbool of (sample (bernoulli p27))]. *)
+
+Inductive eval : forall d (G : measurableType d) n (l : seq (string * nat)%type) dT (T : measurableType dT),
+    exp ->
+    R.-sfker G ~> T ->
+    Prop :=
+(* | E_bernoulli : forall d G r, @eval d G _ _ _ _ (exp_bernoulli r) (mbernoulli p27) *)
+
+(* | E_sample : forall d G n l dT T e t (p : probability _ _), 
+  @eval d G n l dT T e t -> 
+  @eval d G n l dT T (exp_sample e) (sample p) *)
+
+| E_sample_bernoulli : forall d G n l (r : R),
+  @eval d G n l _ mbool (exp_sample (exp_bernoulli r)) (sample (bernoulli p27))
+
+| E_score : forall d (G : measurableType d) n l e (f: G -> R) (mf : measurable_fun _ f), 
+  @evalD _ G _ _ e f mf -> 
+  @eval _ G n l _ munit (exp_score e) [the R.-sfker _ ~> _ of kscore mf]
+
+| E_return : forall d G n l dT T e (f : _ -> _) (mf : measurable_fun _ f),
+  @evalD d G dT T e f mf -> 
+  @eval d G n l dT T (exp_return e) (ret mf)
+
+| E_let : forall d (G : measurableType d) n l dy (Y : measurableType dy) dz (Z : measurableType dz) w1 w2 t1 t2 (x : string),
+  @eval _ G n l _ Y w1 t1 ->
+  @eval _ [the measurableType _ of (G * Y)%type] n.+1 ((x, n) :: l) _ Z w2 t2 ->
+  @eval _ G n l _ Z (exp_letin x w1 w2) (letin t1 t2)
+.
+
+Example eval2 d (G : measurableType d) n l r : 
+  @eval _ G n l _ _ (exp_sample (exp_bernoulli r)) (sample (bernoulli p27)).
+Proof.
+apply E_sample_bernoulli.
+Qed.
+
+
+(* 
+DONE: (sample) probability to kernel
+TODO: (sample_bernoulli) genelalize p27
+DONE: (score/return) measurable_fun to kernel
+DONE: (score/return) relation t and f
+*)
+End eval.
+End v7.
 
 Section dist_salgebra_instance.
 Variables (d : _) (T : measurableType d) (R : realType).
@@ -173,8 +256,8 @@ with wf_expD (G : context) : expD -> type -> Type :=
     wf_expD G (exp_if e1 e2 e3) T
 
 with wf_expP (G : context) : expP -> mtype -> Type :=
-(* | wf_exp_letin {x t u A B} :
-    wf_expP G t A -> wf_expP (extend G x A) u B -> wf_expP G (exp_letin x t u) B *)
+| wf_exp_letin {x t u A B} :
+    wf_expP G t A -> wf_expP (extend G x A) u B -> wf_expP G (exp_letin x t u) B
 | wf_exp_sample {e T} : 
     wf_expD G e (ty_prob T) -> wf_expP G (exp_sample e) T
 | wf_exp_return {e T} : 
@@ -228,7 +311,7 @@ Definition interp_wf_val {G a T} (wf : wf_val G a T)
   | wf_val_unit => fun _ => tt
   | wf_val_bool b => fun _ => b
   | wf_val_real r => fun _ => r
-  | wf_val_bernoulli r => fun _ => [the probability mbool R of bernoulli27 R]
+  | wf_val_bernoulli r => fun _ => [the probability mbool R of bernoulli p27]
   (* | _ => fun _ => tt *)
   end.
 
@@ -245,13 +328,32 @@ measurable_fun [set: interp_context G] (interp_wf_expD w).
 
 Require Import Program.
 Obligation Tactic := idtac.
+Inductive interp_wf_expP : forall d (G : measurableType d) n (l : seq (string * nat)%type) dT (T : measurableType dT),
+    expP ->
+    R.-sfker G ~> T ->
+    Prop :=
+| interp_let : forall d (G : measurableType d) n l dy (Y : measurableType dy) dz (Z : measurableType dz) w1 w2 t1 t2 (x : string),
+  @interp_wf_expP _ G n l _ Y w1 t1 ->
+  
+  @interp_wf_expP _ [the measurableType _ of (G * Y)%type] n.+1 ((x, n) :: l) _ Z w2 t2 ->
+  
+  @interp_wf_expP _ G n l _ Z (exp_letin x w1 w2) (letin t1 t2).
+
+| inter_var : forall G.
+  (x, n) \in l ->
+  @interp_wf_expP _ G n l _ Z (val_var x) (access_function x n : )
+
+
+
+
+
 Fixpoint interp_wf_expP {G a T} (wf : wf_expP G a T)
   : R.-sfker interp_context G ~> interp_mtype T :=
   match wf with
-  (* | wf_exp_letin _ _ _ _ _ w1 w2 => letin (interp_wf_expP w1) (interp_wf_expP w2) *)
-  | wf_exp_sample a' T' w => sample (interp_context G) (interp_wf_expD w point)
+  | wf_exp_letin _ _ _ _ _ w1 w2 => letin (interp_wf_expP w1) (interp_wf_expP w2)
+  | wf_exp_sample a' T' w => sample (interp_wf_expD w point)
   (* sample _ (interp_wf_expD w tt) : R.-sfker munit ~> _ *)
-  | wf_exp_return _ _ w => @Return _ _ _ _ _ (interp_wf_expD w) (@tmp _ _ _ w)
+  | wf_exp_return _ _ w => @ret _ _ _ _ _ (interp_wf_expD w) (@tmp _ _ _ w)
   end.
 
 Example wf1 := 
