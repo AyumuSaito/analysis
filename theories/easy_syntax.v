@@ -22,19 +22,26 @@ Variable (R : realType).
 
 Inductive term : Type :=
 | Letin : string -> term -> term -> term
-with rterm : Type :=
-| Real : R -> rterm
-| Plus : rterm -> rterm -> rterm
-with bterm : Type :=
-| Bool : bool -> bterm
+| Real : R -> term
+| Plus : term -> term -> term
+| Bool : bool -> term
 .
 
-Fixpoint eval_r (env : list R) (t : rterm) : R :=
-  match t with
-  | Real r => r
-  | Plus t1 t2 => eval_r env t1 + eval_r env t2
-  (* | Letin x t1 t2 => eval [:: (x, t1)] t2 *)
-  end.
+Inductive eval : term -> R -> Prop :=
+  | E_real : forall r, eval (Real r) r
+  | E_plus : forall t1 t2 r1 r2,
+    eval t1 r1 ->
+    eval t2 r2 ->
+    eval (Plus t1 t2) (r1 + r2) 
+  .
+
+Example _1 : eval (Plus (Real 1) (Plus (Real 2) (Real 3))) 6.
+Proof.
+apply /E_plus.
+apply /E_real.
+rewrite addrA.
+apply /E_plus /E_real /E_real.
+Qed.
 
 Fixpoint eval_b (env : list R) (t : bterm) : bool :=
   match t with 

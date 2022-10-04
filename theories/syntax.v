@@ -48,6 +48,7 @@ Inductive exp : Type :=
 | exp_real : R -> exp
 (* | val_unif : val *)
 | exp_bernoulli : R -> exp
+| exp_poisson : nat -> exp -> exp
 | exp_if : exp -> exp -> exp -> exp
 | exp_letin : variable -> exp -> exp -> exp
 | exp_sample : exp -> exp
@@ -86,15 +87,44 @@ Fixpoint interp_context (G : context) : measurableType (G_to_mdisp G) :=
   | extend G' x T => [the measurableType _ of (interp_context G' * interp_mtype T)%type]
   end.
 
-Inductive evalD : 
-forall d (G : measurableType d) dT (T : measurableType dT) (e : exp) (f : G -> T), measurable_fun setT f -> Prop :=
-| E_unit : forall d G, @evalD d G _ munit exp_unit (fun _ => tt) (@measurable_fun_cst _ _ _ _ setT _)
-| E_bool : forall d G b, @evalD d G _ mbool (exp_bool b) (fun _ => b) (@measurable_fun_cst _ _ _ _ setT _)
-| E_real : forall d G r, @evalD d G _ mR (exp_real r) (fun _ => r) (@measurable_fun_cst _ _ _ _ setT _)
+Notation var1of2 := (@measurable_fun_fst _ _ _ _).
+Notation var2of2 := (@measurable_fun_snd _ _ _ _).
+Notation var1of3 := (measurable_fun_comp (@measurable_fun_fst _ _ _ _)
+                                         (@measurable_fun_fst _ _ _ _)).
+Notation var2of3 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)
+                                         (@measurable_fun_fst _ _ _ _)).
+Notation var3of3 := (@measurable_fun_snd _ _ _ _).
+Notation var2of4 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)(measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_fst _ _ _ _))).
+
+(* Fixpoint var_i_of_n d (G : measurableType d) dT (T : measurableType dT) (f : G -> T) (i n : nat) : measurable_fun setT f := 
+  match n with
+  | 0 => measurable_fun _ (@snd G T)
+  | 1 => @measurable_fun_snd _ _ _ _
+  | 2 => @measurable_fun_snd _ _ _ _
+  | n.+1 => @measurable_fun_snd _ _ _ _
+  end. *)
+
+
+Inductive evalD : forall d (G : measurableType d) (i : nat) (l : seq (string * nat)%type) dT (T : measurableType dT) (e : exp) (f : G -> T), measurable_fun setT f -> Prop :=
+| E_unit : forall d G i l, @evalD d G i l _ munit exp_unit (fun _ => tt) (@measurable_fun_cst _ _ _ _ setT _)
+| E_bool : forall d G i l b, @evalD d G i l _ mbool (exp_bool b) (fun _ => b) (@measurable_fun_cst _ _ _ _ setT _)
+| E_realD : forall d G i l r, @evalD d G i l _ mR (exp_real r) (fun _ => r) (@measurable_fun_cst _ _ _ _ setT _)
+
+| E_var0 : forall i l d1 d2 (T1 : measurableType d1) (T2 : measurableType d2) x, @evalD _ _ i l _ _ (exp_var x) (@fst T1 T2) var1of2
+
+| E_var1 : forall i l d1 d2 (T1 : measurableType d1) (T2 : measurableType d2) x, @evalD _ _ i l _ _ (exp_var x) (@snd T1 T2) var2of2
+
+| E_var2 : forall i l d1 d2 d3 (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3) x, @evalD _ _ i l _ _ (exp_var x) ((@snd T1 T2) \o (@fst (T1 * T2)%type T3)) var2of3
+
+| E_var3 : forall i l d1 d2 d3 d4 (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3) (T4 : measurableType d4) x, @evalD _ _ i l _ _ (exp_var x) ((@snd T1 T2) \o ((@fst (T1 * T2)%type T3) \o (@fst (T1 * T2 * T3)%type T4))) var2of4
+
+(* | E_bernoulli : forall d G i l r, @evalD d G i l _ _ (exp_bernoulli r) (bernoulli p27) (@measurable_fun_cst _ _ _ _ setT _) *)
+
+| E_poisson : forall d G i l n e f mf, @evalD d G i l _ mR e f mf -> @evalD _ _ i l _ _ (exp_poisson n e) (poisson n \o f) (measurable_fun_comp (mpoisson n) mf)
 .
 
-Example eval1 d G r : @evalD d G _ mR (exp_real r) (fun _ => r) (@measurable_fun_cst _ _ _ _ setT _).
-Proof. apply E_real. Qed.
+Example eval1 d G i l r : @evalD d G i l _ mR (exp_real r) (fun _ => r) (@measurable_fun_cst _ _ _ _ setT _).
+Proof. apply E_realD. Qed.
 
 (*
 TODO: function to kernel
@@ -112,30 +142,79 @@ Inductive eval : forall d (G : measurableType d) n (l : seq (string * nat)%type)
 (* | E_sample : forall d G n l dT T e t (p : probability _ _), 
   @eval d G n l dT T e t -> 
   @eval d G n l dT T (exp_sample e) (sample p) *)
+| E_real : forall d G n l r,
+  @eval d G n l _ mR (exp_real r) (ret (kr r))
+
+| E_if : forall d G i l dT T e1 f1 mf e2 k2 e3 k3,
+  @evalD d G i l _ _ e1 f1 mf ->
+  @eval d G i l dT T e2 k2 ->
+  @eval d G i l dT T e3 k3 ->
+  @eval d G i l dT T (exp_if e1 e2 e3) (ite mf k2 k3)
 
 | E_sample_bernoulli : forall d G n l (r : R),
   @eval d G n l _ mbool (exp_sample (exp_bernoulli r)) (sample (bernoulli p27))
 
-| E_score : forall d (G : measurableType d) n l e (f: G -> R) (mf : measurable_fun _ f), 
-  @evalD _ G _ _ e f mf -> 
-  @eval _ G n l _ munit (exp_score e) [the R.-sfker _ ~> _ of kscore mf]
+| E_score : forall d (G : measurableType d) i l e (f: G -> R) (mf : measurable_fun _ f), 
+  @evalD _ G i l _ _ e f mf -> 
+  @eval _ G i l _ munit (exp_score e) [the R.-sfker _ ~> _ of kscore mf]
 
-| E_return : forall d G n l dT T e (f : _ -> _) (mf : measurable_fun _ f),
-  @evalD d G dT T e f mf -> 
-  @eval d G n l dT T (exp_return e) (ret mf)
+| E_return : forall d G i l dT T e (f : _ -> _) (mf : measurable_fun _ f),
+  @evalD d G i l dT T e f mf -> 
+  @eval d G i l dT T (exp_return e) (ret mf)
 
-| E_let : forall d (G : measurableType d) n l dy (Y : measurableType dy) dz (Z : measurableType dz) w1 w2 t1 t2 (x : string),
+| E_let : forall d (G : measurableType d) n l dy (Y : measurableType dy) 
+dz (Z : measurableType dz) w1 w2 t1 t2 (x : string),
   @eval _ G n l _ Y w1 t1 ->
   @eval _ [the measurableType _ of (G * Y)%type] n.+1 ((x, n) :: l) _ Z w2 t2 ->
   @eval _ G n l _ Z (exp_letin x w1 w2) (letin t1 t2)
 .
 
-Example eval2 d (G : measurableType d) n l r : 
-  @eval _ G n l _ _ (exp_sample (exp_bernoulli r)) (sample (bernoulli p27)).
+Example eval2 d (G : measurableType d) i l r : 
+  @eval _ G i l _ _ (exp_sample (exp_bernoulli r)) (sample (bernoulli p27)).
 Proof.
 apply E_sample_bernoulli.
 Qed.
 
+Example eval3 d (G : measurableType d) r:
+  @eval _ G 0 [::] _ _ (exp_letin "x" (exp_sample (exp_bernoulli r)) (exp_return (exp_var "x"))) (letin (sample (bernoulli p27)) (ret var2of2)).
+Proof.
+apply /E_let.
+apply /E_sample_bernoulli.
+apply /E_return.
+apply /E_var1.
+Qed.
+
+Example eval4 d (G : measurableType d) :
+  @eval _ G 0 [::] _ _ 
+  (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7)))
+    (exp_if (exp_var "x") (exp_real 3) (exp_real 10))) (sample_and_branch R G).
+Proof.
+apply /E_let.
+apply /E_sample_bernoulli.
+apply /E_if.
+apply /E_var1.
+apply /E_real.
+apply /E_real.
+Qed.
+
+Example eval5 :
+  @eval _ munit 0 [::] _ _
+    (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7)))
+      (exp_letin "r" (exp_if (exp_var "x") (exp_real 3) (exp_real 10))
+        (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
+          (exp_return (exp_var "x"))))) 
+    (kstaton_bus'' R).
+Proof.
+apply /E_let /E_let /E_let.
+apply /E_sample_bernoulli.
+apply /E_if /E_real /E_real.
+apply /E_var1.
+apply /E_score.
+apply /E_poisson.
+apply /E_var1.
+apply /E_return.
+apply /E_var3.
+Qed.
 
 (* 
 DONE: (sample) probability to kernel
@@ -143,6 +222,7 @@ TODO: (sample_bernoulli) genelalize p27
 DONE: (score/return) measurable_fun to kernel
 DONE: (score/return) relation t and f
 *)
+
 End eval.
 End v7.
 
