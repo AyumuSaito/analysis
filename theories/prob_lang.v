@@ -556,6 +556,7 @@ Definition kr (r : R) := @measurable_fun_cst _ _ T _ setT r.
 Definition k3 : measurable_fun _ _ := kr 3%:R.
 Definition k10 : measurable_fun _ _ := kr 10%:R.
 Definition ktt := @measurable_fun_cst _ _ T _ setT tt.
+Definition kb (b : bool) := @measurable_fun_cst _ _ T _ setT b.
 
 End cst_fun.
 Arguments kr {d T R}.
@@ -921,27 +922,24 @@ Definition kstaton_bus : R.-sfker T ~> mbool :=
 
 Notation var2of4 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)(measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_fst _ _ _ _))).
 
-Definition kstaton_bus'' : R.-sfker munit ~> _ :=
+Definition kstaton_bus' : R.-sfker T ~> _ :=
   letin
-    (sample (bernoulli p27) : _.-sfker munit ~> mbool)
+    (sample (bernoulli p27) : _.-sfker T ~> mbool)
     (letin
       (ite var2of2 
         (ret (@k3 _ _ _))
         (ret (@k10 _ _ _))
-      : _.-sfker [the measurableType _ of (munit * mbool)%type] ~> _)
+      : _.-sfker [the measurableType _ of (T * mbool)%type] ~> _)
       (letin
-        (score (measurable_fun_comp (@mpoisson R 4) var3of3)
-        : _.-sfker [the measurableType _ of (munit * bool * R)%type] ~> munit)
+        (score (measurable_fun_comp mh var3of3)
+        : _.-sfker [the measurableType _ of (T * bool * R)%type] ~> munit)
         (ret var2of4
-        : _.-sfker [the measurableType _ of (munit * mbool * R * munit)%type] ~> mbool)
-      : R.-sfker [the measurableType _ of (munit * bool * R)%type] ~> mbool) 
-    : R.-sfker [the measurableType _ of (munit * mbool)%type] ~> mbool).
-
-Check kstaton_bus'' tt : measure R mbool.
-Lemma __ : kstaton_bus'' tt set0 = 0.
-Proof. rewrite //. Qed.
+        : _.-sfker [the measurableType _ of (T * mbool * R * munit)%type] ~> mbool)
+      : R.-sfker [the measurableType _ of (T * bool * R)%type] ~> mbool) 
+    : R.-sfker [the measurableType _ of (T * mbool)%type] ~> mbool).
 
 Definition staton_bus := normalize kstaton_bus.
+Definition staton_bus' := normalize kstaton_bus'.
 
 End staton_bus.
 

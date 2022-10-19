@@ -11,6 +11,8 @@
 ** TODO: 変数の評価値は実数、ブール値、確率、kernelなどの場合があり、型がひとつに定まっていないので定義するのが難しい
 
 TODO: generalize bernoulli 
-TODO: normalize --d-> _ : probability? measurable-function?
+DONE: normalize --d-> _ : probability? measurable-function?
 DONE?: about var
-TODO: need E_realD? / about real (kr r) <- real to kernel
+DONE: need E_realD? / about real (kr r) <- real to kernel
+
+DONE: 変数がリストに入っていることしか確認していない
