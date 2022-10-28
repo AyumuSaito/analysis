@@ -40,7 +40,7 @@ Proof. rewrite //. Abort.
 End association_list.
 
 Section v8.
-Variables (R : realType) (d : _) (T : measurableType d).
+Variables (R : realType) (dT : _) (T : measurableType dT).
 Let variable := string.
 Import Notations.
 
@@ -52,6 +52,7 @@ Inductive exp : Z -> Type :=
 | exp_unit : exp D
 | exp_bool : bool -> exp D
 | exp_real : R -> exp D
+| exp_pair : exp D -> exp D -> exp D
 (* | val_unif : val *)
 | exp_bernoulli : R -> exp D
 | exp_poisson : nat -> exp D -> exp D
@@ -137,6 +138,11 @@ Inductive evalD : forall d (G : measurableType d) (n : nat) (l : seq (string * n
 
 | E_real : forall d G n l r, @evalD d G n l _ _ (exp_real r) (cst r) (kr r)
 
+| E_pair : forall d G n l dA dB A B e1 f1 mf1 e2 f2 mf2, 
+  @evalD d G n l dA A e1 f1 mf1 ->
+  @evalD d G n l dB B e2 f2 mf2 ->
+  @evalD _ _ n l _ _ (exp_pair e1 e2) _ (@measurable_fun_pair _ _ _ _ _ _ f1 f2 mf1 mf2)
+
 (* | E_ifD : forall d G n l dT T e1 f1 mf1 e2 f2 mf2 e3 f3 mf3,
   @evalD d G n l _ _ e1 f1 mf1 ->
   @evalD d G n l dT T e2 f2 mf2 ->
@@ -218,20 +224,34 @@ with evalProb : forall d (G : measurableType d) (i : nat) (l : seq (string * nat
   @evalP _ munit n l _ _ _ e k ->
   @evalProb _ munit n l _ mbool (exp_norm e) (normalize k P tt)
 .
+
+Fixpoint vars z (e : exp z) := 
+  match e with
+  | exp_letin x e1 e2 => x :: vars e1 ++ vars e2
+  | exp_norm e => vars e
+  | _ => [::]
+  end.
+
 End eval.
 
 Arguments E_var2 n {_ _ _ _ _ _} i.
 Arguments E_var3 n {_ _ _ _ _ _ _ _} i.
 Arguments E_var4 n {_ _ _ _ _ _ _ _ _ _} i.
+(* Arguments evalP {_ _} n l {_ _ _}. *)
 
 Section example.
-Variable (G : measurableType d).
+Variable (d : _) (G : measurableType d).
 
 Example ex_real : @evalD d G 0 [::] _ _ (exp_real 3) (@cst _ R 3) (kr 3).
 Proof. apply/E_real. Qed.
 
 Example ex_bool : @evalD d G 0 [::] _ _ (exp_bool true) (cst true) (@measurable_fun_cst _ _ _ mbool setT _).
 Proof. apply/E_bool. Qed.
+
+Example ex_pair : @evalD d G 0 [::] _ _ (exp_pair (exp_real 1) (exp_real 2)) _ (@measurable_fun_pair _ _ _ _ _ _ (@cst _ R 1%R) (@cst _ R 2) (kr 1) (kr 2)).
+Proof.
+apply/E_pair /E_real /E_real.
+Qed.
 
 Example ex_ifP : @evalP d G 0 [::] _ (mR R) _ 
   (exp_if (exp_bool true) (exp_return (exp_real 3)) (exp_return (exp_real 10)))
@@ -308,11 +328,6 @@ exact: (E_var3 _ 1).
 apply/E_return.
 exact: (E_var4 _ 0).
 Qed.
-(* apply/E_var22.
-apply/E_return.
-apply/E_var.
-rewrite //.
-Qed. *)
 
 (* Check @normalize _ _ munit mbool R (kstaton_bus'' R) (bernoulli p27) tt : measure _ _. *)
 
@@ -325,7 +340,8 @@ Example eval6 P :
                                 (exp_return (exp_real 10)))
           (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
             (exp_return (exp_var "x"))))))
-    (@normalize _ _ munit mbool R (kstaton_bus' _ (mpoisson 4)) P tt).
+    (staton_bus' (mpoisson 4) P tt).
+    (* (@normalize _ _ munit mbool R (kstaton_bus' _ (mpoisson 4)) P tt). *)
 Proof.
 apply/E_norm.
 apply/E_letin /E_letin /E_letin_.
@@ -338,6 +354,103 @@ exact: (E_var3 _ 1).
 apply/E_return.
 exact: (E_var4 _ 0).
 Qed.
+
+Example eval7 P :
+  @evalProb _ munit 0 [::] _ mbool
+    (exp_norm (exp_sample (exp_bernoulli (2 / 7))))
+    (@normalize _ _ _ _ R (sample (bernoulli p27)) P tt).
+Proof. apply/E_norm /E_sample /E_bernoulli. Qed.
+
+(* Check (@knormalize _ _ _ _ R (sample (bernoulli p27)) (bernoulli p27)) : kernel _ _ _. *)
+
+Example eval7_2 P :
+  @evalProb _ munit 0 [::] _ mbool
+    (exp_norm (exp_sample (exp_norm (exp_sample (exp_bernoulli (2 / 7))))))
+    (@normalize _ _ _ _ R 
+      (sample (@normalize _ _ _ _ R (sample (bernoulli p27)) P tt)) P tt).
+Proof.
+apply/E_norm /E_sample.
+apply/E_norm /E_sample /E_bernoulli.
+Qed.
+
+Example exp_staton_bus' := 
+  (exp_norm
+    (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7)))
+      (exp_letin "r"
+        (exp_letin "_"
+          (exp_if (exp_var "x") (exp_return (exp_real 3)) 
+                                (exp_return (exp_real 10)))
+          (exp_score (exp_poisson 4 (exp_var "r"))))
+        (exp_return (exp_var "x"))))).
+
+Example exp_staton_bus := 
+  (exp_norm
+    (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7)))
+      (exp_letin "r"  
+        (exp_if (exp_var "x") (exp_return (exp_real 3)) 
+                              (exp_return (exp_real 10)))
+        (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
+          (exp_return (exp_var "x")))))).
+
+Compute vars exp_staton_bus.
+
+Lemma eq_statonbus (t u : exp P) (v1 v2 : probability _ _) U :
+  evalProb munit 0 [::] mbool exp_staton_bus v1 ->
+  evalProb munit 0 [::] mbool exp_staton_bus' v2 ->
+  v1 U = v2 U.
+Proof.
+have -> : v1 = staton_bus (mpoisson 4) (bernoulli p27) tt.
+admit.
+have -> : v2 = staton_bus' (mpoisson 4) (bernoulli p27) tt.
+admit.
+move=> h1 h2.
+by rewrite staton_busE staton_busE'.
+Admitted.
+
+(*
+TODO: use funext 
+*)
+
+(* Example ex1 :=
+  (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7))) (exp_letin "y" (exp_return (exp_real 3)) ()) *)
+
+Lemma letinC' (t u : exp P) (v1 v2 : R.-sfker _ ~> _) :
+  @evalP d G 0 [::] dT T _ 
+  (exp_letin "x" t (exp_letin "y" u 
+    (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v1 ->
+  @evalP d G 0 [::] dT T _ 
+  (exp_letin "y" u (exp_letin "x" t 
+    (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v2 ->
+  v1 = v2.
+Proof.
+move=> h1.
+elim: h1.
+apply/evalP_ind.
+apply/E_sample.
+intros.
+apply/E_ifP /H2 /H1 /H.
+apply/E_sample_bernoulli.
+apply/E_score.
+apply/E_return.
+intros.
+apply/E_letin /H1 /H0.
+intros.
+apply/E_letin_ /H1 /H0.
+rewrite h1.
+Set Printing Implicit.
+have := @evalP d G 0 [::].
+
+move=> d0 G0.
+move=> h1 h2.
+apply/eq_sfkernel=> x U.
+Abort.
+
+Lemma letinC'' (t u : exp P) :
+  (exp_letin "x" t (exp_letin "y" u (exp_return (exp_var "x")))) =
+  (exp_letin "y" u (exp_letin "x" t (exp_return (exp_var "x")))).
+Proof.
+elim.
+
 End example.
 End v8.
 
