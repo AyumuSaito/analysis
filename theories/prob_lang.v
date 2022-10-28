@@ -953,7 +953,7 @@ Context d (T : measurableType d) (R : realType).
 Let poisson4 := @poisson R 4%N.
 Let mpoisson4 := @mpoisson R 4%N.
 
-Definition kstaton_bus_poisson : R.-sfker (mR R) ~> mbool :=
+Definition kstaton_bus_poisson : R.-sfker T ~> mbool :=
   kstaton_bus _ mpoisson4.
 
 Let kstaton_bus_poissonE t U : kstaton_bus_poisson t U =
