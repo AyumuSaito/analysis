@@ -437,14 +437,6 @@ Lemma normalizeE (f : R.-sfker X ~> Y) P x U :
   else f x U * ((fine (f x [set: Y]))^-1)%:E.
 Proof. by rewrite /normalize /= /mnormalize; case: ifPn. Qed.
 
-Example norm_sample (x : X) p P U :
-  @normalize _ _ X Y R (sample p) P x U = p U.
-Proof.
-rewrite normalizeE /= sampleE /= ifF.
-by rewrite probability_setT invr1 mule1.
-by rewrite probability_setT gt_eqF.
-Qed.
-
 Lemma iteE (f : X -> bool) (mf : measurable_fun setT f)
     (k1 k2 : R.-sfker X ~> Y) x :
   ite mf k1 k2 x = if f x then k1 x else k2 x.
@@ -953,7 +945,7 @@ Context d (T : measurableType d) (R : realType).
 Let poisson4 := @poisson R 4%N.
 Let mpoisson4 := @mpoisson R 4%N.
 
-Definition kstaton_bus_poisson : R.-sfker T ~> mbool :=
+Definition kstaton_bus_poisson : R.-sfker (mR R) ~> mbool :=
   kstaton_bus _ mpoisson4.
 
 Let kstaton_bus_poissonE t U : kstaton_bus_poisson t U =
