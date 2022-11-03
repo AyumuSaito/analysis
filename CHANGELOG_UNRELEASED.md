@@ -52,6 +52,9 @@
   + lemmas `xsectionI`, `ysectionI`
 - in `lebesgue_integral.v`:
   + notations `\x`, `\x^` for `product_measure1` and `product_measure2`
+  + notations `\bigcup_(i < n) F` and `\bigcap_(i < n) F`
+- in `contructive_ereal.v`:
+  + multi-rules `lteey`, `lteNye`
 
 - in `constructive_ereal.v`:
   + lemmas `expeS`, `fin_numX`
@@ -110,6 +113,14 @@
   + structure `FinNumFun`
   + definition `finite_measure2`
   + lemmas `finite_measure2_finite_measure`, `finite_measure_finite_measure2`
+- in `lebesgue_measure.v`:
+  + definition `fimfunE` now uses fsbig
+- in `sequence.v`:
+  + `nneseries_pinfty` generalized to `eseries_pinfty`
+- in `lebesgue_measure.v`:
+  + generalize and rename `eitv_c_infty` to `eitv_bnd_infty` and
+    `eitv_infty_c` to `eitv_infty_bnd`
+  + generalize `ErealGenOInfty.G`, `ErealGenCInfty.G`, `ErealGenInftyO.G`
 
 ### Changed
 
