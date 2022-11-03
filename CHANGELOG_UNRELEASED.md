@@ -361,6 +361,69 @@
   + `covered_by_countable` generalized from `pointedType` to `choiceType`
 - in `classical_sets.v`:
   + canonical `unit_pointedType`
+  + notations `\bigcup_(i < n) F` and `\bigcap_(i < n) F`
+- in `contructive_ereal.v`:
+  + multi-rules `lteey`, `lteNye`
+
+- in `fsbig.v`:
+  + lemma `fsbig_setU_set1`
+- in `tooplogy.v`:
+  + lemmas `closed_bigsetU`, `accessible_finite_set_closed`
+
+
+- in file `classical_sets.v`,
+  + new lemmas `eq_image_id`, `subKimage`, `subimageK`, and `eq_imageK`.
+- in file `functions.v`,
+  + new lemmas `inv_oppr`, `preimageEoinv`, `preimageEinv`, and
+    `inv_funK`.
+- in file `mathcomp_extra.v`,
+  + new definition `inv_fun`.
+  + new lemmas `ler_ltP`, and `real_ltr_distlC`.
+- in file `constructive_ereal.v`,
+  + new lemmas `real_ltey`, `real_ltNye`, `real_leey`, `real_leNye`,
+    `fin_real`, `addNye`, `addeNy`, `gt0_muley`, `lt0_muley`, `gt0_muleNy`, and
+    `lt0_muleNy`.
+  + new lemmas `daddNye`, and `daddeNy`.
+- in file `ereal.v`,
+  + new lemmas `ereal_nbhs_pinfty_gt`, `ereal_nbhs_ninfty_lt`,
+    `ereal_nbhs_pinfty_real`, and `ereal_nbhs_ninfty_real`.
+- in file `normedtype.v`,
+  + new lemmas `nbhsNimage`, `nbhs_pinfty_real`, `nbhs_ninfty_real`,
+    `pinfty_ex_ge`, `cvgryPger`, `cvgryPgtr`, `cvgrNyPler`, `cvgrNyPltr`,
+    `cvgry_ger`, `cvgry_gtr`, `cvgrNy_ler`, `cvgrNy_ltr`, `cvgNry`, `cvgNrNy`,
+    `cvgry_ge`, `cvgry_gt`, `cvgrNy_le`, `cvgrNy_lt`, `cvgeyPger`, `cvgeyPgtr`,
+    `cvgeyPgty`, `cvgeyPgey`, `cvgeNyPler`, `cvgeNyPltr`, `cvgeNyPltNy`,
+    `cvgeNyPleNy`, `cvgey_ger`, `cvgey_gtr`, `cvgeNy_ler`, `cvgeNy_ltr`,
+    `cvgNey`, `cvgNeNy`, `cvgerNyP`, `cvgeyPge`, `cvgeyPgt`, `cvgeNyPle`,
+    `cvgeNyPlt`, `cvgey_ge`, `cvgey_gt`, `cvgeNy_le`, `cvgeNy_lt`, `cvgenyP`,
+    `normfZV`, `fcvgrPdist_lt`, `cvgrPdist_lt`, `cvgrPdistC_lt`,
+    `cvgr_dist_lt`, `cvgr_distC_lt`, `cvgr_dist_le`, `cvgr_distC_le`,
+    `nbhs_norm0P`, `cvgr0Pnorm_lt`, `cvgr0_norm_lt`, `cvgr0_norm_le`, `nbhsDl`,
+    `nbhsDr`, `nbhs0P`, `nbhs_right0P`, `nbhs_left0P`, `nbhs_right_gt`,
+    `nbhs_left_lt`, `nbhs_right_neq`, `nbhs_left_neq`, `nbhs_right_ge`,
+    `nbhs_left_le`, `nbhs_right_lt`, `nbhs_right_le`, `nbhs_left_gt`,
+    `nbhs_left_ge`, `nbhsr0P`, `cvgrPdist_le`, `cvgrPdist_ltp`,
+    `cvgrPdist_lep`, `cvgrPdistC_le`, `cvgrPdistC_ltp`, `cvgrPdistC_lep`,
+    `cvgr0Pnorm_le`, `cvgr0Pnorm_ltp`, `cvgr0Pnorm_lep`, `cvgr_norm_lt`,
+    `cvgr_norm_le`, `cvgr_norm_gt`, `cvgr_norm_ge`, `cvgr_neq0`,
+    `real_cvgr_lt`, `real_cvgr_le`, `real_cvgr_gt`, `real_cvgr_ge`, `cvgr_lt`,
+    `cvgr_gt`, `cvgr_norm_lty`, `cvgr_norm_ley`, `cvgr_norm_gtNy`,
+    `cvgr_norm_geNy`, `fcvgr_dist_lt2P`, `cvgr_dist_lt2P`, `cvgr_dist_lt2`,
+    `cvgNP`, `norm_cvg0P`, `cvgVP`, `is_cvgVE`, `cvgr_to_ge`, `cvgr_to_le`,
+    `nbhs_EFin`, `nbhs_ereal_pinfty`, `nbhs_ereal_ninfty`, `fine_fcvg`,
+    `fcvg_is_fine`, `fine_cvg`, `cvg_is_fine`, `cvg_EFin`, `neq0_fine_cvgP`,
+    `cvgeNP`, `is_cvgeNE`, `cvge_to_ge`, `cvge_to_le`, `is_cvgeM`, `limeM`,
+    `cvge_ge`, `cvge_le`, `lim_nnesum`, `ltr0_cvgV0`, `cvgrVNy`, `ler_cvg_to`,
+    `gee_cvgy`, `lee_cvgNy`, `squeeze_fin`, and `lee_cvg_to`.
+- in file `sequences.v`,
+  + new lemma `nneseries_pinfty`.
+- in file `topology.v`,
+  + new lemmas `eq_cvg`, `eq_is_cvg`, `eq_near`, `cvg_toP`, `cvgNpoint`,
+    `filter_imply`, `nbhs_filter`, `near_fun`, `cvgnyPgt`, `cvgnyPgty`,
+    `cvgnyPgey`, `fcvg_ballP`, `fcvg_ball`, and `fcvg_ball2P`.
+- in `topology.v`, added `near do` and `near=> x do` tactic notations
+  to perform some tactics under a `\forall x \near F, ...` quantification.
+- in `normedtype.v`, added notations `^'+`, `^'-`, `+oo_R`, `-oo_R`
 - in `measure.v`:
   + definition `finite_measure`
   + mixin `isProbability`, structure `Probability`, type `probability`
@@ -368,6 +431,20 @@
   + definition `discrete_measurable_unit`
 
 ### Changed
+- in `lebesgue_measure.v`:
+  + definition `fimfunE` now uses fsbig
+- in `sequence.v`:
+  + `nneseries_pinfty` generalized to `eseries_pinfty`
+- in `lebesgue_measure.v`:
+  + generalize and rename `eitv_c_infty` to `eitv_bnd_infty` and
+    `eitv_infty_c` to `eitv_infty_bnd`
+  + generalize `ErealGenOInfty.G`, `ErealGenCInfty.G`, `ErealGenInftyO.G`
+
+- moved from `mathcomp_extra.v` to `classical_sets.v`: `pred_oappE`, and
+    `pred_oapp_set`.
+- moved from `normedtype.v` to `mathcomp_extra.v`: `itvxx`, `itvxxP`,
+    `subset_itv_oo_cc`, and `bound_side`.
+- moved from `sequences.v` to `normedtype.v`: `ler_lim`.
 
 - in `fsbigop.v`:
   + implicits of `eq_fsbigr`
