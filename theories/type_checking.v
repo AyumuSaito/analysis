@@ -47,18 +47,17 @@ Inductive exp : Z -> Type :=
 
 End expression.
 
-(* Arguments exp {R}. *)
+(* Arguments exp R. *)
 
 Section context.
 
 Definition context := seq (string * Type)%type.
 
+Definition context' := seq (string * forall d, measurableType d)%type.
+
 End context.
 
 (* Variable (R : realType). *)
-Check exp.
-
-Check probability .
 Variables (d : _) (T : measurableType d).
 
 Inductive type_checkD : context -> exp D -> Type -> Prop :=
