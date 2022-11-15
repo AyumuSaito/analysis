@@ -73,24 +73,24 @@ Check execD'.
 
 Section def.
 Section expression.
-Inductive Z := D | P.
 
-Inductive exp : Z -> Type :=
-| exp_var  : variable -> exp D
-| exp_unit : exp D
-| exp_bool : bool -> exp D
-| exp_real : R -> exp D
-| exp_pair : exp D -> exp D -> exp D
+Inductive expD : Type :=
+| exp_var  : variable -> expD
+| exp_unit : expD
+| exp_bool : bool -> expD
+| exp_real : R -> expD
+| exp_pair : expD -> expD -> expD
 (* | val_unif : val *)
-| exp_bernoulli : {nonneg R} -> exp D
-| exp_poisson : nat -> exp D -> exp D
-(* | exp_if : forall z, exp D -> exp z -> exp z -> exp z *)
-| exp_if : exp D -> exp P -> exp P -> exp P
-| exp_letin : variable -> exp P -> exp P -> exp P
-| exp_sample : exp D -> exp P
-| exp_score : exp D -> exp P
-| exp_return : exp D -> exp P
-| exp_norm : exp P -> exp D
+| exp_bernoulli : {nonneg R} -> expD
+| exp_poisson : nat -> expD -> expD
+| exp_norm : expP -> expD
+(* | exp_if : forall z, expD -> exp z -> exp z -> exp z *)
+with expP : Type :=
+| exp_if : expD -> expP -> expP -> expP
+| exp_letin : variable -> expP -> expP -> expP
+| exp_sample : expD -> expP
+| exp_score : expD -> expP
+| exp_return : expD -> expP
 .
 
 End expression.
