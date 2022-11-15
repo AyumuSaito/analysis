@@ -18,6 +18,28 @@ Local Open Scope ereal_scope.
 
 Require Import String ZArith.
 Local Open Scope string.
+(* Import Notations.
+
+Section check.
+Variable (R : realType).
+Check sample (bernoulli p27) : R.-sfker _ ~> mbool.
+Check (sample (bernoulli p27) : R.-sfker munit ~> mbool) tt setT.
+Check ite (kb true) (ret k3) (ret k10) : R.-sfker munit ~> (mR R).
+Check @score _ _ _ (poisson 4) _ : R.-sfker (mR R) ~> munit.
+Check letin (sample (bernoulli p27)) (ret var1of2).
+Check letin.
+Check ret.
+
+End check.
+
+Section bind.
+Variables (d1 d2 d3 : _) (X : measurableType d1) (Y : measurableType d2)
+          (Z : measurableType d3) (R : realType).
+Definition ret' {f : X -> Y} : measurable_fun setT f -> R.-sfker X ~> Y := ret.
+Definition bind' (k : R.-sfker X ~> Y) {f : Y -> Z} (l : measurable_fun setT f -> R.-sfker Y ~> Z) : R.-sfker X ~> Z := letin k (ret var1of2).
+
+End bind. *)
+
 
 Section string_eq.
 
@@ -176,8 +198,8 @@ projT2 (typ4 A B C D i) | measurable_fun setT f} :=
   | _ => exist (fun x => measurable_fun setT x) (_ : A * B * C * D -> D) var4of4
   end.
 
-From Equations Require Import Equations.
-Obligation Tactic := idtac.
+(* From Equations Require Import Equations.
+Obligation Tactic := idtac. *)
 
 (* 
 Equations? product_type (h : {d & measurableType d}) (t : seq {d & measurableType d}) : Type by wf (size t) lt :=
@@ -313,8 +335,7 @@ Inductive evalD : forall d (G : measurableType d) (l : context)
   @evalD _ [the measurableType _ of (T1 * T2 * T3)%type] l _ _ (exp_var x)
   (proj1_sig (var_i_of3 i.+1)) (proj2_sig (var_i_of3 i.+1))
 
-| E_var4 : forall l d1 d2 d3 d4 (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3)
-    (T4 : measurableType d4) x i,
+| E_var4 : forall l d1 d2 d3 d4 (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3) (T4 : measurableType d4) x i,
   (* assoc_get x l = Some i ->  *)
   seq.index x (only_left l) = i ->
   (* let i := seq.index x (only_left l) in *)
@@ -444,13 +465,15 @@ Fixpoint execP (e : exp P) : execP_type e :=
 Require Import Coq.Program.Equality.
 
 (*Scheme evalD_mut_ind := Induction for evalD Sort Prop
-with evalP_mut_ind := Induction for evalP Sort Prop.
-
+with evalP_mut_ind := Induction for evalP Sort Prop. 
+*)
 Lemma eval_uniq (z : Z) (e : exp z) :
-  (forall u v (zP : z = P),  @evalP _ A [::] _ B (eq_rect _ _ e _ zP) u -> @evalP _ A [::] _ B (eq_rect _ _ e _ zP) v -> u = v) /\
+  (forall u v (zP : z = P), @evalP _ A [::] _ B (eq_rect _ _ e _ zP) u -> @evalP _ A [::] _ B (eq_rect _ _ e _ zP) v -> u = v) /\
   (forall u v (zD : z = D) mu mv,  @evalD _ A [::] _ B (eq_rect _ _ e _ zD) u mu -> @evalD _ A [::] _ B (eq_rect _ _ e _ zD) v mv -> u = v).
 Proof.
 dependent induction e.
+
+(*
 - 
   + move=> u {}v.
 - inversion 1.
@@ -475,45 +498,45 @@ dependent induction e.
   apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
   apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
   apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  subst.
-  have k2k0 : k2 = k0 by exact: (IHe2 e2).
-  have k3k1 : k3 = k1 by exact: (IHe3 e3).
-  subst.
-*)
 
-Lemma eval_uniq (e : exp P) u v :
-  @evalP _ A [::] _ B e u -> @evalP _ A [::] _ B e v -> u = v.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H24.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H24.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H19.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H24.
+subst.
+(* p = p0 by H6 H18 *)
+congr sample.
+apply (eval_uniq H6 H18).
+
+apply Eqdep_dec.inj_pair2_eq_dec in H7.
+rewrite H3 in H5.
+rewrite H3 in H7.
+
+apply Eqdep_dec.inj_pair2_eq_dec in H12.
+rewrite H5 in H12.
+(* apply EqdepFacts.eq_sigT_fst in H2. *)
+apply EqdepFacts.eq_sigT_iff_eq_dep in H12.
+apply Eqdep_dec.inj_pair2_eq in H12.
+
+apply EqdepFacts.eq_sigT_sig_eq in H12.
+apply EqdepFacts.eq_sigT_fst in H12.
+
+
+inversion H2.
+subst => /=.
+Require Import Coq.Program.Equality.
+Lemma eval_uniq (e : exp  P) u v : 
+  @evalP _ A [::] _ B e u -> 
+  @evalP _ A [::] _ B e v -> 
+  u = v.
 Proof.
+(* apply/evalP_ind. *)
 dependent induction e.
-- inversion 1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H0.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H8.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  subst.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  subst.
-  clear H8 H10.
-  inversion 1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H2.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H14.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  subst.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  subst.
-  have k2k0 : k2 = k0 by exact: (IHe2 e2).
-  have k3k1 : k3 = k1 by exact: (IHe3 e3).
-  subst.
 admit.
 - inversion 1 as [h|h|h|h|h|h].
 (* elim: e u v. *)
+*)
 Admitted.
 
 Lemma eval_full : forall e, exists v, @evalP _ A [::] _ B e v.
@@ -566,17 +589,15 @@ Example sample1 :
     (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
     (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))).
 Proof.
-apply/E_sample.
-apply /E_bernoulli.
-Admitted.
+apply/E_sample /E_bernoulli /p27.
+Qed.
 
 Example sampler (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   @evalP _ (mR R) [::] _ _ 
     (exp_sample (exp_bernoulli r)) 
-    (sample _ (@mbernoulli_density_function R _ _ r%:num)(*(bernoulli r1)*)).
+    (sample _ (@mbernoulli_density_function R _ _ r%:num)).
 Proof.
-apply/E_sample.
-by apply/E_bernoulli.
+apply/E_sample /E_bernoulli /r1.
 Qed.
 
 Example score1 :
@@ -599,8 +620,7 @@ Example ex_var :
     (kstaton_bus' _ (mpoisson 4)).
 Proof.
 apply/E_letin /E_letin /E_letin => /=.
-apply/E_sample /E_bernoulli.
-  admit.
+apply/E_sample /E_bernoulli /p27.
 apply/E_ifP /E_return /E_real /E_return /E_real.
 (* apply/(E_var2 _ 0%nat). *)
 exact: E_var2.
@@ -623,8 +643,7 @@ Example eval5 :
     (kstaton_bus' _ (mpoisson 4)).
 Proof.
 apply/E_letin /E_letin /E_letin => /=.
-apply/E_sample /E_bernoulli.
-  admit.
+apply/E_sample /E_bernoulli /p27.
 apply/E_ifP /E_return /E_real /E_return /E_real.
 exact: E_var2.
 apply/E_score.
@@ -632,10 +651,10 @@ apply/E_poisson.
 exact: (E_var3 1).
 apply/E_return.
 exact: (E_var4 0).
-Admitted.
+Qed.
 
 Example eval6 P :
-  @evalD _ munit [::] _ mbool
+  @evalD _ munit [::] _ _
     (exp_norm
       (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
         (exp_letin "r"  
@@ -643,12 +662,12 @@ Example eval6 P :
                                 (exp_return (exp_real 10%:R)))
           (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
             (exp_return (exp_var "x"))))))
-    (staton_bus' (mpoisson 4) P).
-    (* (@normalize _ _ munit mbool R (kstaton_bus' _ (mpoisson 4)) P tt). *)
+    (staton_bus' (mpoisson 4) P : _ -> pprobability _ _) (measurable_fun_normalize (kstaton_bus' _ (mpoisson 4)) P).
+    (* (@normalize _ _ munit mbool R (kstaton_bus' _ (mpoisson 4)) P). *)
 Proof.
 apply/E_norm.
 apply/E_letin /E_letin /E_letin_.
-apply/E_sample /E_bernoulli.
+apply/E_sample /E_bernoulli /p27.
 apply/E_ifP /E_return /E_real /E_return /E_real.
 exact: E_var2.
 apply/E_score.
@@ -659,19 +678,22 @@ exact: (E_var4 0).
 Qed.
 
 Example eval7 P :
-  @eval _ munit [::] _ mbool
+  @evalD _ munit [::] _ _
     (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))
-    (@normalize _ _ _ _ R (sample (bernoulli p27)) P tt).
-Proof. apply/E_norm /E_sample /E_bernoulli. Qed.
+    (@normalize _ _ _ _ R (sample _ (@mbernoulli_density_function _ _ _ (2 / 7%:R))) P : _ -> pprobability _ _)
+    (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P).
+Proof. apply/E_norm /E_sample /E_bernoulli /p27. Qed.
 
 Example eval7_2 P :
-  @eval _ munit [::] _ mbool
+  @evalD _ munit [::] _ _
     (exp_norm (exp_sample (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))))
     (@normalize _ _ _ _ R 
-      (sample (@normalize _ _ _ _ R (sample (bernoulli p27)) P tt)) P tt).
+      (sample _ (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P)) P : _ -> pprobability _ _)
+    (measurable_fun_normalize
+      (sample _ (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P)) P).
 Proof.
 apply/E_norm /E_sample.
-apply/E_norm /E_sample /E_bernoulli.
+apply/E_norm /E_sample /E_bernoulli /p27.
 Qed.
 
 Example exp_staton_bus' := 
@@ -693,18 +715,18 @@ Example exp_staton_bus :=
         (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
           (exp_return (exp_var "x")))))).
 
-Lemma eq_statonbus (t u : exp P) (v1 v2 : probability _ _) U :
-  eval munit [::] mbool exp_staton_bus v1 ->
-  eval munit [::] mbool exp_staton_bus' v2 ->
-  v1 U = v2 U.
+(* Lemma eq_statonbus (t u : exp P) v1 v2 mv1 mv2 :
+  @evalD _ munit [::] _ (pprobability _ _) exp_staton_bus v1 mv1 ->
+  @evalD _ munit [::] _ _ exp_staton_bus' v2 mv2 ->
+  v1 = v2.
 Proof.
-have -> : v1 = staton_bus (mpoisson 4) (bernoulli p27) tt.
+have -> : v1 = staton_bus (mpoisson 4) (bernoulli p27).
 admit.
 have -> : v2 = staton_bus' (mpoisson 4) (bernoulli p27) tt.
 admit.
 move=> h1 h2.
 by rewrite staton_busE staton_busE'.
-Admitted.
+Admitted. *)
 
 End example.
 
@@ -725,12 +747,13 @@ pose vu : R.-sfker [the measurableType _ of (G * T)%type] ~> U := exec _ _ u.
 move=> evalv1 evalv2.
 (* pose vu := exec [the measurableType _ of (G * T)%type] _ u. *)
 have hv1 : v1 = (letin vt (letin vu (ret (measurable_fun_pair var2of3 var3of3)))).
-  apply: (eval_uniq evalv1).
+  (* apply: (eval_uniq _ _ _ evalv1). *)
+  (* apply: (@eval_uniq _ _ _ _ P _ _). *)
   admit.
 pose vt' : R.-sfker [the measurableType _ of (G * U)%type] ~> T := exec _ _ t.
 pose vu' : R.-sfker G ~> U := exec _ _ u.
 have hv2 : v2 = (letin vu' (letin vt' (ret (measurable_fun_pair var3of3 var2of3)))).
-  apply: (eval_uniq evalv2).
+  (* apply: (eval_uniq evalv2). *)
   admit.
 rewrite hv1 hv2.
 apply/eq_sfkernel=> x A.
