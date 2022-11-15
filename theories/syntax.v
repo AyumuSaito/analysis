@@ -272,8 +272,8 @@ Fixpoint comp_fst (h : {d & measurableType d}) (t : seq {d & measurableType d}) 
 Program Definition var_i_of4' {dA dB dC dD} {A : measurableType dA} 
 {B : measurableType dB} {C : measurableType dC} {D : measurableType dD} (i : nat) : forall (i_lt4 : (i < 4)%coq_nat),
 {f : [the measurableType _ of (A * B * C * D)%type] -> 
-projT2 (@typn (existT _ dA A) [:: (existT _ dB B); (existT _ dC C); (existT _ dD D)] i) | measurable_fun setT f} := 
-  match i as i return forall (i_lt4 : (i < 4)%coq_nat), {f : [the measurableType _ of (A * B * C * D)%type] -> 
+projT2 (@typn (existT _ dA A) [:: (existT _ dB B); (existT _ dC C); (existT _ dD D)] i) | measurable_fun setT f} :=
+  match i as i return forall (i_lt4 : (i < 4)%coq_nat), {f : [the measurableType _ of (A * B * C * D)%type] ->
 projT2 (@typn (existT _ dA A) [:: (existT _ dB B); (existT _ dC C); (existT _ dD D)] i) | measurable_fun setT f} with
   | 0 => fun i_lt4 => exist (fun x => measurable_fun setT x) (_ : A * B * C * D -> A) var1of4
   | 1 => fun i_lt4 => exist (fun x => measurable_fun setT x) (_ : A * B * C * D -> B) var2of4
@@ -286,7 +286,7 @@ move=> dA dB dC dD A B C D ? ? ? ? n2.
 by move/ssrnat.ltP.
 Defined.
 
-(* 
+(*
 value ::= measurable function (evalD)
         | kernel (evalP)
         | probability (eval) (-> into measurable fun.?)
@@ -345,7 +345,7 @@ Inductive evalD : forall d (G : measurableType d) (l : context)
   (* (@snd G T) (var_i_of_n (n + 2)%nat (i + 1)) *)
 
 | E_bernoulli : forall d (G : measurableType d) l (r : {nonneg R}) (r1 : (r%:num <= 1)%R),
-  @evalD _ _ l _ _ (exp_bernoulli r) _ (@mbernoulli_density_function R _ G r%:num)
+  @evalD _ _ l _ _ (exp_bernoulli r) (_ : G -> _) (measurable_fun_cst (bernoulli r1 : pprobability _ _))
 
 | E_poisson : forall d G l k e f mf,
   @evalD d G l _ (mR R) e f mf ->
@@ -369,22 +369,22 @@ with evalP : forall d (G : measurableType d) (l : context) dT (T : measurableTyp
   @evalP d G l dT T e3 k3 ->
   @evalP d G l dT T (exp_if e1 e2 e3) (ite mf k2 k3)
 
-| E_score : forall d (G : measurableType d) l e (f : G -> R) 
-(mf : measurable_fun _ f), 
-  @evalD _ G l _ _ e f mf -> 
+| E_score : forall d (G : measurableType d) l e (f : G -> R)
+(mf : measurable_fun _ f),
+  @evalD _ G l _ _ e f mf ->
   @evalP _ G l _ munit (exp_score e) [the R.-sfker _ ~> _ of kscore mf]
 
 | E_return : forall d G l dT T e (f : _ -> _) (mf : measurable_fun _ f),
-  @evalD d G l dT T e f mf -> 
+  @evalD d G l dT T e f mf ->
   @evalP d G l dT T (exp_return e) (ret mf)
 
-| E_letin : forall d (G : measurableType d) l dy (Y : measurableType dy) 
+| E_letin : forall d (G : measurableType d) l dy (Y : measurableType dy)
 dz (Z : measurableType dz) e1 e2 k1 k2 (x : string),
   @evalP _ G l _ Y e1 k1 ->
   @evalP _ [the measurableType _ of (G * Y)%type] (l ++ [:: (x, Y : Type)])%SEQ _ Z e2 k2 ->
   @evalP _ G l _ Z (exp_letin x e1 e2) (letin k1 k2)
 
-| E_letin_ : forall d (G : measurableType d) l dy (Y : measurableType dy) 
+| E_letin_ : forall d (G : measurableType d) l dy (Y : measurableType dy)
 dz (Z : measurableType dz) w1 w2 t1 t2,
   @evalP _ G l _ Y w1 t1 ->
   (* @evalP _ [the measurableType _ of (G * Y)%type] n.+1 (("_", n) :: l) _ Z _ w2 t2 -> *)
@@ -392,7 +392,7 @@ dz (Z : measurableType dz) w1 w2 t1 t2,
   @evalP _ G l _ Z (exp_letin "_" w1 w2) (letin t1 t2).
 
 (* Arguments exp {R}. *)
-Fixpoint vars z (e : exp z) : set variable := 
+Fixpoint vars z (e : exp z) : set variable :=
   match e with
   | exp_letin x e1 e2 => vars e1
   | exp_var x => [set x]
@@ -558,27 +558,27 @@ Section example.
 Example ex_real : @evalD _ G [::] _ _ (exp_real 3%:R) (@cst _ R 3%:R) (kr 3%:R).
 Proof. apply/E_real. Qed.
 
-Example ex_bool : @evalD _ G [::] _ _ (exp_bool true) (cst true) 
+Example ex_bool : @evalD _ G [::] _ _ (exp_bool true) (cst true)
 (@measurable_fun_cst _ _ _ mbool setT _).
 Proof. apply/E_bool. Qed.
 
-Example ex_pair : @evalD d G [::] _ _ (exp_pair (exp_real 1) (exp_real 2)) _ 
+Example ex_pair : @evalD d G [::] _ _ (exp_pair (exp_real 1) (exp_real 2)) _
 (@measurable_fun_pair _ _ _ _ _ _ (@cst _ R 1%R) (@cst _ R 2) (kr 1) (kr 2)).
 Proof.
 apply/E_pair /E_real /E_real.
 Qed.
 
-Example ex_ifP : @evalP d G [::] _ (mR R) 
+Example ex_ifP : @evalP d G [::] _ (mR R)
   (exp_if (exp_bool true) (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
   (ite (@measurable_fun_cst _ _ _ mbool setT true) (ret k3) (ret k10)).
 Proof. apply/E_ifP /E_return /E_real /E_return /E_real /E_bool. Qed.
 
-Example ex_iteT : @ite _ _ _ (mR R) R _ 
+Example ex_iteT : @ite _ _ _ (mR R) R _
 (@measurable_fun_cst _ _ _ mbool setT true) (ret k3) (ret k10) tt = ret k3 tt.
 Proof. by rewrite iteE. Qed.
 
-Example ex_iteF : @ite _ _ _ (mR R) R _ 
-(@measurable_fun_cst _ _ _ mbool setT false) (ret k3) (ret k10) tt = 
+Example ex_iteF : @ite _ _ _ (mR R) R _
+(@measurable_fun_cst _ _ _ mbool setT false) (ret k3) (ret k10) tt =
 ret k10 tt.
 Proof. by rewrite iteE. Qed.
 
@@ -587,26 +587,24 @@ Local Open Scope ring_scope.
 Example sample1 :
   @evalP _ (mR R) [::] _ _
     (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-    (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))).
+    (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))).
 Proof.
-apply/E_sample /E_bernoulli /p27.
+exact/E_sample/E_bernoulli.
 Qed.
 
 Example sampler (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-  @evalP _ (mR R) [::] _ _ 
-    (exp_sample (exp_bernoulli r)) 
-    (sample _ (@mbernoulli_density_function R _ _ r%:num)).
-Proof.
-apply/E_sample /E_bernoulli /r1.
-Qed.
+  @evalP _ (mR R) [::] _ _
+    (exp_sample (exp_bernoulli r))
+    (sample _ (measurable_fun_cst (bernoulli r1 : pprobability _ _))).
+Proof. exact/E_sample/E_bernoulli. Qed.
 
 Example score1 :
   @evalP _ (mR R) [::] _ _ (exp_score (exp_real 1)) (score (kr 1)).
 Proof. apply/E_score /E_real. Qed.
 
 Example score2 :
-  @evalP _ (mR R) [::] _ _ 
-    (exp_score (exp_poisson 4 (exp_real 3%:R))) 
+  @evalP _ (mR R) [::] _ _
+    (exp_score (exp_poisson 4 (exp_real 3%:R)))
     (score (measurable_fun_comp (mpoisson 4) (kr 3%:R))).
 Proof. apply/E_score /E_poisson /E_real. Qed.
 
@@ -616,11 +614,11 @@ Example ex_var :
     (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
       (exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
         (exp_letin "y" (exp_score (exp_poisson 4 (exp_var "r")))
-          (exp_return (exp_var "y"))))) 
+          (exp_return (exp_var "y")))))
     (kstaton_bus' _ (mpoisson 4)).
 Proof.
 apply/E_letin /E_letin /E_letin => /=.
-apply/E_sample /E_bernoulli /p27.
+apply/E_sample /E_bernoulli.
 apply/E_ifP /E_return /E_real /E_return /E_real.
 (* apply/(E_var2 _ 0%nat). *)
 exact: E_var2.
@@ -639,11 +637,11 @@ Example eval5 :
     (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
       (exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
         (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
-          (exp_return (exp_var "x"))))) 
+          (exp_return (exp_var "x")))))
     (kstaton_bus' _ (mpoisson 4)).
 Proof.
 apply/E_letin /E_letin /E_letin => /=.
-apply/E_sample /E_bernoulli /p27.
+apply/E_sample /E_bernoulli.
 apply/E_ifP /E_return /E_real /E_return /E_real.
 exact: E_var2.
 apply/E_score.
@@ -657,8 +655,8 @@ Example eval6 P :
   @evalD _ munit [::] _ _
     (exp_norm
       (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-        (exp_letin "r"  
-          (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) 
+        (exp_letin "r"
+          (exp_if (exp_var "x") (exp_return (exp_real 3%:R))
                                 (exp_return (exp_real 10%:R)))
           (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
             (exp_return (exp_var "x"))))))
