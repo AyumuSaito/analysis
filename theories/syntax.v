@@ -18,27 +18,37 @@ Local Open Scope ereal_scope.
 
 Require Import String ZArith.
 Local Open Scope string.
-(* Import Notations.
+Import Notations.
 
 Section check.
 Variable (R : realType).
-Check sample (bernoulli p27) : R.-sfker _ ~> mbool.
-Check (sample (bernoulli p27) : R.-sfker munit ~> mbool) tt setT.
+Check sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R)) : R.-sfker _ ~> mbool.
+Check (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R)) : R.-sfker munit ~> mbool) tt setT.
 Check ite (kb true) (ret k3) (ret k10) : R.-sfker munit ~> (mR R).
 Check @score _ _ _ (poisson 4) _ : R.-sfker (mR R) ~> munit.
-Check letin (sample (bernoulli p27)) (ret var1of2).
+Check letin (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) (ret var1of2).
 Check letin.
 Check ret.
 
 End check.
 
 Section bind.
+Variable (R : realType).
+Section def.
 Variables (d1 d2 d3 : _) (X : measurableType d1) (Y : measurableType d2)
-          (Z : measurableType d3) (R : realType).
+          (Z : measurableType d3).
 Definition ret' {f : X -> Y} : measurable_fun setT f -> R.-sfker X ~> Y := ret.
-Definition bind' (k : R.-sfker X ~> Y) {f : Y -> Z} (l : measurable_fun setT f -> R.-sfker Y ~> Z) : R.-sfker X ~> Z := letin k (ret var1of2).
+Definition bind' (k : R.-sfker munit ~> Y) (l : (_ -> _) -> R.-sfker Y ~> Z) : R.-sfker Y ~> Z := l (k tt).
+End def.
 
-End bind. *)
+Notation "k >>= l" := (bind' k l) (at level 49).
+
+Section example.
+Definition sample_bern : R.-sfker munit ~> mbool := sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R)).
+
+Check sample_bern >>= (fun x => @ret' _ _ _ _ _ _).
+
+End bind.
 
 
 Section string_eq.
