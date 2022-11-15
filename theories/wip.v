@@ -122,7 +122,7 @@ Qed.
 Variable mu : {measure set mR R -> \bar R}.
 
 Definition staton_lebesgue : R.-sfker T ~> _ :=
-  letin (sample (@gauss01 R))
+  letin (sample (fun=> @gauss01 R : pprobability _ _) (measurable_fun_cst _ ))
   (letin
     (score (measurable_fun_comp mf1 var2of2))
     (ret var2of3)).

@@ -567,20 +567,6 @@ Arguments k3 {R d T}.
 Arguments k10 {R d T}.
 Arguments ktt {d T}.
 
-Section moveme.
-Import Notations.
-Variables (R : realType).
-Local Open Scope ereal_scope.
-
-Definition bernoulli_density_function (r : R) (*(r : {nonneg R}) (r1 : (r%:num <= 1)%R)*) : pprobability mbool R.
-(*  bernoulli r1*) Admitted.
-
-Lemma mbernoulli_density_function d (T : measurableType d) r (*(r : {nonneg R}) (r1 : (r%:num <= 1)%R)*) :
-  measurable_fun setT ((fun _ : T => bernoulli_density_function r) : _ -> pprobability _ R).
-(*Proof. exact: measurable_fun_ifT. Qed.*) Admitted.
-
-End moveme (*TODO*).
-
 Section insn1_lemmas.
 Import Notations.
 Variables (R : realType) (d : _) (T : measurableType d).
@@ -618,15 +604,15 @@ Import Notations.
 (* hard constraints to express score below 1 *)
 Lemma score_fail (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   score (kr r%:num) =
-  letin (sample _ (@mbernoulli_density_function R _ _ r%:num) : R.-pker T ~> _)
+  letin (sample _ (measurable_fun_cst (bernoulli r1 : pprobability _ _)) : R.-pker T ~> _)
         (ite var2of2 (ret ktt) fail).
 Proof.
 apply/eq_sfkernel => x U.
 rewrite letinE/= /sample; unlock.
-(*rewrite integral_measure_add//= ge0_integral_mscale//= ge0_integral_mscale//=.
+rewrite integral_measure_add//= ge0_integral_mscale//= ge0_integral_mscale//=.
 rewrite integral_dirac//= integral_dirac//= !indicT/= !mul1e.
 by rewrite iteE//= iteE//= /mscale/= failE retE//= mule0 adde0 ger0_norm.
-Qed.*) Admitted.
+Qed.
 
 End insn1_lemmas.
 
@@ -769,31 +755,31 @@ End exponential.
 Lemma letin_sample_bernoulli (R : realType) (d d' : _) (T : measurableType d)
     (T' : measurableType d') (r : {nonneg R}) (r1 : (r%:num <= 1)%R)
     (u : R.-sfker [the measurableType _ of (T * bool)%type] ~> T') x y :
-  letin (sample _ (@mbernoulli_density_function R _ _ r%:num)) u x y =
+  letin (sample _ (measurable_fun_cst (bernoulli r1 : pprobability _ _))) u x y =
   r%:num%:E * u (x, true) y + (`1- (r%:num : R))%:E * u (x, false) y.
 Proof.
-(*rewrite letinE/= sampleE.
+rewrite letinE/= sampleE.
 rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
 by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
-Qed.*) Admitted.
+Qed.
 
 Section sample_and_return.
 Import Notations.
 Variables (R : realType) (d : _) (T : measurableType d).
 
-Definition sample_and_return : R.-sfker T ~> _ :=
+Program Definition sample_and_return : R.-sfker T ~> _ :=
   letin
-    (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) (* T -> B *)
+    (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))) (* T -> B *)
     (ret var2of2) (* T * B -> B *).
 
 Lemma sample_and_returnE t U : sample_and_return t U =
   (2 / 7%:R)%:E * \d_true U + (5%:R / 7%:R)%:E * \d_false U.
 Proof.
 rewrite /sample_and_return.
-(*rewrite letin_sample_bernoulli/=.
+rewrite letin_sample_bernoulli/=.
 rewrite !retE.
 by rewrite onem27.
-Qed.*) Admitted.
+Qed.
 
 End sample_and_return.
 
@@ -809,17 +795,17 @@ Variables (R : realType) (d : _) (T : measurableType d).
 Definition sample_and_branch :
   R.-sfker T ~> mR R :=
   letin
-    (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))(*(bernoulli p27)*)) (* T -> B *)
+    (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))) (* T -> B *)
     (ite var2of2 (ret k3) (ret k10)).
 
 Lemma sample_and_branchE t U : sample_and_branch t U =
   (2 / 7%:R)%:E * \d_(3%:R : R) U +
   (5%:R / 7%:R)%:E * \d_(10%:R : R) U.
 Proof.
-(*rewrite /sample_and_branch letin_sample_bernoulli/=.
+rewrite /sample_and_branch letin_sample_bernoulli/=.
 rewrite !iteE/= !retE.
 by rewrite onem27.
-Qed.*) Admitted.
+Qed.
 
 End sample_and_branch.
 
@@ -828,7 +814,7 @@ Import Notations.
 Variables (R : realType) (d : _) (T : measurableType d) (h : R -> R).
 Hypothesis mh : measurable_fun setT h.
 Definition kstaton_bus : R.-sfker T ~> mbool :=
-  letin (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R)))
+  letin (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _)))
   (letin
     (letin (ite var2of2 (ret k3) (ret k10))
       (score (measurable_fun_comp mh var3of3)))
@@ -838,9 +824,9 @@ Notation var2of4 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)(measurabl
 
 Definition kstaton_bus' : R.-sfker T ~> _ :=
   letin
-    (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R)) : _.-sfker T ~> mbool)
+    (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _)) : _.-sfker T ~> mbool)
     (letin
-      (ite var2of2 
+      (ite var2of2
         (ret (@k3 _ _ _))
         (ret (@k10 _ _ _))
       : _.-sfker [the measurableType _ of (T * mbool)%type] ~> _)
@@ -849,7 +835,7 @@ Definition kstaton_bus' : R.-sfker T ~> _ :=
         : _.-sfker [the measurableType _ of (T * bool * R)%type] ~> munit)
         (ret var2of4
         : _.-sfker [the measurableType _ of (T * mbool * R * munit)%type] ~> mbool)
-      : R.-sfker [the measurableType _ of (T * bool * R)%type] ~> mbool) 
+      : R.-sfker [the measurableType _ of (T * bool * R)%type] ~> mbool)
     : R.-sfker [the measurableType _ of (T * mbool)%type] ~> mbool).
 
 Definition staton_bus := normalize kstaton_bus.
@@ -875,7 +861,7 @@ Let kstaton_bus_poissonE t U : kstaton_bus_poisson t U =
   (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U.
 Proof.
 rewrite /kstaton_bus.
-(*rewrite letin_sample_bernoulli.
+rewrite letin_sample_bernoulli.
 rewrite -!muleA; congr (_ * _ + _ * _).
 - rewrite letin_kret//.
   rewrite letin_iteT//.
@@ -886,7 +872,7 @@ rewrite -!muleA; congr (_ * _ + _ * _).
   rewrite letin_iteF//.
   rewrite letin_retk//.
   by rewrite scoreE//= => r r0; exact: poisson_ge0.
-Qed.*) Admitted.
+Qed.
 
 (* true -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
 (* false -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
@@ -925,7 +911,7 @@ Let kstaton_bus_exponentialE t U : kstaton_bus_exponential t U =
   (5%:R / 7%:R)%:E * (exp1560 10%:R)%:E * \d_false U.
 Proof.
 rewrite /kstaton_bus.
-(*rewrite letin_sample_bernoulli.
+rewrite letin_sample_bernoulli.
 rewrite -!muleA; congr (_ * _ + _ * _).
 - rewrite letin_kret//.
   rewrite letin_iteT//.
@@ -936,7 +922,7 @@ rewrite -!muleA; congr (_ * _ + _ * _).
   rewrite letin_iteF//.
   rewrite letin_retk//.
   by rewrite scoreE//= => r r0; exact: exp_density_ge0.
-Qed.*) Admitted.
+Qed.
 
 (* true -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
 (* false -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
@@ -970,14 +956,14 @@ Let kstaton_bus_poissonE' t U : kstaton_bus_poisson' t U =
   (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U.
 Proof.
 rewrite /kstaton_bus_poisson' /kstaton_bus'.
-(*rewrite letin_sample_bernoulli.
+rewrite letin_sample_bernoulli.
 rewrite -!muleA; congr (_ * _ + _ * _).
 rewrite letin_iteT// letin_retk// letin_kret//.
 by rewrite scoreE//= => r r0; exact: poisson_ge0.
 by rewrite onem27.
 rewrite letin_iteF// letin_retk// letin_kret//.
 by rewrite scoreE//= => r r0; exact: poisson_ge0.
-Qed.*) Admitted.
+Qed.
 
 (* true -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
 (* false -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
@@ -1015,14 +1001,14 @@ Let kstaton_bus_exponentialE' (t : unit) U : kstaton_bus_exponential' t U =
   (2 / 7%:R)%:E * (exp1560 3%:R)%:E * \d_true U +
   (5%:R / 7%:R)%:E * (exp1560 10%:R)%:E * \d_false U.
 Proof.
-(*rewrite letin_sample_bernoulli.
+rewrite letin_sample_bernoulli.
 rewrite -!muleA; congr (_ * _ + _ * _).
 rewrite letin_iteT// letin_retk// letin_kret//.
 rewrite scoreE//= => r r0; exact: exp_density_ge0.
 - by rewrite onem27.
 rewrite letin_iteF// letin_retk// letin_kret//.
 by rewrite scoreE//= => r r0; exact: exp_density_ge0.
-Qed.*) Admitted.
+Qed.
 
 (* true -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
 (* false -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
