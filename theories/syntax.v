@@ -707,7 +707,7 @@ Example eval6 P :
 Proof.
 apply/E_norm.
 apply/E_letin /E_letin /E_letin_.
-apply/E_sample /E_bernoulli /p27.
+apply/E_sample /E_bernoulli.
 apply/E_ifP /E_return /E_real /E_return /E_real.
 exact: E_var2.
 apply/E_score.
@@ -720,20 +720,22 @@ Qed.
 Example eval7 P :
   @evalD _ munit [::] _ _
     (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))
-    (@normalize _ _ _ _ R (sample _ (@mbernoulli_density_function _ _ _ (2 / 7%:R))) P : _ -> pprobability _ _)
-    (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P).
-Proof. apply/E_norm /E_sample /E_bernoulli /p27. Qed.
+    _
+    (* (@normalize _ _ _ _ R (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _)))) *)
+    (measurable_fun_normalize (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))) P).
+Proof. apply/E_norm /E_sample /E_bernoulli. Qed.
 
 Example eval7_2 P :
   @evalD _ munit [::] _ _
     (exp_norm (exp_sample (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))))
-    (@normalize _ _ _ _ R 
-      (sample _ (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P)) P : _ -> pprobability _ _)
+    _
+    (* (@normalize _ _ _ _ R 
+      (sample _ (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P)) P : _ -> pprobability _ _) *)
     (measurable_fun_normalize
-      (sample _ (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P)) P).
+      (sample _ (measurable_fun_normalize (sample _ (measurable_fun_cst  (bernoulli p27 : pprobability _ _))) P)) P).
 Proof.
 apply/E_norm /E_sample.
-apply/E_norm /E_sample /E_bernoulli /p27.
+apply/E_norm /E_sample /E_bernoulli.
 Qed.
 
 Example exp_staton_bus' := 
