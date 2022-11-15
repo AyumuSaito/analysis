@@ -104,7 +104,7 @@ Qed.
 
 Example pgm3 := exp_norm (
   exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)) (
-  exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3)) (exp_return (exp_real 10))) (
+  exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R))) (
   exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r"))) (
   exp_return (exp_var "x"))))).
 

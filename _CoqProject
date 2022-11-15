@@ -43,6 +43,8 @@ theories/prob_lang.v
 theories/wip.v
 theories/summability.v
 theories/signed.v
+theories/type_checking.v
+theories/syntax.v
 theories/altreals/xfinmap.v
 theories/altreals/discrete.v
 theories/altreals/realseq.v
