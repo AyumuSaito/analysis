@@ -73,24 +73,24 @@ Check execD'.
 
 Section def.
 Section expression.
-Inductive Z := D | P.
 
-Inductive exp : Z -> Type :=
-| exp_var  : variable -> exp D
-| exp_unit : exp D
-| exp_bool : bool -> exp D
-| exp_real : R -> exp D
-| exp_pair : exp D -> exp D -> exp D
+Inductive expD : Type :=
+| exp_var  : variable -> expD
+| exp_unit : expD
+| exp_bool : bool -> expD
+| exp_real : R -> expD
+| exp_pair : expD -> expD -> expD
 (* | val_unif : val *)
-| exp_bernoulli : {nonneg R} -> exp D
-| exp_poisson : nat -> exp D -> exp D
-(* | exp_if : forall z, exp D -> exp z -> exp z -> exp z *)
-| exp_if : exp D -> exp P -> exp P -> exp P
-| exp_letin : variable -> exp P -> exp P -> exp P
-| exp_sample : exp D -> exp P
-| exp_score : exp D -> exp P
-| exp_return : exp D -> exp P
-| exp_norm : exp P -> exp D
+| exp_bernoulli : {nonneg R} -> expD
+| exp_poisson : nat -> expD -> expD
+| exp_norm : expP -> expD
+(* | exp_if : forall z, expD -> exp z -> exp z -> exp z *)
+with expP :=
+| exp_if : expD -> expP -> expP -> expP
+| exp_letin : variable -> expP -> expP -> expP
+| exp_sample : expD -> expP
+| exp_score : expD -> expP
+| exp_return : expD -> expP
 .
 
 End expression.
@@ -110,7 +110,7 @@ Definition interp_mtype (ty : type) :=
   | ty_real => mR R
   end.
 
-Definition typ_of_exp (l : seq (string * type)%type) (e : exp D) :=
+Definition typ_of_exp (l : seq (string * type)%type) (e : expD) :=
   match e with
   (* | exp_var v => if assoc_get v l is Some t then interp_mtype t else munit *)
   | exp_real r => mR R
@@ -120,8 +120,8 @@ Definition typ_of_exp (l : seq (string * type)%type) (e : exp D) :=
   end. *)
 
 (* Set Printing All.
-Definition execD (l : seq (string * type)%type) (e : exp D) : forall d (A : measurableType d), {f : A -> (typ_of_exp l e) | measurable_fun setT f} :=
-  match e in exp D
+Definition execD (l : seq (string * type)%type) (e : expD) : forall d (A : measurableType d), {f : A -> (typ_of_exp l e) | measurable_fun setT f} :=
+  match e in expD
   return forall d (A : measurableType d), {f : A -> (typ_of_exp l e) | measurable_fun setT f} 
   with
   | exp_var v => fun d A => @exist _ _ _ var1of2
@@ -310,7 +310,7 @@ Lemma measurable_fun_normalize dX (X : measurableType dX)
 Admitted.
 
 Inductive evalD : forall d (G : measurableType d) (l : context)
-    dT (T : measurableType dT) (e : exp D) (f : G -> T), measurable_fun setT f -> Prop :=
+    dT (T : measurableType dT) (e : expD) (f : G -> T), measurable_fun setT f -> Prop :=
 | E_unit : forall d G l, @evalD d G l _ munit exp_unit (cst tt) ktt
 
 | E_bool : forall d G l b, @evalD d G l _ mbool (exp_bool b) (cst b) (kb b)
@@ -356,10 +356,10 @@ Inductive evalD : forall d (G : measurableType d) (l : context)
   @evalD _ munit l _ _ (exp_norm e) (normalize k P : _ -> pprobability _ _) (measurable_fun_normalize k P)
 
 with evalP : forall d (G : measurableType d) (l : context) dT (T : measurableType dT),
-  exp P ->
+  expP ->
   R.-sfker G ~> T ->
   Prop :=
-| E_sample : forall d G dT (T : measurableType dT) l (e : exp D) (p : _ -> pprobability T R) (mp : measurable_fun setT p),
+| E_sample : forall d G dT (T : measurableType dT) l (e : expD) (p : _ -> pprobability T R) (mp : measurable_fun setT p),
   @evalD d G l _ _ e p mp ->
   @evalP d G l _ _ (exp_sample e) (sample p mp)
 
@@ -392,20 +392,20 @@ dz (Z : measurableType dz) w1 w2 t1 t2,
   @evalP _ G l _ Z (exp_letin "_" w1 w2) (letin t1 t2).
 
 (* Arguments exp {R}. *)
-Fixpoint vars z (e : exp z) : set variable :=
+(* Fixpoint vars (e : expP) : set variable :=
   match e with
   | exp_letin x e1 e2 => vars e1
   | exp_var x => [set x]
   (* | exp_return e => vars e
   | exp_norm e => vars e *)
   | _ => set0
-  end.
+  end. *)
 
 (* Compute vars (exp_letin "x" (exp_var "x") (exp_var "x")). *)
 
 (* Compute vars (exp_letin "x" (exp_var "y") (exp_letin "z" (exp_var "x") (exp_var "z"))). *)
 
-Compute vars (exp_letin "x" (exp_return (exp_var "z")) (exp_letin "y" (exp_return (exp_real 2)) (exp_return (exp_pair (exp_var "x") (exp_var  "y"))))).
+(* Compute vars (exp_letin "x" (exp_return (exp_var "z")) (exp_letin "y" (exp_return (exp_real 2)) (exp_return (exp_pair (exp_var "x") (exp_var  "y"))))). *)
 
 End eval.
 
@@ -417,7 +417,7 @@ Section exec.
 Variable (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB).
 
 (*
-Fixpoint execD_type (e : exp D) : measurableType _ :=
+Fixpoint execD_type (e : expD) : measurableType _ :=
   match e with
   | exp_real r => mR R
   | exp_bool b => mbool
@@ -425,7 +425,7 @@ Fixpoint execD_type (e : exp D) : measurableType _ :=
   | _ => munit
   end.
 
-Fixpoint execD (e : exp D) : forall f, measurable_fun _ f :=
+Fixpoint execD (e : expD) : forall f, measurable_fun _ f :=
   match e as e return forall f, measurable_fun _ f with
   (* | exp_var v => fun=> @measurable_fun_id _ _ _ *)
   | exp_real r => fun=> kr r
@@ -446,7 +446,7 @@ Fixpoint execD (e : exp D) : forall f, measurable_fun _ f :=
 
 Check execD.
 
-Fixpoint execP_type (e : exp P) : Type :=
+Fixpoint execP_type (e : expP) : Type :=
   match e with
   | exp_if e1 e2 e3 => execP_type e2
   | exp_sample _ => R.-sfker A ~> mbool
@@ -454,7 +454,7 @@ Fixpoint execP_type (e : exp P) : Type :=
   | _ => R.-sfker A ~> B
   end.
 
-Fixpoint execP (e : exp P) : execP_type e :=
+Fixpoint execP (e : expP) : execP_type e :=
   match e with
   | exp_if e1 e2 e3 => ite _ (execP e2) (execP e3)
   | exp_sample e => sample (bernoulli p27)
@@ -467,11 +467,53 @@ Require Import Coq.Program.Equality.
 (*Scheme evalD_mut_ind := Induction for evalD Sort Prop
 with evalP_mut_ind := Induction for evalP Sort Prop. 
 *)
-Lemma eval_uniq (z : Z) (e : exp z) :
+
+Lemma eval_sample_uniqP (e : expD) u v : 
+  @evalP _ A [::] _ B (exp_sample e) u -> 
+  @evalP _ A [::] _ B (exp_sample e) v ->
+  u = v.
+Proof.
+inversion 1.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H5.
+
+apply Classical_Prop.EqdepTheory.inj_pair2 in H0.
+(* subst. 
+apply Classical_Prop.EqdepTheory.inj_pair2 in H5. *)
+Admitted.
+
+Lemma eval_uniqP (e : expP) u v : 
+  @evalP _ A [::] _ B e u -> 
+  @evalP _ A [::] _ B e v ->
+  u = v.
+Proof.
+dependent induction e; inversion 1.
+- 
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H0. subst.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H1. subst.
+Admitted.
+
+
+Lemma eval_uniqD (e : expD) u v mu mv : 
+  @evalD _ A [::] _ B e u mu -> 
+  @evalD _ A [::] _ B e v mv ->
+  u = v.
+Proof.
+dependent induction e.
+inversion 1.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+subst.
+(* apply Classical_Prop.EqdepTheory.inj_pair2 in H18. *)
+Admitted.
+
+(* Lemma eval_uniq (z : Z) (e : exp z) :
   (forall u v (zP : z = P), @evalP _ A [::] _ B (eq_rect _ _ e _ zP) u -> @evalP _ A [::] _ B (eq_rect _ _ e _ zP) v -> u = v) /\
   (forall u v (zD : z = D) mu mv,  @evalD _ A [::] _ B (eq_rect _ _ e _ zD) u mu -> @evalD _ A [::] _ B (eq_rect _ _ e _ zD) v mv -> u = v).
 Proof.
-dependent induction e.
+dependent induction e. *)
 
 (*
 - 
@@ -537,13 +579,13 @@ admit.
 - inversion 1 as [h|h|h|h|h|h].
 (* elim: e u v. *)
 *)
-Admitted.
+(* Admitted. *)
 
 Lemma eval_full : forall e, exists v, @evalP _ A [::] _ B e v.
 Proof.
 Admitted.
 
-Definition exec : exp P -> R.-sfker A ~> B.
+Definition exec : expP -> R.-sfker A ~> B.
 move=> e.
 have := eval_full e.
 move/cid.
@@ -618,7 +660,7 @@ Example ex_var :
     (kstaton_bus' _ (mpoisson 4)).
 Proof.
 apply/E_letin /E_letin /E_letin => /=.
-apply/E_sample /E_bernoulli.
+(* apply/E_sample /E_bernoulli. *) admit.
 apply/E_ifP /E_return /E_real /E_return /E_real.
 (* apply/(E_var2 _ 0%nat). *)
 exact: E_var2.
@@ -713,7 +755,7 @@ Example exp_staton_bus :=
         (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
           (exp_return (exp_var "x")))))).
 
-(* Lemma eq_statonbus (t u : exp P) v1 v2 mv1 mv2 :
+(* Lemma eq_statonbus (t u : expP) v1 v2 mv1 mv2 :
   @evalD _ munit [::] _ (pprobability _ _) exp_staton_bus v1 mv1 ->
   @evalD _ munit [::] _ _ exp_staton_bus' v2 mv2 ->
   v1 = v2.
@@ -731,7 +773,7 @@ End example.
 Section letinC.
 Variable (dU : _) (U : measurableType dU).
 
-Lemma letinC' (t u : exp P) (v1 v2 : R.-sfker _ ~> _) :
+Lemma letinC' (t u : expP) (v1 v2 : R.-sfker _ ~> _) :
   @evalP _ G [::] _ [the measurableType _ of (T * U)%type]
   (exp_letin "x" t (exp_letin "y" u 
     (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v1 ->
@@ -758,7 +800,7 @@ apply/eq_sfkernel=> x A.
 apply: letinC.
 Admitted.
 
-Lemma letinC'' (t u : exp P) :
+Lemma letinC'' (t u : expP) :
   (exp_letin "x" t (exp_letin "y" u (exp_return (exp_var "x")))) =
   (exp_letin "y" u (exp_letin "x" t (exp_return (exp_var "x")))).
 Proof.
