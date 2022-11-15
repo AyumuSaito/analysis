@@ -951,8 +951,8 @@ Definition kstaton_bus_poisson' : R.-sfker munit ~> mbool :=
   kstaton_bus' _ mpoisson4.
 
 Let kstaton_bus_poissonE' t U : kstaton_bus_poisson' t U =
-  (2 / 7)%:E * (poisson4 3)%:E * \d_true U +
-  (5 / 7)%:E * (poisson4 10)%:E * \d_false U.
+  (2 / 7%:R)%:E * (poisson4 3%:R)%:E * \d_true U +
+  (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U.
 Proof.
 rewrite /kstaton_bus_poisson' /kstaton_bus'.
 rewrite letin_sample_bernoulli.
@@ -968,11 +968,11 @@ Qed.
 (* false -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
 
 Lemma staton_busE' P (t : unit) U :
-  let N := ((2 / 7) * poisson4 3 +
-            (5 / 7) * poisson4 10)%R in
+  let N := ((2 / 7%:R) * poisson4 3%:R +
+            (5%:R / 7%:R) * poisson4 10%:R)%R in
   staton_bus' mpoisson4 P t U =
-  ((2 / 7)%:E * (poisson4 3)%:E * \d_true U +
-   (5 / 7)%:E * (poisson4 10)%:E * \d_false U) * N^-1%:E.
+  ((2 / 7%:R)%:E * (poisson4 3%:R)%:E * \d_true U +
+   (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U) * N^-1%:E.
 Proof.
 rewrite normalizeE /= !kstaton_bus_poissonE' !diracT !mule1 ifF //.
 apply/negbTE; rewrite gt_eqF// lte_fin.
@@ -997,8 +997,8 @@ Definition kstaton_bus_exponential' : R.-sfker munit ~> mbool :=
   kstaton_bus' _ mexp1560.
 
 Let kstaton_bus_exponentialE' (t : unit) U : kstaton_bus_exponential' t U =
-  (2 / 7)%:E * (exp1560 3)%:E * \d_true U +
-  (5 / 7)%:E * (exp1560 10)%:E * \d_false U.
+  (2 / 7%:R)%:E * (exp1560 3%:R)%:E * \d_true U +
+  (5%:R / 7%:R)%:E * (exp1560 10%:R)%:E * \d_false U.
 Proof.
 rewrite letin_sample_bernoulli.
 rewrite -!muleA; congr (_ * _ + _ * _).
@@ -1013,11 +1013,11 @@ Qed.
 (* false -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
 
 Lemma staton_bus_exponentialE' P (t : unit) U :
-  let N := ((2 / 7) * exp1560 3 +
-            (5 / 7) * exp1560 10)%R in
+  let N := ((2 / 7%:R) * exp1560 3%:R +
+            (5%:R / 7%:R) * exp1560 10%:R)%R in
   staton_bus' mexp1560 P t U =
-  ((2 / 7)%:E * (exp1560 3)%:E * \d_true U +
-   (5 / 7)%:E * (exp1560 10)%:E * \d_false U) * N^-1%:E.
+  ((2 / 7%:R)%:E * (exp1560 3%:R)%:E * \d_true U +
+   (5%:R / 7%:R)%:E * (exp1560 10%:R)%:E * \d_false U) * N^-1%:E.
 Proof.
 rewrite normalizeE /= !kstaton_bus_exponentialE' !diracT !mule1 ifF //.
 apply/negbTE; rewrite gt_eqF// lte_fin.
