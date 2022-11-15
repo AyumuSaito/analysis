@@ -437,6 +437,14 @@ Lemma normalizeE (f : R.-sfker X ~> Y) P x U :
   else f x U * ((fine (f x [set: Y]))^-1)%:E.
 Proof. by rewrite /normalize /= /mnormalize; case: ifPn. Qed.
 
+Example norm_sample (x : X) p P U :
+  @normalize _ _ X Y R (sample p) P x U = p U.
+Proof.
+rewrite normalizeE /= sampleE /= ifF.
+by rewrite probability_setT invr1 mule1.
+by rewrite probability_setT gt_eqF.
+Qed.
+
 Lemma iteE (f : X -> bool) (mf : measurable_fun setT f)
     (k1 k2 : R.-sfker X ~> Y) x :
   ite mf k1 k2 x = if f x then k1 x else k2 x.
