@@ -318,9 +318,10 @@ Inductive evalD : forall d (G : measurableType d) (l : context)
 | E_real : forall d G l r, @evalD d G l _ _ (exp_real r) (cst r) (kr r)
 
 | E_pair : forall d G l dA dB A B e1 f1 mf1 e2 f2 mf2,
-  @evalD d G l dA A e1 f1 mf1 ->
-  @evalD d G l dB B e2 f2 mf2 ->
-  @evalD _ _ l _ _ (exp_pair e1 e2) _ (@measurable_fun_pair _ _ _ _ _ _ f1 f2 mf1 mf2)
+  @evalD d G l dA A e1 (f1 : G -> A) mf1 ->
+  @evalD d G l dB B e2 (f2 : G -> B) mf2 ->
+  @evalD _ _ l _ _ (exp_pair e1 e2) 
+    (_ : G -> Datatypes_prod__canonical__measure_Measurable A B) (@measurable_fun_pair _ _ _ G A B f1 f2 mf1 mf2)
 
 | E_var2 : forall l d1 d2 (T1 : measurableType d1) (T2 : measurableType d2) x,
   (* assoc_get x l = Some (bool : Type) -> *)
@@ -464,21 +465,106 @@ Fixpoint execP (e : expP) : execP_type e :=
 
 Require Import Coq.Program.Equality.
 
-(*Scheme evalD_mut_ind := Induction for evalD Sort Prop
+Scheme evalD_mut_ind := Induction for evalD Sort Prop
 with evalP_mut_ind := Induction for evalP Sort Prop. 
-*)
 
-Lemma eval_sample_uniqP (e : expD) u v : 
-  @evalP _ A [::] _ B (exp_sample e) u -> 
-  @evalP _ A [::] _ B (exp_sample e) v ->
+(* Lemma eval_if_uniq l e1 e2 e3 u v :
+  @evalP _ A l _ B (exp_if e1 e2 e3) u ->
+  @evalP _ A l _ B (exp_if e1 e2 e3) v ->
   u = v.
 Proof.
 inversion 1.
-apply Classical_Prop.EqdepTheory.inj_pair2 in H5.
-
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
 apply Classical_Prop.EqdepTheory.inj_pair2 in H0.
-(* subst. 
-apply Classical_Prop.EqdepTheory.inj_pair2 in H5. *)
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+inversion 1.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H2.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+subst. *)
+
+Lemma eval_uniqD dX dY (X : measurableType dX) (Y : measurableType dY) (e : expD) f mf mg :
+  @evalD _ X [::] _ Y e f mf -> 
+  @evalD _ X [::] _ Y e f mg ->
+  mf = mg.
+Proof.
+elim: e.
+(* dependent induction e. *)
+admit.
+inversion 1. inversion 1.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H2.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
+admit.
+(* subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H6.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H25.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H17.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H25.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H25.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H25.
+subst.
+done. *)
+- admit.
+- admit.
+- move=> e H e0 H0.
+  inversion 1.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H2.
+  subst.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H13.
+  subst.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+  subst.
+  inversion 1.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H41.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H26.
+  subst.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H41.
+  have HdA : (dA1 = dA0).
+  admit.
+  have HdB : (dB1 = dB0).
+  admit.
+  subst.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H41.
+  have HA : (A0 = A1).
+  admit.
+  have HB : (B1 = B0).
+  admit.
+  subst.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H41.
+  subst.
+  Search measurable_fun_pair.
+  apply/H.
+  have Hf0 : (f0 = f4).
+  (* apply (IHe1 f0 f4 mf1 mf0 H7 H12). *)
+  admit.
+  admit. admit.
+- move=> r.
+  inversion 1. inversion 1.
+  admit.
+- move=> n e.
+  admit.
+- move=> e.
+  inversion 1. inversion 1. (* need eval_uniqP and using H5, H23*)
 Admitted.
 
 Lemma eval_uniqP (e : expP) u v : 
@@ -486,28 +572,50 @@ Lemma eval_uniqP (e : expP) u v :
   @evalP _ A [::] _ B e v ->
   u = v.
 Proof.
+(* induction e. *)
 dependent induction e; inversion 1.
-- 
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H0. subst.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H1. subst.
-Admitted.
-
-
-Lemma eval_uniqD (e : expD) u v mu mv : 
-  @evalD _ A [::] _ B e u mu -> 
-  @evalD _ A [::] _ B e v mv ->
-  u = v.
-Proof.
-dependent induction e.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H0.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
 inversion 1.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
+subst.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
+apply Classical_Prop.EqdepTheory.inj_pair2 in H2.
 subst.
 apply Classical_Prop.EqdepTheory.inj_pair2 in H18.
 subst.
-(* apply Classical_Prop.EqdepTheory.inj_pair2 in H18. *)
+have : (f0 = f2).
+(* apply (eval_uniqD H9 H16). (* can use eval_uniqD *)
+move=> f02; subst.
+admit.
+move=> ?; subst.
+have : (mf = mf0).
+admit.
+move <-.
+have : (k2 = k0).
+apply (IHe1 _ _ H12 H19).
+move <-.
+have : (k3 = k1).
+apply (IHe2 _ _ H13 H20).
+move <-.
+done. *)
+
+- 
+  (* apply Classical_Prop.EqdepTheory.inj_pair2 in H0. subst.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
+  apply Classical_Prop.EqdepTheory.inj_pair2 in H1. subst. *)
 Admitted.
+
 
 (* Lemma eval_uniq (z : Z) (e : exp z) :
   (forall u v (zP : z = P), @evalP _ A [::] _ B (eq_rect _ _ e _ zP) u -> @evalP _ A [::] _ B (eq_rect _ _ e _ zP) v -> u = v) /\
