@@ -3,7 +3,7 @@ From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval finmap.
 Require Import mathcomp_extra boolp classical_sets signed functions cardinality.
 Require Import reals ereal topology normedtype sequences esum measure.
 Require Import lebesgue_measure fsbigop numfun lebesgue_integral kernel.
-Require Import prob_lang type_checking.
+Require Import prob_lang.
 
 Set Implicit Arguments.
 Implicit Types V : Set.
@@ -40,7 +40,6 @@ Definition bind' (k : R.-sfker X ~> Y) {f : Y -> Z} (l : measurable_fun setT f -
 
 End bind. *)
 
-
 Section string_eq.
 
 Definition string_eqMixin := @EqMixin string eqb eqb_spec.
@@ -61,21 +60,11 @@ Proof. rewrite //. Abort.
 
 End association_list.
 
-Section v8.
-Variables (R : realType) (d : _) (G : measurableType d) (dT : _) (T : measurableType dT).
-Let variable := string.
-Import Notations.
-
-Check fun r => @existT (R -> R) _ (cst r) (kr r).
-
-Definition execD' r := @existT (R -> R) _ (cst r) (kr r).
-Check execD'.
-
-Section def.
 Section expression.
+Variable (R : realType).
 
 Inductive expD : Type :=
-| exp_var  : variable -> expD
+| exp_var  : string -> expD
 | exp_unit : expD
 | exp_bool : bool -> expD
 | exp_real : R -> expD
@@ -87,21 +76,100 @@ Inductive expD : Type :=
 (* | exp_if : forall z, expD -> exp z -> exp z -> exp z *)
 with expP :=
 | exp_if : expD -> expP -> expP -> expP
-| exp_letin : variable -> expP -> expP -> expP
+| exp_letin : string -> expP -> expP -> expP
 | exp_sample : expD -> expP
 | exp_score : expD -> expP
-| exp_return : expD -> expP
-.
+| exp_return : expD -> expP.
 
 End expression.
-End def.
 
+Arguments exp_unit {R}.
+Arguments exp_bool {R}.
+Arguments exp_var {R}.
+
+Section context.
+
+Definition context := seq (string * Type)%type.
+
+Definition context' := seq (string * forall d, measurableType d)%type.
+
+End context.
+
+Import Notations.
+
+Section type_checking.
+Variable (R : realType).
+
+Variables (d : _) (T : measurableType d).
+
+Inductive type_checkD : context -> expD R -> Type -> Prop :=
+| tc_unit G : type_checkD G exp_unit unit
+| tc_bool G b : type_checkD G (exp_bool b) bool
+| tc_real G r : type_checkD G (exp_real r) R
+| tc_pair G e1 e2 A B : type_checkD G e1 A ->
+  type_checkD G e2 B -> type_checkD G (exp_pair e1 e2) (A * B)%type
+| tc_bernoulli G r : type_checkD G (exp_bernoulli r) (probability mbool R)
+| tc_poisson G k e : type_checkD G (exp_poisson k e) R
+| tc_norm G e d (A : measurableType d) :
+  type_checkP G e A ->
+  type_checkD G (exp_norm e) (probability A R)
+
+| tc_var G v G' A : type_checkD (G ++ (v, A) :: G')%SEQ (exp_var v) A
+
+with type_checkP : context -> expP R -> Type -> Prop :=
+| tc_sample G e d (A : measurableType d) : type_checkD G e (probability A R) ->
+  type_checkP G (exp_sample e) A
+| tc_return G e A : type_checkD G e A -> type_checkP G (exp_return e) A
+| tc_score G e : type_checkD G e R -> type_checkP G (exp_score e) unit
+
+| tc_if G e1 e2 e3 A : type_checkD G e1 bool ->
+  type_checkP G e2 A -> type_checkP G e3 A -> type_checkP G (exp_if e1 e2 e3) A
+| tc_letin G v e1 e2 A B : type_checkP G e1 A -> type_checkP ((v, A) :: G) e2 B ->
+  type_checkP G (exp_letin v e1 e2) B.
+
+Local Open Scope ring_scope.
+
+Definition pgm1 : expP R := exp_sample (exp_bernoulli (2 / 7%:R)%:nng).
+
+Example tc_1 : type_checkP [::] pgm1 bool.
+Proof. apply/tc_sample /tc_bernoulli. Qed.
+
+Definition pgm2 : expP R := exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)) (exp_return (exp_var "x")).
+
+Example tc_2 : type_checkP [::] pgm2 bool.
+Proof.
+apply/(@tc_letin _ _ _ _ bool).
+apply/tc_sample /tc_bernoulli.
+apply/tc_return /(@tc_var [::] "x").
+Qed.
+
+Example pgm3 : expD R := exp_norm (
+  exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)) (
+  exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R))) (
+  exp_letin "_" (exp_score (exp_poisson 4 (exp_var  "r"))) (
+  exp_return (exp_var "x"))))).
+
+Example tc_3 : type_checkD [::] pgm3 (probability mbool R).
+Proof.
+apply/tc_norm.
+apply/(@tc_letin _ _ _ _ mbool).
+apply/tc_sample /tc_bernoulli.
+apply/tc_letin.
+apply/tc_if.
+apply/(@tc_var [::] "x").
+apply/tc_return /tc_real.
+apply/tc_return /tc_real.
+apply/tc_letin.
+apply/tc_score /tc_poisson.
+apply/tc_return /(@tc_var [:: _; _] "x").
+Qed.
+
+End type_checking.
 
 (* Inductive type :=
 | ty_unit
 | ty_bool
-| ty_real
-.
+| ty_real.
 
 Definition interp_mtype (ty : type) :=
   match ty with
@@ -122,7 +190,7 @@ Definition typ_of_exp (l : seq (string * type)%type) (e : expD) :=
 (* Set Printing All.
 Definition execD (l : seq (string * type)%type) (e : expD) : forall d (A : measurableType d), {f : A -> (typ_of_exp l e) | measurable_fun setT f} :=
   match e in expD
-  return forall d (A : measurableType d), {f : A -> (typ_of_exp l e) | measurable_fun setT f} 
+  return forall d (A : measurableType d), {f : A -> (typ_of_exp l e) | measurable_fun setT f}
   with
   | exp_var v => fun d A => @exist _ _ _ var1of2
   | exp_real r => fun d A => @exist _ _ (@cst A (mR R) r) (kr r)
@@ -132,10 +200,10 @@ Definition execD (l : seq (string * type)%type) (e : expD) : forall d (A : measu
   end. *)
 
 Notation var1of4 := (measurable_fun_comp (@measurable_fun_fst _ _ _ _)
-  (measurable_fun_comp (@measurable_fun_fst _ _ _ _) 
+  (measurable_fun_comp (@measurable_fun_fst _ _ _ _)
   (@measurable_fun_fst _ _ _ _))).
-Notation var2of4 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)  
-  (measurable_fun_comp (@measurable_fun_fst _ _ _ _) 
+Notation var2of4 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)
+  (measurable_fun_comp (@measurable_fun_fst _ _ _ _)
   (@measurable_fun_fst _ _ _ _))).
 Notation var3of4 := (measurable_fun_comp (@measurable_fun_snd _ _ _ _)
   (@measurable_fun_fst _ _ _ _)).
@@ -144,37 +212,38 @@ Notation var4of4 := (@measurable_fun_snd _ _ _ _).
 Section eval.
 
 (* TODO: use ordinal *)
-Definition typ2 {d1 d2} (T1 : measurableType d1) (T2 : measurableType d2) 
-(i : nat) : {d & measurableType d} := 
+Definition typ2 {d1 d2} (T1 : measurableType d1) (T2 : measurableType d2)
+(i : nat) : {d & measurableType d} :=
   if i == O then existT _ d1 T1 else existT _ d2 T2.
 
-Definition var_i_of2 {dA dB} {A : measurableType dA} {B : measurableType dB} (i : nat) : {f : [the measurableType _ of (A * B)%type] -> projT2 (typ2 A B i) | measurable_fun setT f} := 
+Definition var_i_of2 {dA dB} {A : measurableType dA} {B : measurableType dB} (i : nat)
+    : {f : [the measurableType _ of (A * B)%type] -> projT2 (typ2 A B i) | measurable_fun setT f} :=
   match i with
   | 0 => exist (fun x => measurable_fun setT x) (_ : A * B -> A) var1of2
   | _ => exist (fun x => measurable_fun setT x) (snd : A * B -> B) var2of2
   end.
 
-Definition typ3 {d1 d2 d3} (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3) (i : nat) : {d & measurableType d} := 
-  match i with 
-  | 0 => existT _ d1 T1 
+Definition typ3 {d1 d2 d3} (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3) (i : nat)
+    : {d & measurableType d} :=
+  match i with
+  | 0 => existT _ d1 T1
   | 1 => existT _ d2 T2
   | _ => existT _ d3 T3
   end.
 
-Definition var_i_of3 {dA dB dC} {A : measurableType dA} {B : measurableType dB} 
-{C : measurableType dC} (i : nat) : 
-{f : [the measurableType _ of (A * B * C)%type] -> projT2 (typ3 A B C i) 
-| measurable_fun setT f} := 
+Definition var_i_of3 {dA dB dC} {A : measurableType dA} {B : measurableType dB} {C : measurableType dC} (i : nat)
+  : {f : [the measurableType _ of (A * B * C)%type] -> projT2 (typ3 A B C i)
+| measurable_fun setT f} :=
   match i with
   | 0 => exist (fun x => measurable_fun setT x) (_ : A * B * C -> A) var1of3
   | 1 => exist (fun x => measurable_fun setT x) (_ : A * B * C -> B) var2of3
   | _ => exist (fun x => measurable_fun setT x) (_ : A * B * C -> C) var3of3
   end.
 
-Definition typ4 {d1 d2 d3 d4} (T1 : measurableType d1) (T2 : measurableType d2) 
-(T3 : measurableType d3) (T4 : measurableType d4) i : {d & measurableType d} := 
-  match i with 
-  | 0 => existT _ d1 T1 
+Definition typ4 {d1 d2 d3 d4} (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3) (T4 : measurableType d4) i
+    : {d & measurableType d} :=
+  match i with
+  | 0 => existT _ d1 T1
   | 1 => existT _ d2 T2
   | 2 => existT _ d3 T3
   | _ => existT _ d4 T4
@@ -187,10 +256,8 @@ Definition typn (h : {d & measurableType d}) (t : seq {d & measurableType d}) (i
   | n.+1 => nth h t n
   end.
 
-Definition var_i_of4 {dA dB dC dD} {A : measurableType dA} 
-{B : measurableType dB} {C : measurableType dC} {D : measurableType dD} (i : nat) :
-{f : [the measurableType _ of (A * B * C * D)%type] -> 
-projT2 (typ4 A B C D i) | measurable_fun setT f} := 
+Definition var_i_of4 {dA dB dC dD} {A : measurableType dA} {B : measurableType dB} {C : measurableType dC} {D : measurableType dD} (i : nat)
+  : {f : [the measurableType _ of (A * B * C * D)%type] -> projT2 (typ4 A B C D i) | measurable_fun setT f} :=
   match i with
   | 0 => exist (fun x => measurable_fun setT x) (_ : A * B * C * D -> A) var1of4
   | 1 => exist (fun x => measurable_fun setT x) (_ : A * B * C * D -> B) var2of4
@@ -201,11 +268,11 @@ projT2 (typ4 A B C D i) | measurable_fun setT f} :=
 (* From Equations Require Import Equations.
 Obligation Tactic := idtac. *)
 
-(* 
+(*
 Equations? product_type (h : {d & measurableType d}) (t : seq {d & measurableType d}) : Type by wf (size t) lt :=
   product_type h [::] := projT2 h;
   product_type h (t1 :: t1s) := product_type t1 (belast t1 t1s) * projT2 (last t1 t1s).
-Proof. 
+Proof.
 rewrite size_belast /=.
 apply/ssrnat.ltP. exact: leqnn.
 (* Admitted. *)
@@ -247,18 +314,18 @@ Admitted.
 
 Lemma __ dA dB dC dD A B C D : product_type (existT _ dA A) [:: (existT _ dB B); (existT _ dC C); (existT _ dD D)] = (A * B * C * D)%type.
 Proof.
-Admitted. 
+Admitted.
 (* rewrite
 rewrite /=. 2!prodA. Qed. *)
 
 Check @measurable_fun_id.
 
 Fixpoint comp_fst (h : {d & measurableType d}) (t : seq {d & measurableType d}) : {f | measurable_fun setT f} :=
-  match size t 
+  match size t
   return forall d (A : measurableType d), {f : product_type h t -> A | measurable_fun setT f} with
   | 0 => fun _ _ => @exist _ _ _ (@measurable_fun_id _ _ _)
   | 1 => @exist _ _ _ (@measurable_fun_fst _ _ _ _)
-  | k.+1 => fun=> 
+  | k.+1 => fun=>
   (* @measurable_fun_comp _ _ _ _ _ _ _ _ (@measurable_fun_fst _ _ A _) *)
   @measurable_fun_id _ _ _
   (* @measurable_fun_id _ A s *)
@@ -269,9 +336,9 @@ Fixpoint comp_fst (h : {d & measurableType d}) (t : seq {d & measurableType d}) 
 (* product type is measurable type? *)
 (* Definition var1ofn (h : {d & measurableType d}) (t : seq {d & measurableType d}) i : {f : [the measurableType _ of (product_type h t)] -> projT2 (typn h t i) | measurable_fun setT f}. *)
 
-Program Definition var_i_of4' {dA dB dC dD} {A : measurableType dA} 
+Program Definition var_i_of4' {dA dB dC dD} {A : measurableType dA}
 {B : measurableType dB} {C : measurableType dC} {D : measurableType dD} (i : nat) : forall (i_lt4 : (i < 4)%coq_nat),
-{f : [the measurableType _ of (A * B * C * D)%type] -> 
+{f : [the measurableType _ of (A * B * C * D)%type] ->
 projT2 (@typn (existT _ dA A) [:: (existT _ dB B); (existT _ dC C); (existT _ dD D)] i) | measurable_fun setT f} :=
   match i as i return forall (i_lt4 : (i < 4)%coq_nat), {f : [the measurableType _ of (A * B * C * D)%type] ->
 projT2 (@typn (existT _ dA A) [:: (existT _ dB B); (existT _ dC C); (existT _ dD D)] i) | measurable_fun setT f} with
@@ -292,9 +359,6 @@ value ::= measurable function (evalD)
         | probability (eval) (-> into measurable fun.?)
 *)
 
-
-Check exp_unit.
-
 (* Lemma nth_ : seq.index ("x", R) [:: ("x", R); ("y", nat)] = 1%N.
 Proof. rewrite /=. *)
 
@@ -304,14 +368,16 @@ Fixpoint only_left A B (l : seq (A * B)%type) :=
   | h :: t => h.1 :: only_left t
   end.
 
-Lemma measurable_fun_normalize dX (X : measurableType dX)
+Lemma measurable_fun_normalize (R : realType) dX (X : measurableType dX)
    dY (Y : measurableType dY) (k : R.-sfker X ~> Y) (P : probability Y R) :
   measurable_fun setT (normalize k P : X -> pprobability Y R).
 Proof.
 Admitted.
 
+Variable R : realType.
+
 Inductive evalD : forall d (G : measurableType d) (l : context)
-    dT (T : measurableType dT) (e : expD) (f : G -> T), measurable_fun setT f -> Prop :=
+    dT (T : measurableType dT) (e : expD R) (f : G -> T), measurable_fun setT f -> Prop :=
 | E_unit : forall d G l, @evalD d G l _ munit exp_unit (cst tt) ktt
 
 | E_bool : forall d G l b, @evalD d G l _ mbool (exp_bool b) (cst b) (kb b)
@@ -358,10 +424,10 @@ Inductive evalD : forall d (G : measurableType d) (l : context)
   @evalD _ munit l _ _ (exp_norm e) (normalize k P : _ -> pprobability _ _) (measurable_fun_normalize k P)
 
 with evalP : forall d (G : measurableType d) (l : context) dT (T : measurableType dT),
-  expP ->
+  expP R ->
   R.-sfker G ~> T ->
   Prop :=
-| E_sample : forall d G dT (T : measurableType dT) l (e : expD) (p : _ -> pprobability T R) (mp : measurable_fun setT p),
+| E_sample : forall d G dT (T : measurableType dT) l (e : expD R) (p : _ -> pprobability T R) (mp : measurable_fun setT p),
   @evalD d G l _ _ e p mp ->
   @evalP d G l _ _ (exp_sample e) (sample p mp)
 
@@ -412,10 +478,13 @@ dz (Z : measurableType dz) w1 w2 t1 t2,
 End eval.
 
 (* Arguments E_var2 {_ _ _ _ _ _} i. *)
-Arguments E_var3 {_ _ _ _ _ _ _ _} i.
-Arguments E_var4 {_ _ _ _ _ _ _ _ _ _} i.
+Arguments E_var3 {_ _ _ _ _ _ _ _ _} i.
+Arguments E_var4 {_ _ _ _ _ _ _ _ _ _ _} i.
 
-Section exec.
+Scheme evalD_mut_ind := Induction for evalD Sort Prop
+with evalP_mut_ind := Induction for evalP Sort Prop.
+
+Section eval_prop.
 
 (*
 Fixpoint execD_type (e : expD) : measurableType _ :=
@@ -439,7 +508,7 @@ Fixpoint execD (e : expD) : forall f, measurable_fun _ f :=
   | exp_real r => measurable_fun setT (@cst (mR R) _ r)
   | exp_bool b => measurable_fun setT (@cst mbool _ b)
   | exp_unit => measurable_fun setT (@cst munit _ tt)
-  | exp_pair e1 e2 => execD e1 
+  | exp_pair e1 e2 => execD e1
   | exp_bernoulli r => forall (r1 : (r%:num <= 1)%R), measurable_fun setT (@cst (mR R) _ r%:num)
   (* | exp_poisson k e => execD e *)
   | _ => measurable_fun setT (@cst munit _ tt) *)
@@ -465,8 +534,6 @@ Fixpoint execP (e : expP) : execP_type e :=
 
 Require Import Coq.Program.Equality.
 
-Scheme evalD_mut_ind := Induction for evalD Sort Prop
-with evalP_mut_ind := Induction for evalP Sort Prop.
 
 (*Lemma eval_sample_uniqP (e : expD) u v :
   @evalP _ A [::] _ B (exp_sample e) u ->
@@ -482,29 +549,31 @@ Admitted.*)
 
 Ltac inj H := apply Classical_Prop.EqdepTheory.inj_pair2 in H.
 
+Variable R : realType.
+
 Lemma eval_uniqP (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB)
-    (e : expP) l (u v : R.-sfker A ~> B) :
-  @evalP _ A l _ B e u -> @evalP _ A l _ B e v -> u = v.
+    (e : expP R) l (u v : R.-sfker A ~> B) :
+  evalP l e u -> evalP l e v -> u = v.
 Proof.
 move=> hu.
-apply: (@evalP_mut_ind
-  (fun d (G : measurableType d) (l : _) dT (T : measurableType dT) (e : expD)
+apply: (@evalP_mut_ind R
+  (fun d (G : measurableType d) (l : _) dT (T : measurableType dT) (e : expD R)
       (f : G -> T) (mf : measurable_fun setT f) (h1 : evalD l e mf) =>
     forall (v : G -> T) (mv : measurable_fun setT v), evalD l e mv -> f = v)
-  (fun d (G : measurableType d) (l : _) dT (T : measurableType dT) (e : expP)
+  (fun d (G : measurableType d) (l : _) dT (T : measurableType dT) (e : expP R)
       (u : R.-sfker G ~> T) (h1 : evalP l e u) =>
     forall (v : R.-sfker G ~> T), evalP l e v -> u = v)
   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ dA A); last exact: hu.
 - (* E_unit *)
   move=> d' G' l' {}v mv.
   inversion 1.
-  subst d0 l0.
+  subst d l0.
   inj H2.
   inj H3.
   inj H4.
   inj H5.
   inj H6.
-  subst G0.
+  subst G.
   do 3 inj H6.
   by [].
 - (* E_bool *)
@@ -512,11 +581,12 @@ apply: (@evalP_mut_ind
 - (* E_real *)
   admit. (* same as above? *)
 - (* E_pair *)
+  clear hu u v e l.
   move=> d' G' l' dA' dB' A' B' e1 f1 mf1 e2 f2 mf2 e1f1 ih1 e2f2 ih2 {}v mv.
   inversion 1.
-  subst d0 l0 e0 e3.
+  subst d l e0 e3.
   inj H0.
-  subst G1.
+  subst G0.
   inj H13.
   inj H21.
   inj H20.
@@ -536,12 +606,6 @@ apply: (@evalP_mut_ind
     have ? : dB0 = dB'.
       admit.
     subst dB0.
-    have ? : dA = dA'.
-      admit.
-    subst dA'.
-    have ? : dB = dB'.
-      admit.
-    subst dB'.
     have ? : A0 = A'.
       admit.
     subst A0.
@@ -562,12 +626,8 @@ apply: (@evalP_mut_ind
     inj H27.
     do 2 inj H28.
     subst v.
-    have f4E : f4 = fst \o (fun x : G' => (f4 x, f5 x)) by exact/funext.
-    move: mf0 H6 Hyp0.
-    rewrite f4E => mf0 H6 Hyp0.
-    have ? : Hyp0 = mf0.
-      exact: Prop_irrelevance.
-    by subst Hyp0.
+    have ->//: Hyp0 = mf0.
+    exact: Prop_irrelevance.
   have ->// := ih2 (snd \o v).
   apply: measurable_fun_comp => //.
     exact: measurable_fun_snd.
@@ -592,16 +652,31 @@ apply: (@evalP_mut_ind
 - (* E_score *)
   admit.
 - (* E_return *)
-  admit.
+  clear dA dB A B e l u v hu.
+  move=> dG G l dT T e f mf ef ih v.
+  simple inversion 1 => //.
+  subst d l0 dT0.
+  inj H2.
+  subst G0.
+  inj H5.
+  subst T0.
+  do 4 inj H7.
+  subst v.
+  case: H6 => ?; subst e0.
+  move=> h.
+  have ? := ih _ mf0 h.
+  subst f0.
+  congr ret.
+  exact: Prop_irrelevance.
 - (* E_letin *)
   admit.
 - (* E_letin_ *)
   admit.
 Admitted.
 
-Lemma eval_uniqD (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) (e : expD) u v mu mv : 
-  @evalD _ A [::] _ B e u mu -> 
-  @evalD _ A [::] _ B e v mv ->
+Lemma eval_uniqD (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) (e : expD R) u v mu mv :
+  @evalD _ _ A [::] _ B e u mu ->
+  @evalD _ _ A [::] _ B e v mv ->
   u = v.
 Proof.
 dependent induction e.
@@ -612,108 +687,38 @@ subst.
 (* apply Classical_Prop.EqdepTheory.inj_pair2 in H18. *)
 Admitted.
 
-(* Lemma eval_uniq (z : Z) (e : exp z) :
-  (forall u v (zP : z = P), @evalP _ A [::] _ B (eq_rect _ _ e _ zP) u -> @evalP _ A [::] _ B (eq_rect _ _ e _ zP) v -> u = v) /\
-  (forall u v (zD : z = D) mu mv,  @evalD _ A [::] _ B (eq_rect _ _ e _ zD) u mu -> @evalD _ A [::] _ B (eq_rect _ _ e _ zD) v mv -> u = v).
-Proof.
-dependent induction e. *)
-
-(*
-- 
-  + move=> u {}v.
-- inversion 1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H0.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H8.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  subst.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H11.
-  subst.
-  clear H8 H10.
-  inversion 1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H1.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H2.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H10.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H14.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  subst.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-  apply Classical_Prop.EqdepTheory.inj_pair2 in H15.
-
-apply Classical_Prop.EqdepTheory.inj_pair2 in H24.
-apply Classical_Prop.EqdepTheory.inj_pair2 in H24.
-apply Classical_Prop.EqdepTheory.inj_pair2 in H19.
-subst.
-apply Classical_Prop.EqdepTheory.inj_pair2 in H24.
-subst.
-(* p = p0 by H6 H18 *)
-congr sample.
-apply (eval_uniq H6 H18).
-
-apply Eqdep_dec.inj_pair2_eq_dec in H7.
-rewrite H3 in H5.
-rewrite H3 in H7.
-
-apply Eqdep_dec.inj_pair2_eq_dec in H12.
-rewrite H5 in H12.
-(* apply EqdepFacts.eq_sigT_fst in H2. *)
-apply EqdepFacts.eq_sigT_iff_eq_dep in H12.
-apply Eqdep_dec.inj_pair2_eq in H12.
-
-apply EqdepFacts.eq_sigT_sig_eq in H12.
-apply EqdepFacts.eq_sigT_fst in H12.
-
-
-inversion H2.
-subst => /=.
-Require Import Coq.Program.Equality.
-Lemma eval_uniq (e : exp  P) u v : 
-  @evalP _ A [::] _ B e u -> 
-  @evalP _ A [::] _ B e v -> 
-  u = v.
-Proof.
-(* apply/evalP_ind. *)
-dependent induction e.
-admit.
-- inversion 1 as [h|h|h|h|h|h].
-(* elim: e u v. *)
-*)
-(* Admitted. *)
-
-Lemma eval_full (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) : forall e, exists v, @evalP _ A [::] _ B e v.
+Lemma eval_full (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) :
+  forall e, exists v, @evalP R _ A [::] _ B e v.
 Proof.
 Admitted.
 
-Definition exec (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) : expP -> R.-sfker A ~> B.
+Definition exec (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) :
+  expP R -> R.-sfker A ~> B.
+Proof.
 move=> e.
-have := eval_full A B e.
-move/cid.
-move=> h.
+have /cid h := eval_full A B e.
 exact: (proj1_sig h).
 Defined.
 
-End exec.
+End eval_prop.
 
 Section example.
+Variables (d : _) (G : measurableType d) (R : realType).
 
-Example ex_real : @evalD _ G [::] _ _ (exp_real 3%:R) (@cst _ R 3%:R) (kr 3%:R).
+Example ex_real : @evalD R _ G [::] _ _ (exp_real 3%:R) (@cst _ R 3%:R) (kr 3%:R).
 Proof. apply/E_real. Qed.
 
-Example ex_bool : @evalD _ G [::] _ _ (exp_bool true) (cst true)
+Example ex_bool : @evalD R _ G [::] _ _ (exp_bool true) (cst true)
 (@measurable_fun_cst _ _ _ mbool setT _).
 Proof. apply/E_bool. Qed.
 
-Example ex_pair : @evalD d G [::] _ _ (exp_pair (exp_real 1) (exp_real 2)) _
+Example ex_pair : @evalD R _ G [::] _ _ (exp_pair (exp_real 1) (exp_real 2)) _
 (@measurable_fun_pair _ _ _ _ _ _ (@cst _ R 1%R) (@cst _ R 2) (kr 1) (kr 2)).
 Proof.
 apply/E_pair /E_real /E_real.
 Qed.
 
-Example ex_ifP : @evalP d G [::] _ (mR R)
+Example ex_ifP : @evalP R _ G [::] _ (mR R)
   (exp_if (exp_bool true) (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
   (ite (@measurable_fun_cst _ _ _ mbool setT true) (ret k3) (ret k10)).
 Proof. apply/E_ifP /E_return /E_real /E_return /E_real /E_bool. Qed.
@@ -730,7 +735,7 @@ Proof. by rewrite iteE. Qed.
 Local Open Scope ring_scope.
 
 Example sample1 :
-  @evalP _ (mR R) [::] _ _
+  @evalP R _ (mR R) [::] _ _
     (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
     (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))).
 Proof.
@@ -738,24 +743,24 @@ exact/E_sample/E_bernoulli.
 Qed.
 
 Example sampler (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-  @evalP _ (mR R) [::] _ _
+  @evalP R _ (mR R) [::] _ _
     (exp_sample (exp_bernoulli r))
     (sample _ (measurable_fun_cst (bernoulli r1 : pprobability _ _))).
 Proof. exact/E_sample/E_bernoulli. Qed.
 
 Example score1 :
-  @evalP _ (mR R) [::] _ _ (exp_score (exp_real 1)) (score (kr 1)).
+  @evalP R _ (mR R) [::] _ _ (exp_score (exp_real 1)) (score (kr 1)).
 Proof. apply/E_score /E_real. Qed.
 
 Example score2 :
-  @evalP _ (mR R) [::] _ _
+  @evalP R _ (mR R) [::] _ _
     (exp_score (exp_poisson 4 (exp_real 3%:R)))
     (score (measurable_fun_comp (mpoisson 4) (kr 3%:R))).
 Proof. apply/E_score /E_poisson /E_real. Qed.
 
 (* to be failed *)
 Example ex_var :
-  @evalP _ munit [::] _ _
+  @evalP R _ munit [::] _ _
     (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
       (exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
         (exp_letin "y" (exp_score (exp_poisson 4 (exp_var "r")))
@@ -778,7 +783,7 @@ have -> : tmp = proj2_sig (var_i_of4 1) by [].
 Abort.
 
 Example eval5 :
-  @evalP _ munit [::] _ _
+  @evalP R _ munit [::] _ _
     (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
       (exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
         (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
@@ -797,7 +802,7 @@ exact: (E_var4 0).
 Qed.
 
 Example eval6 P :
-  @evalD _ munit [::] _ _
+  @evalD R _ munit [::] _ _
     (exp_norm
       (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
         (exp_letin "r"
@@ -805,7 +810,7 @@ Example eval6 P :
                                 (exp_return (exp_real 10%:R)))
           (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
             (exp_return (exp_var "x"))))))
-    (staton_bus' (mpoisson 4) P : _ -> pprobability _ _) (measurable_fun_normalize (kstaton_bus' _ (mpoisson 4)) P).
+    (staton_bus' (mpoisson 4) P : _ -> pprobability _ _) (measurable_fun_normalize (R := R) (kstaton_bus' _ (mpoisson 4)) P).
     (* (@normalize _ _ munit mbool R (kstaton_bus' _ (mpoisson 4)) P). *)
 Proof.
 apply/E_norm.
@@ -821,41 +826,41 @@ exact: (E_var4 0).
 Qed.
 
 Example eval7 P :
-  @evalD _ munit [::] _ _
+  @evalD R _ munit [::] _ _
     (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))
     _
     (* (@normalize _ _ _ _ R (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _)))) *)
-    (measurable_fun_normalize (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))) P).
+    (measurable_fun_normalize (R := R) (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))) P).
 Proof. apply/E_norm /E_sample /E_bernoulli. Qed.
 
 Example eval7_2 P :
-  @evalD _ munit [::] _ _
+  @evalD R _ munit [::] _ _
     (exp_norm (exp_sample (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))))
     _
-    (* (@normalize _ _ _ _ R 
+    (* (@normalize _ _ _ _ R
       (sample _ (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P)) P : _ -> pprobability _ _) *)
     (measurable_fun_normalize
-      (sample _ (measurable_fun_normalize (sample _ (measurable_fun_cst  (bernoulli p27 : pprobability _ _))) P)) P).
+      (sample _ (measurable_fun_normalize (R := R) (sample _ (measurable_fun_cst  (bernoulli p27 : pprobability _ _))) P)) P).
 Proof.
 apply/E_norm /E_sample.
 apply/E_norm /E_sample /E_bernoulli.
 Qed.
 
-Example exp_staton_bus' := 
+Example exp_staton_bus' : expD R :=
   (exp_norm
     (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
       (exp_letin "r"
         (exp_letin "_"
-          (exp_if (exp_var "x") (exp_return (exp_real 3)) 
+          (exp_if (exp_var "x") (exp_return (exp_real 3))
                                 (exp_return (exp_real 10)))
           (exp_score (exp_poisson 4 (exp_var "r"))))
         (exp_return (exp_var "x"))))).
 
-Example exp_staton_bus := 
+Example exp_staton_bus : expD R :=
   (exp_norm
     (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-      (exp_letin "r"  
-        (exp_if (exp_var "x") (exp_return (exp_real 3)) 
+      (exp_letin "r"
+        (exp_if (exp_var "x") (exp_return (exp_real 3))
                               (exp_return (exp_real 10)))
         (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
           (exp_return (exp_var "x")))))).
@@ -876,14 +881,15 @@ Admitted. *)
 End example.
 
 Section letinC.
-Variable (dU : _) (U : measurableType dU).
+Variables (dG : _) (G : measurableType dG) (dT : _) (T : measurableType dT)
+  (dU : _) (U : measurableType dU) (R : realType).
 
-Lemma letinC' (t u : expP) (v1 v2 : R.-sfker _ ~> _) :
-  @evalP _ G [::] _ [the measurableType _ of (T * U)%type]
-  (exp_letin "x" t (exp_letin "y" u 
+Lemma letinC' (t u : expP R) (v1 v2 : R.-sfker _ ~> _) :
+  @evalP R _ G [::] _ [the measurableType _ of (T * U)%type]
+  (exp_letin "x" t (exp_letin "y" u
     (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v1 ->
-  @evalP _ G [::] _ [the measurableType _ of (T * U)%type] 
-  (exp_letin "y" u (exp_letin "x" t 
+  @evalP R _ G [::] _ [the measurableType _ of (T * U)%type]
+  (exp_letin "y" u (exp_letin "x" t
     (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v2 ->
   v1 = v2.
 Proof.
@@ -905,11 +911,10 @@ apply/eq_sfkernel=> x A.
 apply: letinC.
 Admitted.
 
-Lemma letinC'' (t u : expP) :
+Lemma letinC'' (t u : expP R) :
   (exp_letin "x" t (exp_letin "y" u (exp_return (exp_var "x")))) =
   (exp_letin "y" u (exp_letin "x" t (exp_return (exp_var "x")))).
 Proof.
 Admitted.
 
 End letinC.
-End v8.
