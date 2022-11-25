@@ -18,6 +18,159 @@ Local Open Scope ereal_scope.
 
 Require Import String ZArith.
 Local Open Scope string.
+
+Section string_eq.
+
+Definition string_eqMixin := @EqMixin string eqb eqb_spec.
+Canonical string_eqType := EqType string string_eqMixin.
+
+End string_eq.
+
+Section syntax.
+Variables (R : realType).
+
+Inductive Ty : Set :=
+| TyReal
+| TyBool
+| TyUnit
+| TyPair : Ty -> Ty -> Ty
+| TyProb : Ty -> Ty.
+
+Inductive expD : Type :=
+| Var  : string -> expD
+| Unit : expD
+| Bool : bool -> expD
+| Real : R -> expD
+| Plus : expD -> expD -> expD
+| Pair : expD -> expD -> expD
+(* | val_unif : val *)
+| Bernoulli : {nonneg R} -> expD
+| Poisson : nat -> expD -> expD
+| Norm : expP -> expD
+(* | exp_if : forall z, expD -> exp z -> exp z -> exp z *)
+with expP :=
+| If : expD -> expP -> expP -> expP
+| Letin : string -> expP -> expP -> expP
+| Sample : expD -> expP
+| Score : expD -> expP
+| Return : expD -> expP.
+
+Definition Env := seq (string * Type)%type.
+
+Definition Env' := seq (string * forall d, measurableType d)%type.
+
+Section value.
+Variables (d d1 : _) (A : measurableType d) (A1 : measurableType d1).
+(* 
+Inductive value : forall {dG dT} {G : measurableType dG} {T : measurableType dT}, Set :=
+| VReal dG {G : measurableType dG} : {f : G -> R | measurable_fun setT f} -> Val
+| VBool dG {G : measurableType dG} : {f : G -> bool | measurable_fun setT f} -> Val
+| VUnit dG {G : measurableType dG} : {f : G -> unit | measurable_fun setT f} -> Val
+| VPair :
+  Val v1
+(* | VPair dG {G : measurableType dG} dT1 dT2 (T1 : measurableType dT1) (T2 : measurableType dT2) : @Val _ _ G T1 -> @Val _ _ G T2 -> @Val _ _ G [the measurableType _ of (T1 * T2)%type] *)
+(* | VId dX dY (X : measurableType dX) (Y : measurableType dY) : {f : (X * Y)%type -> A1 | measurable_fun setT f} -> Val *)
+. 
+*)
+
+Inductive value : expD -> Prop :=
+| VReal : forall r, value (Real r)
+| VPair : forall v1 v2,
+  value v1 -> value v2 ->
+  value (Pair v1 v2)
+.
+
+End value.
+
+Section eval.
+Import Notations.
+Definition typ2 {d1 d2} (T1 : measurableType d1) (T2 : measurableType d2)
+(i : nat) : {d & measurableType d} :=
+  if i == O then existT _ d1 T1 else existT _ d2 T2.
+
+Definition var_i_of2 {dA dB} {A : measurableType dA} {B : measurableType dB} (i : nat)
+    : {f : [the measurableType _ of (A * B)%type] -> projT2 (typ2 A B i) | measurable_fun setT f} :=
+  match i with
+  | 0 => exist (fun x => measurable_fun setT x) (_ : A * B -> A) var1of2
+  | _ => exist (fun x => measurable_fun setT x) (snd : A * B -> B) var2of2
+  end.
+
+(* Variables (dG dT : _) (G : measurableType dG) (T : measurableType dT).
+Variables (dG1 : _) (G1 : measurableType dG1). *)
+Reserved Notation "[ G |- a ====> v ]".
+
+Inductive EvalD : Env -> expD -> expD -> Prop :=
+| EReal : forall E r, 
+  EvalD E (Real r) (Real r)
+
+| EPlusl : forall E e1 e1' e2,
+  EvalD E e1 e1' ->
+  (* EvalD E e2 e2' -> *)
+  EvalD E (Plus e1 e2) (Plus e1' e2) 
+
+| EPlusr : forall E v1 e2 e2',
+  value v1 ->
+  EvalD E e2 e2' ->
+  EvalD E (Plus v1 e2) (Plus v1 e2')
+
+| EPlus : forall E r1 r2,
+  EvalD E (Plus (Real r1) (Real r2)) (Real (r1 + r2))
+
+| EBool : forall E b,
+  EvalD E (Bool b) (Bool b)
+(* | EBool : forall dG G E b, 
+  @EvalD dG G _ mbool E (exp_bool b) (VBool _)
+| EUnit : forall dG G E,
+  @EvalD dG G _ munit E (exp_unit) VUnit *)
+with EvalP : Env -> expP -> expP -> Prop :=
+| ERet : forall E e1 e1',
+  EvalD E e1 e1' ->
+  EvalP E (Return e1) (Return e1')
+
+.
+
+Definition relation X := X -> X -> Prop.
+
+Inductive multi {X:Type} (r : relation X) : relation X :=
+  | multi_refl  : forall (x : X), multi r x x
+  | multi_step : forall (x y z : X),
+                    r x y ->
+                    multi r y z ->
+                    multi r x z.
+
+Notation multistep := (multi (EvalP [::])).
+
+Definition ex1 := Return (Plus (Real 1) (Real 2)).
+Definition ex1' := Return (Real 3).
+
+Lemma __ : multistep ex1 ex1'.
+Proof.
+rewrite/ex1 /ex1'.
+apply/multi_step.
+apply/ERet.
+apply/EPlus.
+apply/multi_refl.
+Qed.
+
+
+(*
+Inductive EvalD : forall dG (G : measurableType dG) dT (T : measurableType dT) (E : Env) (e : expD), expD -> Prop :=
+| EBool : forall dG G E b, 
+  @EvalD dG G _ mbool E (exp_bool b) (@VBool _ _ G _ (exist _ (cst b) (kb b)))
+| EUnit : forall dG G E, 
+  @EvalD dG G _ munit E (exp_unit) (@VUnit _ _ G _ (exist _ (cst tt) ktt)) *)
+(* | EPair : forall dG G dA A dB B E e1 e2 v1 v2,
+  @EvalD dG G dA A E e1 v1 ->
+  @EvalD dG G dB B E e2 v2 ->
+  @EvalD dG G _ _ E (exp_pair e1 e2) (VPair v1 v2) *)
+(* | EVar2 : forall (E : Env) x dX dY (X : measurableType dX) (Y : measurableType dY),
+  let i := seq.index x (map fst E) in
+  EvalD E (exp_var x) (@VId _ _ _ _ _ _ [the measurableType _ of (X * Y)%type] (projT2 (typ2 X Y i)) (var_i_of2 i.+1)) *)
+.
+(* where "[G |- a ==> v]" := (Eval G a v). *)
+
+End syntax.
+
 (* Import Notations.
 
 Section check.
@@ -69,7 +222,6 @@ Inductive expD : Type :=
 | exp_bool : bool -> expD
 | exp_real : R -> expD
 | exp_pair : expD -> expD -> expD
-| exp_plus : expD -> expD -> expD
 (* | val_unif : val *)
 | exp_bernoulli : {nonneg R} -> expD
 | exp_poisson : nat -> expD -> expD
@@ -419,6 +571,12 @@ value ::= measurable function (evalD)
 
 (* Lemma nth_ : seq.index ("x", R) [:: ("x", R); ("y", nat)] = 1%N.
 Proof. rewrite /=. *)
+
+Fixpoint only_left A B (l : seq (A * B)%type) :=
+  match l with
+  | [::] => [::]
+  | h :: t => h.1 :: only_left t
+  end.
 
 Lemma measurable_fun_normalize (R : realType) dX (X : measurableType dX)
    dY (Y : measurableType dY) (k : R.-sfker X ~> Y) (P : probability Y R) :
@@ -933,16 +1091,16 @@ apply: (@expP_mut_ind R
   by apply/E_pair.
 -
   move=> r.
-  (* have r1 : (r%:num <= 1)%R. *)
+  have r1 : (r%:num <= 1)%R.
   admit.
-  (* do 3 eexists.
+  do 3 eexists.
   exists (measurable_fun_cst (bernoulli r1 : pprobability _ _)).
-  exact: E_bernoulli. *)
+  exact: E_bernoulli.
 -
-  (* move=> n e0 ih.
+  move=> n e0 ih.
   do 1 eexists.
   exists (mR R).
-  eexists. *)
+  eexists.
   (* exists (measurable_fun_comp (mpoisson n)).
   exact: E_poisson. *)
   admit.
@@ -953,10 +1111,10 @@ apply: (@expP_mut_ind R
   exact: E_norm. *)
   admit.
 -
-  (* move=> e1 ih1 e2 ih2 e3 ih3.
+  move=> e1 ih1 e2 ih2 e3 ih3.
   apply ex_intro in ih1.
   (* destruct ih1 as (dA1 & A1 & dB1 & B1 & f1 & mf1 & ih1). *)
-  do 2 eexists. *)
+  do 2 eexists.
   (* exists (ite mf1). *)
 -
 -
@@ -972,10 +1130,9 @@ Definition exec (dA dB : measure_display) (A : measurableType dA) (B : measurabl
   expP R -> R.-sfker A ~> B.
 Proof.
 move=> e.
-(* have /cid h := eval_full A B e. *)
-(* exact: (proj1_sig h). *)
-(* Defined. *)
-Admitted.
+have /cid h := eval_full A B e.
+exact: (proj1_sig h).
+Defined.
 
 End eval_prop.
 
