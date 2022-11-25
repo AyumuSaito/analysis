@@ -1927,6 +1927,16 @@ HB.instance Definition _ := isMeasure.Build _ _ _ counting
 
 End measure_count.
 
+<<<<<<< HEAD
+=======
+Lemma sigma_finite_counting (R : realType) :
+  sigma_finite [set: nat] (counting R).
+Proof.
+exists (fun n => `I_n.+1); first by apply/seteqP; split=> //x _; exists x => /=.
+by move=> k; split => //; rewrite /counting/= asboolT// ltry.
+Qed.
+
+>>>>>>> integral of constant function (#781)
 Lemma big_trivIset (I : choiceType) D T (R : Type) (idx : R)
    (op : Monoid.com_law idx) (A : I -> set T) (F : set T -> R) :
     finite_set D -> trivIset D A -> F set0 = idx ->
