@@ -17,6 +17,10 @@
 
 DONE: 変数がリストに入っていることしか確認していない
 
+- [ ] Eval
+  - [x] example -> Evalを調整
+  - [ ] E_letin
+  - [ ] E_var
 - [ ] eval_uniq
   - [x] How to use `evalD_mut_ind`
   - [ ] eval_uniqD: `dependent induction e.` don't make I.H.
