@@ -81,13 +81,13 @@ Section type_checking.
 
 Variables (d : _) (T : measurableType d).
 
-Inductive type_checkD : Env -> expD -> Type -> Prop :=
-| tc_unit G : type_checkD G Unit unit
-| tc_bool G b : type_checkD G (Bool b) bool
-| tc_real G r : type_checkD G (Real r) R
+Inductive type_checkD : Env -> expD -> Ty -> Prop :=
+| tc_unit G : type_checkD G Unit TyUnit
+| tc_bool G b : type_checkD G (Bool b) TyBool
+| tc_real G r : type_checkD G (Real r) TyReal
 | tc_pair G e1 e2 A B : type_checkD G e1 A ->
-  type_checkD G e2 B -> type_checkD G (Pair e1 e2) (A * B)%type
-(* | tc_bernoulli G r : type_checkD G (exp_bernoulli r) (probability mbool R) *)
+  type_checkD G e2 B -> type_checkD G (Pair e1 e2) (TyPair A B)
+(* | tc_bernoulli G r : type_checkD G (exp_bernoulli r) (probability mbool R)
 (* | tc_poisson G k e : type_checkD G (exp_poisson k e) R *)
 | tc_norm G e d (A : measurableType d) :
   type_checkP G e A ->
@@ -104,10 +104,11 @@ with type_checkP : Env -> expP -> Type -> Prop :=
 | tc_if G e1 e2 e3 A : type_checkD G e1 bool ->
   type_checkP G e2 A -> type_checkP G e3 A -> type_checkP G (If e1 e2 e3) A
 | tc_letin G v e1 e2 A B : type_checkP G e1 A -> type_checkP ((v, A) :: G) e2 B ->
-  type_checkP G (Letin v e1 e2) B.
+  type_checkP G (Letin v e1 e2) B *)
+.
 
-Scheme type_checkD_mut_ind := Induction for type_checkD Sort Prop
-with type_checkP_mut_ind := Induction for type_checkP Sort Prop.
+(* Scheme type_checkD_mut_ind := Induction for type_checkD Sort Prop
+with type_checkP_mut_ind := Induction for type_checkP Sort Prop. *)
 
 End type_checking.
 
@@ -156,6 +157,8 @@ Inductive EvalD : Env -> expD -> ValD -> Prop :=
 
 End eval.
 
+Hint Constructors type_checkD EvalD.
+
 Section equiv.
 
 Fixpoint Equiv (val : ValD) (ty : Ty) : Prop :=
@@ -172,6 +175,23 @@ Section properties.
 Lemma Normalization : forall (e : expD) (G : Env) (ty : Ty),
   type_checkD G e ty ->
   exists val : ValD, EvalD G e val /\ Equiv val ty.
+Proof.
+move=> e G ty He.
+generalize dependent G.
+induction ty => G He.
+- inversion He. 
+  exists (VReal r). split; auto. exists r => //.
+- inversion He.
+  exists (VBool b). split; auto. exists b => //.
+- inversion He.
+  exists VUnit. split; auto => //.
+- inversion He.
+  destruct (IHty1 G).
+- exists (VPair v1 v2).
+inversion He.
+apply/EUnit. 
+rewrite //.
+
 
 End properties.
 
