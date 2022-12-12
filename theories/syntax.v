@@ -86,6 +86,65 @@ Notation "l \; k" := (mkcomp' l k) : ereal_scope.
 
 Module KCOMP_FINITE_KERNEL.
 
+Section measurable_fun_xsection_finite_kernel.
+Variables (d d' : _) (X : measurableType d) (Y : measurableType d')
+          (R : realType).
+Variables (k : R.-fker X ~> Y).
+Implicit Types A : set (Y * X).
+
+Let phi A := fun x => k x (ysection A x).
+Let XY := [set A | measurable A /\ measurable_fun setT (phi A)].
+
+Lemma measurable_fun_ysection_finite_kernel A :
+  A \in measurable -> measurable_fun setT (phi A).
+Admitted.
+
+End measurable_fun_xsection_finite_kernel.
+
+Section measurable_fun_integral_finite_sfinite.
+Variables (d d' : _) (X : measurableType d) (Y : measurableType d')
+  (R : realType).
+Variable k : Y * X -> \bar R.
+
+Lemma measurable_fun_ysection_integral
+    (l : X -> {measure set Y -> \bar R})
+    (k_ : ({nnsfun [the measurableType _ of (Y * X)%type] >-> R})^nat)
+    (ndk_ : nondecreasing_seq (k_ : (Y * X -> R)^nat))
+    (k_k : forall z, EFin \o (k_ ^~ z) --> k z) :
+  (forall n r, measurable_fun setT (fun x => l x (ysection (k_ n @^-1` [set r]) x))) ->
+  measurable_fun setT (fun x => \int[l x]_y k (y, x)).
+Admitted.
+
+Lemma measurable_fun_integral_finite_kernel (l : R.-fker X ~> Y)
+    (k0 : forall z, 0 <= k z) (mk : measurable_fun setT k) :
+  measurable_fun setT (fun x => \int[l x]_y k (y, x)).
+Proof.
+have [k_ [ndk_ k_k]] := approximation measurableT mk (fun x _ => k0 x).
+apply: (measurable_fun_ysection_integral ndk_ (k_k ^~ Logic.I)) => n r.
+have [l_ hl_] := measure_uub l.
+by apply: measurable_fun_ysection_finite_kernel => // /[!inE].
+Qed.
+
+Lemma measurable_fun_integral_sfinite_kernel (l : R.-sfker X ~> Y)
+    (k0 : forall t, 0 <= k t) (mk : measurable_fun setT k) :
+  measurable_fun setT (fun x => \int[l x]_y k (y, x)).
+Proof.
+have [k_ [ndk_ k_k]] := approximation measurableT mk (fun xy _ => k0 xy).
+apply: (measurable_fun_ysection_integral ndk_ (k_k ^~ Logic.I)) => n r.
+have [l_ hl_] := sfinite l.
+rewrite (_ : (fun x => _) =
+    (fun x => mseries (l_ ^~ x) 0 (ysection (k_ n @^-1` [set r]) x))); last first.
+  by apply/funext => x; rewrite hl_//; exact/measurable_ysection.
+apply: ge0_emeasurable_fun_sum => // m.
+by apply: measurable_fun_ysection_finite_kernel => // /[!inE].
+Qed.
+
+End measurable_fun_integral_finite_sfinite.
+
+Arguments measurable_fun_ysection_integral {_ _ _ _ _} k l.
+Arguments measurable_fun_integral_finite_kernel {_ _ _ _ _} k l.
+Arguments measurable_fun_integral_sfinite_kernel {_ _ _ _ _} k l.
+
 Section kcomp_finite_kernel_kernel.
 Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
           (Z : measurableType d3) (R : realType).
@@ -95,8 +154,9 @@ Variables (l : R.-fker X ~> Y)
 Lemma measurable_fun_kcomp_finite U :
   measurable U -> measurable_fun setT ((l \; k) ^~ U).
 Proof.
-move=> mU.
-Admitted.
+move=> mU; apply: (measurable_fun_integral_finite_kernel (k ^~ U)) => //.
+exact/measurable_kernel.
+Qed.
 
 HB.instance Definition _ :=
   isKernel.Build _ _ X Z R (l \; k) measurable_fun_kcomp_finite.
@@ -109,12 +169,21 @@ Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
 Variable l : R.-fker X ~> Y.
 Variable k : R.-fker [the measurableType _ of (Y * X)%type] ~> Z.
 
+Import Order.TTheory.
+
 Let mkcomp_finite : measure_fam_uub (l \; k).
 Proof.
 have /measure_fam_uubP[r hr] := measure_uub k.
 have /measure_fam_uubP[s hs] := measure_uub l.
 apply/measure_fam_uubP; exists (PosNum [gt0 of (r%:num * s%:num)%R]) => x /=.
-Admitted.
+apply: (@le_lt_trans _ _ (\int[l x]__ r%:num%:E)).
+  apply: ge0_le_integral => //.
+  - have /measurable_fun_prod2 := measurable_kernel k _ measurableT.
+    exact.
+  - exact/measurable_fun_cst.
+  - by move=> y _; exact/ltW/hr.
+by rewrite integral_cst//= EFinM lte_pmul2l.
+Qed.
 
 HB.instance Definition _ :=
   Kernel_isFinite.Build _ _ X Z R (l \; k) mkcomp_finite.
@@ -133,12 +202,37 @@ Import KCOMP_FINITE_KERNEL.
 Lemma mkcomp_sfinite : exists k_ : (R.-fker X ~> Z)^nat, forall x U, measurable U ->
   (l \; k) x U = kseries k_ x U.
 Proof.
-Admitted.
+have [k_ hk_] := sfinite k; have [l_ hl_] := sfinite l.
+have [kl hkl] : exists kl : (R.-fker X ~> Z) ^nat, forall x U,
+    \esum_(i in setT) (l_ i.2 \; k_ i.1) x U = \sum_(i <oo) kl i x U.
+  have /ppcard_eqP[f] : ([set: nat] #= [set: nat * nat])%card.
+    by rewrite card_eq_sym; exact: card_nat2.
+  exists (fun i => [the _.-fker _ ~> _ of l_ (f i).2 \; k_ (f i).1]) => x U.
+  by rewrite (reindex_esum [set: nat] _ f)// nneseries_esum// fun_true.
+exists kl => x U mU.
+transitivity (([the _.-ker _ ~> _ of kseries l_] \;
+               [the _.-ker _ ~> _ of kseries k_]) x U).
+  rewrite /= /kcomp' [in RHS](eq_measure_integral (l x)); last first.
+    by move=> *; rewrite hl_.
+  by apply: eq_integral => y _; rewrite hk_.
+rewrite /= /kcomp'/= integral_sum//=; last first.
+  by move=> n; have /measurable_fun_prod2 := measurable_kernel (k_ n) _ mU; exact.
+transitivity (\sum_(i <oo) \sum_(j <oo) (l_ j \; k_ i) x U).
+  apply: eq_eseries => i _; rewrite integral_kseries//.
+  by have /measurable_fun_prod2 := measurable_kernel (k_ i) _ mU; exact.
+rewrite /mseries -hkl/=.
+rewrite (_ : setT = setT `*`` (fun=> setT)); last by apply/seteqP; split.
+rewrite -(@esum_esum _ _ _ _ _ (fun i j => (l_ j \; k_ i) x U))//.
+rewrite nneseries_esum; last by move=> n _; exact: nneseries_ge0.
+by rewrite fun_true; apply: eq_esum => /= i _; rewrite nneseries_esum// fun_true.
+Qed.
 
 Lemma measurable_fun_mkcomp_sfinite U : measurable U ->
   measurable_fun setT ((l \; k) ^~ U).
 Proof.
-Admitted.
+move=> mU; apply: (measurable_fun_integral_sfinite_kernel (k ^~ U)) => //.
+exact/measurable_kernel.
+Qed.
 
 End kcomp_sfinite_kernel.
 
@@ -169,6 +263,12 @@ Definition letin' (l : R.-sfker X ~> Y)
   locked [the R.-sfker X ~> Z of l \; k].
 
 End letin'.
+
+(* new notation with letin' *)
+Notation var1of4' := (@measurable_fun_fst _ _ _ _).
+Notation var2of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
+Notation var3of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
+Notation var4of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _)))).
 
 Section string_eq.
 
@@ -434,7 +534,7 @@ Defined.
 Lemma prod_meas_1 : prod_meas (existT _ _ munit :: [::]) = existT _ _ [the measurableType _ of (munit * munit)%type].
 Proof. done. Qed.
 
-Lemma prod_meas_2 : prod_meas (existT _ _ munit :: existT _ _ munit :: [::]) = existT _ _ [the measurableType _ of (munit * (munit * munit))%type].
+Lemma prod_meas_2 : prod_meas (existT _ _ mbool :: existT _ _ munit :: [::]) = existT _ _ [the measurableType _ of (mbool * (munit * munit))%type].
 Proof. done. Qed.
 
 Eval vm_compute in size (existT _ _ munit :: [::]).
@@ -445,16 +545,19 @@ Proof.
 destruct l => //.
 destruct l => //.
 destruct s => /= _.
-exists x, t.
-rewrite /=.
-rewrite /prod_meas_obligation_1/=.
-rewrite /prod_meas_obligation_2/=.
-done.
+by exists x, t.
 Qed.
 
 Lemma prod_meas_size_2 (l : list {d & measurableType d}) : size l = 2%N ->
-  exists d (T : measurableType d) d' (T' : measurableType d'), prod_meas l = existT _ _ [the measurableType _ of (T * T' * munit)%type].
-Admitted.
+  exists d (T : measurableType d) d' (T' : measurableType d'), prod_meas l = existT _ _ [the measurableType _ of (T * (T' * munit))%type].
+Proof.
+destruct l => //.
+destruct l => //.
+destruct l => //.
+destruct s.
+destruct s0 => /= _.
+by exists x, t, x0, t0.
+Qed.
 
 (* From Equations Require Import Equations.
 Obligation Tactic := idtac. *)
@@ -596,10 +699,18 @@ refine (H _ _ _ K.2).
 exact il.
 Defined.
 
+Example varof_0 : (@varof (("x", existT measurableType _ munit)::nil) O erefl) = fst :> _ -> munit.
+Proof. done. Abort.
+
+Check (@varof (("x", existT measurableType _ munit)::("y", existT measurableType _ mbool)::nil) 1 erefl) : _ -> mbool.
+
+Example varof_1 : (@varof (("x", existT measurableType _ munit)::("y", existT measurableType _ mbool)::nil) 1 erefl) = (fst \o snd : _ -> mbool).
+Proof. done. Abort.
+
 Eval compute in (@varof (("x", existT measurableType _ munit)::nil) O erefl).
 Eval compute in (@varof (("x", existT measurableType _ munit)::("y", existT measurableType _ mbool)::nil) O erefl).
 Check  (@varof (("x", existT measurableType _ munit)::("y", existT measurableType _ mbool)::nil) 1 erefl)
-: _ -> mbool. 
+: _ -> mbool.
 
 Fixpoint freevarsD (e : expD R) : nat := 
   match e with
@@ -632,6 +743,20 @@ with freevarsP (e : expP R) : seq _ :=
 
 Lemma mvarof (l : context') (i : nat) (li : (i < size l)%nat) :
   measurable_fun setT (@varof l i li).
+Proof.
+destruct l => //.
+destruct i.
+exact: (@measurable_fun_fst _ _ _ _).
+destruct l => //.
+destruct i.
+exact: (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
+destruct l => //.
+destruct i.
+exact: (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))). (* var3of3 *)
+destruct l => //.
+destruct i.
+exact: var4of4'.
+(* ??? *)
 Admitted.
 
 (* Compute seq.index 0%nat [:: 1; 2; 3]%nat. *)
@@ -832,12 +957,6 @@ Example score2 :
     (exp_score (exp_poisson 4 (exp_real 3%:R)))
     (score (measurable_fun_comp (mpoisson 4) (kr 3%:R))).
 Proof. apply/E_score /E_poisson /E_real. Qed.
-
-(* new notation with letin' *)
-Notation var1of4' := (@measurable_fun_fst _ _ _ _).
-Notation var2of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
-Notation var3of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
-Notation var4of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _)))).
 
 Definition sample_bern : R.-sfker munit ~> mbool := 
   sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _)).
@@ -1063,30 +1182,38 @@ Lemma prod_equal_spec (A B A' B' : Type) :
 Proof.
 Admitted.
 
-Lemma eval_uniqP (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB)
-    (e : expP R) l (u v : R.-sfker A ~> B) :
-  evalP l e u -> evalP l e v -> u = v.
+Lemma eval_uniqD (l : context') (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expD R) (u v : projT2 G -> T) (mu : measurable_fun _ u) (mv : measurable_fun _ v) :
+  evalD e mu -> evalD e mv -> u = v.
+Proof.
+move=> hu.
+apply: (@evalD_mut_ind R
+  (fun (l : _) (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expD R) (f : projT2 G -> T) (mf : measurable_fun setT f) (h1 : evalD e mf) =>
+    forall (v : projT2 G -> T) (mv : measurable_fun setT v), evalD e mv -> f = v)
+  (fun (l : _) (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expP R) (u : R.-sfker projT2 G ~> T) (h1 : evalP e u) =>
+    forall (v : R.-sfker projT2 G ~> T), evalP e v -> u = v)
+  _ _ _ _ _ _ _ _ _ _ _ _ _ l dT T e); last exact: hu.
+  move=> l' G0 G1 {}mv.
+Admitted.
+
+Lemma eval_uniqP (l : context') (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expP R) (u v : R.-sfker projT2 G ~> T) :
+  evalP e u -> evalP e v -> u = v.
 Proof.
 move=> hu.
 apply: (@evalP_mut_ind R
-  (fun d (G : measurableType d) (l : _) dT (T : measurableType dT) (e : expD R)
-      (f : G -> T) (mf : measurable_fun setT f) (h1 : evalD l e mf) =>
-    forall (v : G -> T) (mv : measurable_fun setT v), evalD l e mv -> f = v)
-  (fun d (G : measurableType d) (l : _) dT (T : measurableType dT) (e : expP R)
-      (u : R.-sfker G ~> T) (h1 : evalP l e u) =>
-    forall (v : R.-sfker G ~> T), evalP l e v -> u = v)
-  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ dA A); last exact: hu.
+  (fun (l : _) (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expD R) (f : projT2 G -> T) (mf : measurable_fun setT f) (h1 : evalD e mf) =>
+    forall (v : projT2 G -> T) (mv : measurable_fun setT v), evalD e mv -> f = v)
+  (fun (l : _) (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expP R) (u : R.-sfker projT2 G ~> T) (h1 : evalP e u) =>
+    forall (v : R.-sfker projT2 G ~> T), evalP e v -> u = v)
+  _ _ _ _ _ _ _ _ _ _ _ _ _ _ dT T); last exact: hu.
 - (* E_unit *)
-  move=> d' G' l' {}v mv.
-  inversion 1.
-  subst d l0.
-  inj H2.
-  subst G.
-  do 4 inj H6.
-  by [].
+  elim=>/= [{}v mv ev|].
+  apply/funext => a /=.
+  admit.
+  admit.
 - (* E_bool *)
-  move=> d' G' l' r' {}v mv.
-  inversion 1.
+  move=> l' G0 b G1 mv.
+  case: b.
+  (* inversion 1.
   inj H2; subst.
   by do 4 inj H5.
 - (* E_real *)
@@ -1277,11 +1404,11 @@ apply: (@evalP_mut_ind R
   have ? := ih1 _.
   admit.
 - (* E_letin_ *)
-  admit.
+  admit. *)
 Admitted.
 
-Lemma eval_uniqD (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) l (e : expD R) u v mu mv :
-  @evalD _ _ A l _ B e u mu ->
+(* Lemma eval_uniqD (dA dB : measure_display) (A : measurableType dA) (B : measurableType dB) l (e : expD R) u v mu mv :
+  @evalD l _ B e u mu ->
   @evalD _ _ A l _ B e v mv ->
   u = v.
 Proof.
@@ -1302,7 +1429,7 @@ subst.
 (* apply Classical_Prop.EqdepTheory.inj_pair2 in H18. *)
 subst.
 (* apply Classical_Prop.EqdepTheory.inj_pair2 in H18. *)
-Admitted.
+Admitted. *)
 
 Axiom largest_var_in_expP : forall e : expP R, nat.
 (* return the larget var in e *)
@@ -1310,10 +1437,10 @@ Axiom largest_var_in_expP : forall e : expP R, nat.
 Lemma eval_full dA (A : measurableType dA) l s :
   prod_meas s = existT _ _ A ->
   forall e, (largest_var_in_expP e <= size s)%nat ->
-    exists dB (B : measurableType dB) v, @evalP R _ A l _ B e v.
+    exists dB (B : measurableType dB) v, @evalP R l dB B e v.
 Proof.
 move=> HA e Hs.
-apply: (@expP_mut_ind R
+(* apply: (@expP_mut_ind R
   (fun (e : expD R) =>
     exists dB (B : measurableType dB) (v : A -> B) (mv : measurable_fun setT v), evalD l e mv)
   (fun (e : expP R) =>
@@ -1390,7 +1517,7 @@ apply: (@expP_mut_ind R
   do 2 eexists. *)
   (* exists (ite mf1). *)
 -
--
+- *)
 Admitted.
 (* 
 Lemma evalP_surjection dA dB (A : measurableType dA) (B : measurableType dB) l :
@@ -1410,193 +1537,15 @@ Admitted.
 
 End eval_prop.
 
-Section example.
-Variables (d : _) (G : measurableType d) (R : realType).
-
-Example ex_real : @evalD R _ G [::] _ _ (exp_real 3%:R) (@cst _ R 3%:R) (kr 3%:R).
-Proof. apply/E_real. Qed.
-
-Example ex_bool : @evalD R _ G [::] _ _ (exp_bool true) (cst true)
-(@measurable_fun_cst _ _ _ mbool setT _).
-Proof. apply/E_bool. Qed.
-
-Example ex_pair : @evalD R _ G [::] _ _ (exp_pair (exp_real 1) (exp_real 2)) _
-(@measurable_fun_pair _ _ _ _ _ _ (@cst _ R 1%R) (@cst _ R 2) (kr 1) (kr 2)).
-Proof.
-apply/E_pair /E_real /E_real.
-Qed.
-
-Example ex_ifP : @evalP R _ G [::] _ (mR R)
-  (exp_if (exp_bool true) (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
-  (ite (@measurable_fun_cst _ _ _ mbool setT true) (ret k3) (ret k10)).
-Proof. apply/E_ifP /E_return /E_real /E_return /E_real /E_bool. Qed.
-
-Example ex_iteT : @ite _ _ _ (mR R) R _
-(@measurable_fun_cst _ _ _ mbool setT true) (ret k3) (ret k10) tt = ret k3 tt.
-Proof. by rewrite iteE. Qed.
-
-Example ex_iteF : @ite _ _ _ (mR R) R _
-(@measurable_fun_cst _ _ _ mbool setT false) (ret k3) (ret k10) tt =
-ret k10 tt.
-Proof. by rewrite iteE. Qed.
-
-Local Open Scope ring_scope.
-
-Example sample1 :
-  @evalP R _ (mR R) [::] _ _
-    (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-    (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))).
-Proof.
-exact/E_sample/E_bernoulli.
-Qed.
-
-Example sampler (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-  @evalP R _ (mR R) [::] _ _
-    (exp_sample (exp_bernoulli r))
-    (sample _ (measurable_fun_cst (bernoulli r1 : pprobability _ _))).
-Proof. exact/E_sample/E_bernoulli. Qed.
-
-Example score1 :
-  @evalP R _ (mR R) [::] _ _ (exp_score (exp_real 1)) (score (kr 1)).
-Proof. apply/E_score /E_real. Qed.
-
-Example score2 :
-  @evalP R _ (mR R) [::] _ _
-    (exp_score (exp_poisson 4 (exp_real 3%:R)))
-    (score (measurable_fun_comp (mpoisson 4) (kr 3%:R))).
-Proof. apply/E_score /E_poisson /E_real. Qed.
-
-(* to be failed *)
-Example ex_var :
-  @evalP R _ munit [::] _ _
-    (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-      (exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
-        (exp_letin "y" (exp_score (exp_poisson 4 (exp_var "r")))
-          (exp_return (exp_var "y")))))
-    (kstaton_bus' _ (mpoisson 4)).
-Proof.
-apply/E_letin /E_letin /E_letin => /=.
-(* apply/E_sample /E_bernoulli. *) admit.
-apply/E_ifP /E_return /E_real /E_return /E_real.
-(* apply/(E_var _ 0%nat). *)
-exact: E_var.
-apply/E_score.
-apply/E_poisson.
-exact: (E_var3 1).
-(* exact: (E_var3 _ 1%nat). *)
-apply/E_return.
-set tmp := var2of4.
-have -> : tmp = proj2_sig (var_i_of4 1) by [].
-(* have := @E_var4 3 [:: ("y", 2%nat); ("r", 1%nat); ("x", 0%nat)] _ _ _ _ munit mbool (mR R) munit "y" 2 erefl. *)
-Abort.
-
-Example eval5 :
-  @evalP R _ munit [::] _ _
-    (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-      (exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R)))
-        (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
-          (exp_return (exp_var "x")))))
-    (kstaton_bus' _ (mpoisson 4)).
-Proof.
-apply/E_letin /E_letin /E_letin => /=.
-apply/E_sample /E_bernoulli.
-apply/E_ifP /E_return /E_real /E_return /E_real.
-exact: E_var.
-apply/E_score.
-apply/E_poisson.
-exact: (E_var3 1).
-apply/E_return.
-exact: (E_var4 0).
-Qed.
-
-Example eval6 P :
-  @evalD R _ munit [::] _ _
-    (exp_norm
-      (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-        (exp_letin "r"
-          (exp_if (exp_var "x") (exp_return (exp_real 3%:R))
-                                (exp_return (exp_real 10%:R)))
-          (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
-            (exp_return (exp_var "x"))))))
-    (staton_bus' (mpoisson 4) P : _ -> pprobability _ _) (measurable_fun_normalize (R := R) (kstaton_bus' _ (mpoisson 4)) P).
-    (* (@normalize _ _ munit mbool R (kstaton_bus' _ (mpoisson 4)) P). *)
-Proof.
-apply/E_norm.
-apply/E_letin /E_letin /E_letin_.
-apply/E_sample /E_bernoulli.
-apply/E_ifP /E_return /E_real /E_return /E_real.
-exact: E_var.
-apply/E_score.
-apply/E_poisson.
-exact: (E_var3 1).
-apply/E_return.
-exact: (E_var4 0).
-Qed.
-
-Example eval7 P :
-  @evalD R _ munit [::] _ _
-    (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))
-    _
-    (* (@normalize _ _ _ _ R (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _)))) *)
-    (measurable_fun_normalize (R := R) (sample _ (measurable_fun_cst (bernoulli p27 : pprobability _ _))) P).
-Proof. apply/E_norm /E_sample /E_bernoulli. Qed.
-
-Example eval7_2 P :
-  @evalD R _ munit [::] _ _
-    (exp_norm (exp_sample (exp_norm (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)))))
-    _
-    (* (@normalize _ _ _ _ R
-      (sample _ (measurable_fun_normalize (sample _ (@mbernoulli_density_function R _ _ (2 / 7%:R))) P)) P : _ -> pprobability _ _) *)
-    (measurable_fun_normalize
-      (sample _ (measurable_fun_normalize (R := R) (sample _ (measurable_fun_cst  (bernoulli p27 : pprobability _ _))) P)) P).
-Proof.
-apply/E_norm /E_sample.
-apply/E_norm /E_sample /E_bernoulli.
-Qed.
-
-Example exp_staton_bus' : expD R :=
-  (exp_norm
-    (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-      (exp_letin "r"
-        (exp_letin "_"
-          (exp_if (exp_var "x") (exp_return (exp_real 3))
-                                (exp_return (exp_real 10)))
-          (exp_score (exp_poisson 4 (exp_var "r"))))
-        (exp_return (exp_var "x"))))).
-
-Example exp_staton_bus : expD R :=
-  (exp_norm
-    (exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng))
-      (exp_letin "r"
-        (exp_if (exp_var "x") (exp_return (exp_real 3))
-                              (exp_return (exp_real 10)))
-        (exp_letin "_" (exp_score (exp_poisson 4 (exp_var "r")))
-          (exp_return (exp_var "x")))))).
-
-(* Lemma eq_statonbus (t u : expP) v1 v2 mv1 mv2 :
-  @evalD _ munit [::] _ (pprobability _ _) exp_staton_bus v1 mv1 ->
-  @evalD _ munit [::] _ _ exp_staton_bus' v2 mv2 ->
-  v1 = v2.
-Proof.
-have -> : v1 = staton_bus (mpoisson 4) (bernoulli p27).
-admit.
-have -> : v2 = staton_bus' (mpoisson 4) (bernoulli p27) tt.
-admit.
-move=> h1 h2.
-by rewrite staton_busE staton_busE'.
-Admitted. *)
-
-End example.
-
 Section letinC.
 Variables (dG : _) (G : measurableType dG) (dT : _) (T : measurableType dT)
   (dU : _) (U : measurableType dU) (R : realType).
 
 Lemma letinC' (t u : expP R) (v1 v2 : R.-sfker _ ~> _) :
-  @evalP R _ G [::] _ [the measurableType _ of (T * U)%type]
+  @evalP R [::] _ [the measurableType _ of (T * U)%type]
   (exp_letin "x" t (exp_letin "y" u
     (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v1 ->
-  @evalP R _ G [::] _ [the measurableType _ of (T * U)%type]
+  @evalP R [::] _ [the measurableType _ of (T * U)%type]
   (exp_letin "y" u (exp_letin "x" t
     (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v2 ->
   v1 = v2.
@@ -1605,7 +1554,7 @@ pose vt : R.-sfker G ~> T := exec G T t.
 pose vu : R.-sfker [the measurableType _ of (G * T)%type] ~> U := exec _ _ u.
 move=> evalv1 evalv2.
 (* pose vu := exec [the measurableType _ of (G * T)%type] _ u. *)
-have hv1 : v1 = (letin vt (letin vu (ret (measurable_fun_pair var2of3 var3of3)))).
+(* have hv1 : v1 = (letin vt (letin vu (ret (measurable_fun_pair var2of3 var3of3)))).
   (* apply: (eval_uniq _ _ _ evalv1). *)
   (* apply: (@eval_uniq _ _ _ _ P _ _). *)
   admit.
@@ -1616,7 +1565,7 @@ have hv2 : v2 = (letin vu' (letin vt' (ret (measurable_fun_pair var3of3 var2of3)
   admit.
 rewrite hv1 hv2.
 apply/eq_sfkernel=> x A.
-apply: letinC.
+apply: letinC. *)
 Admitted.
 
 Lemma letinC'' (t u : expP R) :
