@@ -140,7 +140,7 @@ Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
 Variable k : (R.-ker X ~> Y)^nat.
 
 Definition kseries : X -> {measure set Y -> \bar R} :=
-  fun x => [the measure _ _ of mseries (k ^~ x) 0].
+  fun x => mseries (k ^~ x) 0.
 
 Lemma measurable_fun_kseries (U : set Y) :
   measurable U ->
@@ -251,7 +251,7 @@ Lemma sfinite_finite :
     forall x U, measurable U -> k x U = mseries (k_ ^~ x) 0 U.
 Proof.
 exists (fun n => if n is O then [the _.-ker _ ~> _ of k] else
-  [the _.-ker _ ~> _ of @kzero _ _ X Y R]).
+  @kzero _ _ X Y R).
   by case => [|_]; [exact: measure_uub|exact: kzero_uub].
 move=> t U mU/=; rewrite /mseries.
 rewrite (nneseries_split 1%N)// big_ord_recl/= big_ord0 adde0.
@@ -492,7 +492,7 @@ Variable k : X * Y -> \bar R.
 
 Lemma measurable_fun_xsection_integral
     (l : X -> {measure set Y -> \bar R})
-    (k_ : ({nnsfun [the measurableType _ of (X * Y)%type] >-> R})^nat)
+    (k_ : ({nnsfun (X * Y)%type >-> R})^nat)
     (ndk_ : nondecreasing_seq (k_ : (X * Y -> R)^nat))
     (k_k : forall z, EFin \o (k_ ^~ z) --> k z) :
   (forall n r, measurable_fun setT (fun x => l x (xsection (k_ n @^-1` [set r]) x))) ->
@@ -588,7 +588,7 @@ Variable f : X -> Y.
 
 Definition kdirac (mf : measurable_fun setT f)
     : X -> {measure set Y -> \bar R} :=
-  fun x => [the measure _ _ of dirac (f x)].
+  fun x => dirac (f x).
 
 Hypothesis mf : measurable_fun setT f.
 
@@ -682,7 +682,7 @@ Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
 Variables k1 k2 : R.-ker X ~> Y.
 
 Definition kadd : X -> {measure set Y -> \bar R} :=
-  fun x => [the measure _ _ of measure_add (k1 x) (k2 x)].
+  fun x => measure_add (k1 x) (k2 x).
 
 Let measurable_fun_kadd U : measurable U ->
   measurable_fun setT (kadd ^~ U).
@@ -893,7 +893,7 @@ Section kcomp_is_measure.
 Context d1 d2 d3 (X : measurableType d1) (Y : measurableType d2)
  (Z : measurableType d3) (R : realType).
 Variable l : R.-ker X ~> Y.
-Variable k : R.-ker [the measurableType _ of (X * Y)%type] ~> Z.
+Variable k : R.-ker (X * Y)%type ~> Z.
 
 Local Notation "l \; k" := (kcomp l k).
 
@@ -948,7 +948,7 @@ Section kcomp_finite_kernel_finite.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType).
 Variable l : R.-fker X ~> Y.
-Variable k : R.-fker [the measurableType _ of (X * Y)%type] ~> Z.
+Variable k : R.-fker (X * Y)%type ~> Z.
 
 Let mkcomp_finite : measure_fam_uub (l \; k).
 Proof.
@@ -974,7 +974,7 @@ Section kcomp_sfinite_kernel.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType).
 Variable l : R.-sfker X ~> Y.
-Variable k : R.-sfker [the measurableType _ of (X * Y)%type] ~> Z.
+Variable k : R.-sfker (X * Y)%type ~> Z.
 
 Import KCOMP_FINITE_KERNEL.
 
@@ -986,7 +986,7 @@ have [kl hkl] : exists kl : (R.-fker X ~> Z) ^nat, forall x U,
     \esum_(i in setT) (l_ i.2 \; k_ i.1) x U = \sum_(i <oo) kl i x U.
   have /ppcard_eqP[f] : ([set: nat] #= [set: nat * nat])%card.
     by rewrite card_eq_sym; exact: card_nat2.
-  exists (fun i => [the _.-fker _ ~> _ of l_ (f i).2 \; k_ (f i).1]) => x U.
+  exists (fun i => l_ (f i).2 \; k_ (f i).1) => x U.
   by rewrite (reindex_esum [set: nat] _ f)// nneseries_esum// fun_true.
 exists kl => x U mU.
 transitivity (([the _.-ker _ ~> _ of kseries l_] \; [the _.-ker _ ~> _ of kseries k_]) x U).
@@ -1019,7 +1019,7 @@ Section kcomp_sfinite_kernel.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType).
 Variable l : R.-sfker X ~> Y.
-Variable k : R.-sfker [the measurableType _ of (X * Y)%type] ~> Z.
+Variable k : R.-sfker (X * Y)%type ~> Z.
 
 HB.instance Definition _ :=
   isKernel.Build _ _ X Z R (l \; k) (measurable_fun_mkcomp_sfinite l k).
@@ -1063,8 +1063,7 @@ Lemma measurable_fun_preimage_integral (l : X -> {measure set Y -> \bar R}) :
   (forall n r, measurable_fun setT (l ^~ (k_ n @^-1` [set r]))) ->
   measurable_fun setT (fun x => \int[l x]_z k z).
 Proof.
-move=> h; apply: (measurable_fun_xsection_integral (k \o snd) l
-  (fun n => [the {nnsfun _ >-> _} of k_2 n])) => /=.
+move=> h; apply: (measurable_fun_xsection_integral (k \o snd) l k_2) => /=.
 - by rewrite /k_2 => m n mn; apply/lefP => -[x y] /=; exact/lefP/ndk_.
 - by move=> [x y]; exact: k_k.
 - move=> n r _ /= B mB.
