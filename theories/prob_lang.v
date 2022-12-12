@@ -79,9 +79,9 @@ Section mscore.
 Context d (T : measurableType d) (R : realType).
 Variable f : T -> R.
 
-Definition mscore t : {measure set _ -> \bar R} :=
+Definition mscore t : {measure set unit -> \bar R} :=
   let p := NngNum (normr_ge0 (f t)) in
-  [the measure _ _ of mscale p [the measure _ _ of dirac tt]].
+  mscale p (dirac tt).
 
 Lemma mscoreE t U : mscore t U = if U == set0 then 0 else `| (f t)%:E |.
 Proof.
@@ -169,7 +169,7 @@ apply/EFin_measurable_fun.
 by rewrite (_ : \1__ = mindic R (emeasurable_itv1 R i)).
 Qed.
 
-Definition mk i t := [the measure _ _ of k mf i t].
+Definition mk i t : {measure set unit -> \bar R} := k mf i t.
 
 HB.instance Definition _ i :=
   isKernel.Build _ _ _ _ _ (mk i) (measurable_fun_k i).
@@ -250,7 +250,7 @@ Section kiteT.
 Variable k : R.-ker X ~> Y.
 
 Definition kiteT : X * bool -> {measure set Y -> \bar R} :=
-  fun xb => if xb.2 then k xb.1 else [the measure _ _ of mzero].
+  fun xb => if xb.2 then k xb.1 else mzero.
 
 Let measurable_fun_kiteT U : measurable U -> measurable_fun setT (kiteT ^~ U).
 Proof.
@@ -276,7 +276,7 @@ Let sfinite_kiteT : exists2 k_ : (R.-ker _ ~> _)^nat,
   forall x U, measurable U -> kiteT k x U = mseries (k_ ^~ x) 0 U.
 Proof.
 have [k_ hk /=] := sfinite k.
-exists (fun n => [the _.-ker _ ~> _ of kiteT (k_ n)]) => /=.
+exists (kiteT \o k_) => /=.
   move=> n; have /measure_fam_uubP[r k_r] := measure_uub (k_ n).
   by exists r%:num => /= -[x []]; rewrite /kiteT//= /mzero//.
 move=> [x b] U mU; rewrite /kiteT; case: ifPn => hb; first by rewrite hk.
@@ -307,7 +307,7 @@ Section kiteF.
 Variable k : R.-ker X ~> Y.
 
 Definition kiteF : X * bool -> {measure set Y -> \bar R} :=
-  fun xb => if ~~ xb.2 then k xb.1 else [the measure _ _ of mzero].
+  fun xb => if ~~ xb.2 then k xb.1 else mzero.
 
 Let measurable_fun_kiteF U : measurable U -> measurable_fun setT (kiteF ^~ U).
 Proof.
@@ -334,7 +334,7 @@ Let sfinite_kiteF : exists2 k_ : (R.-ker _ ~> _)^nat,
   forall x U, measurable U -> kiteF k x U = mseries (k_ ^~ x) 0 U.
 Proof.
 have [k_ hk /=] := sfinite k.
-exists (fun n => [the _.-ker _ ~> _ of kiteF (k_ n)]) => /=.
+exists (kiteF \o k_) => /=.
   move=> n; have /measure_fam_uubP[r k_r] := measure_uub (k_ n).
   by exists r%:num => /= -[x []]; rewrite /kiteF//= /mzero//.
 move=> [x b] U mU; rewrite /kiteF; case: ifPn => hb; first by rewrite hk.
@@ -500,7 +500,7 @@ Qed.
 
 Lemma letin_retk
   (f : X -> Y) (mf : measurable_fun setT f)
-  (k : R.-sfker [the measurableType _ of (X * Y)%type] ~> Z)
+  (k : R.-sfker (X * Y)%type ~> Z)
   x U : measurable U ->
   letin (ret mf) k x U = k (x, f x) U.
 Proof.
@@ -568,7 +568,7 @@ Import Notations.
 Context d (T : measurableType d) (R : realType).
 
 Let kcomp_scoreE d1 d2 (T1 : measurableType d1) (T2 : measurableType d2)
-  (g : R.-sfker [the measurableType _ of (T1 * unit)%type] ~> T2)
+  (g : R.-sfker (T1 * unit)%type ~> T2)
   f (mf : measurable_fun setT f) r U :
   (score mf \; g) r U = `|f r|%:E * g (r, tt) U.
 Proof.
@@ -673,10 +673,10 @@ Context d d1 d' (X : measurableType d) (Y : measurableType d1)
 Import Notations.
 
 Variables (t : R.-sfker Z ~> X)
-          (t' : R.-sfker [the measurableType _ of (Z * Y)%type] ~> X)
+          (t' : R.-sfker (Z * Y)%type ~> X)
           (tt' : forall y, t =1 fun z => t' (z, y))
           (u : R.-sfker Z ~> Y)
-          (u' : R.-sfker [the measurableType _ of (Z * X)%type] ~> Y)
+          (u' : R.-sfker (Z * X)%type ~> Y)
           (uu' : forall x, u =1 fun z => u' (z, x)).
 
 Definition T z : set X -> \bar R := t z.
@@ -1007,7 +1007,6 @@ Qed.
 (* true -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
 (* false -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
 
-<<<<<<< HEAD
 Lemma staton_bus_exponentialE P (t : R) U :
   let N := ((2 / 7%:R) * exp1560 3%:R +
             (5%:R / 7%:R) * exp1560 10%:R)%R in
@@ -1022,24 +1021,3 @@ by rewrite addr_gt0// mulr_gt0//= ?divr_gt0// ?ltr0n// exp_density_gt0 ?ltr0n.
 Qed.
 
 End staton_bus_exponential.
-=======
-Lemma program4E (t : T) (U : _) : program4 t U =
-  ((twoseven R)%:num)%:E * (poisson 3%:R 4)%:E * \d_(true) U +
-  ((fiveseven R)%:num)%:E * (poisson 10%:R 4)%:E * \d_(false) U.
-Proof.
-rewrite /program4.
-rewrite letin_sample_bernoulli27.
-rewrite -!muleA.
-congr (_ * _ + _ * _).
-  rewrite letin_ureturn //.
-  rewrite letin_ite_true//.
-  rewrite letin_returnu//.
-  by rewrite ScoreE// => r r0; exact: poisson_ge0.
-rewrite letin_ureturn //.
-rewrite letin_ite_false//.
-rewrite letin_returnu//.
-by rewrite ScoreE// => r r0; exact: poisson_ge0.
-Qed.
-
-End program4.
->>>>>>> s-finite kernels for ite and examples
