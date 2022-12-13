@@ -358,6 +358,17 @@
 - in `esum.v`:
   + lemma `fsbig_esum`
 
+  + `covered_by_countable` generalized from `pointedType` to `choiceType`
+### Changed
+
+### Renamed
+
+### Generalized
+
+### Deprecated
+
+### Removed
+
 ### Infrastructure
 
 ### Misc
