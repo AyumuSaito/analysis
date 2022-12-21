@@ -18,11 +18,18 @@ Local Open Scope ereal_scope.
 
 Require Import String ZArith.
 Local Open Scope string.
-(* Import Notations.
 
-Section check.
+Import Notations.
+(* Section check.
 Variable (R : realType).
-Check sample (bernoulli p27) : R.-sfker _ ~> mbool.
+Check sample.
+Check bernoulli p27 : probability mbool _.
+Check sample (cst (bernoulli p27)) _ : R.-sfker _ ~> mbool.
+
+Definition bind' dA dB dC (A : measurableType dA) (B : measurableType dB) (C : measurableType dC) (k : R.-sfker A ~> B) (mk : {f | measurable_fun setT f} -> R.-sfker _ ~> C) :=
+  letin k (mk (k tt)).
+
+Check bind' (sample (cst (bernoulli p27))) (fun x => ret x).
 Check (sample (bernoulli p27) : R.-sfker munit ~> mbool) tt setT.
 Check ite (kb true) (ret k3) (ret k10) : R.-sfker munit ~> (mR R).
 Check @score _ _ _ (poisson 4) _ : R.-sfker (mR R) ~> munit.
@@ -30,8 +37,8 @@ Check letin (sample (bernoulli p27)) (ret var1of2).
 Check letin.
 Check ret.
 
-End check.
-*)
+End check. *)
+
 
 (* 
 define letin': 
@@ -312,6 +319,16 @@ with expP :=
 | exp_score : expD -> expP
 | exp_return : expD -> expP.
 
+Local Open Scope ring_scope.
+
+Definition pgm1 : expP := exp_sample (exp_bernoulli (2 / 7%:R)%:nng).
+Definition pgm2 : expP := exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)) (exp_return (exp_var "x")).
+Example pgm3 : expD := exp_norm (
+  exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)) (
+  exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R))) (
+  exp_letin "_" (exp_score (exp_poisson 4 (exp_var  "r"))) (
+  exp_return (exp_var "x"))))).
+
 End expression.
 
 Arguments exp_unit {R}.
@@ -327,6 +344,118 @@ Definition context' := seq (string * sigT measurableType)%type.
 End context.
 
 Import Notations.
+
+Section typeof.
+Variable (R : realType).
+
+Check kernel _ _ _ : Type.
+
+Fixpoint typeofD (G : context') (e : expD R) : Type :=
+  match e with
+  | exp_unit => munit
+  | exp_bool b => mbool
+  | exp_real r => mR R
+  | exp_pair e1 e2 => (typeofD G e1 * typeofD G e2)%type
+  | exp_bernoulli nng => munit -> mbool
+  | exp_poisson n e => munit -> (mR R)
+  | _ => munit
+  end
+with typeofP (G : context') (e : expP R) : Type :=
+  match e with
+  | exp_if _ e _ => typeofP G e
+  | exp_letin _ e1 e2 => munit
+  | exp_sample e => R.-sfker munit ~> mbool
+  | exp_score e => R.-sfker munit ~> (mR R)
+  | exp_return e => R.-sfker munit ~> munit
+  end.
+
+Example typeofpgm1 : typeofP [::] (pgm1 R) = R.-sfker munit ~> mbool.
+Proof. done. Qed.
+
+End typeof.
+
+Section size.
+Variable (R : realType).
+
+Fixpoint sizeD (e : expD R) : nat :=
+  match e with
+  | exp_pair e1 e2 => sizeD e1 + sizeD e2 + 1
+  | exp_poisson _ e => sizeD e + 1
+  | exp_norm e => sizeP e + 1
+  | _ => 1
+  end
+with sizeP (e : expP R) :=
+  match e with
+  | exp_if e1 e2 e3 => sizeD e1 + sizeP e2 + sizeP e3 + 1
+  | exp_letin _ e1 e2 => sizeP e1 + sizeP e2 + 1
+  | exp_sample e => sizeD e + 1
+  | exp_score e => sizeD e + 1
+  | exp_return e => sizeD e + 1
+end.
+
+End size.
+
+
+Section free_variables.
+Variable (R : realType).
+
+Local Open Scope seq_scope.
+Fixpoint free_varsD (e : expD R) : seq _ :=
+  match e with
+  | exp_var x => [:: x]
+  | exp_poisson _ e => free_varsD e
+  | _ => [::]
+  end
+with free_varsP (e : expP R) : seq _ :=
+  match e with
+  | exp_if e1 e2 e3 => free_varsD e1 ++ free_varsP e2 ++ free_varsP e3
+  | exp_letin x e1 e2 => rem x (free_varsP e1 ++ free_varsP e2)
+  | exp_sample e => free_varsD e
+  | exp_score e => free_varsD e
+  | exp_return e => free_varsD e
+  end.
+
+Example fv1 : free_varsP (pgm1 R) = [::].
+Proof. done. Qed.
+Example fv2 : free_varsP (pgm2 R) = [::].
+Proof. done. Qed.
+Example fv3 : free_varsD (pgm3 R) = [::].
+Proof. done. Qed.
+
+Local Open Scope nat_scope.
+Lemma fv_sizeD (e : expD R) : size (free_varsD e) <= sizeD e.
+Proof.
+elim: e => //= n e IH.
+apply: (leq_trans IH (leq_addr 1 _)).
+Qed.
+
+Lemma fv_sizeP (e : expP R) : size (free_varsP e) <= sizeP e.
+Proof.
+elim: e => //=.
+move=> e e0 IH0 e1 IH1.
+rewrite !size_cat.
+have -> : sizeP (exp_if e e0 e1) = sizeD e + sizeP e0 + sizeP e1 + 1.
+by done.
+have H : size (free_varsD e) <= sizeD e by rewrite fv_sizeD.
+apply: (leq_trans _ (leq_addr 1 _)).
+rewrite addnA.
+apply: leq_add => //.
+apply: leq_add => //.
+move=> s e IH e0 IH0.
+have H : size (rem s (free_varsP e ++ free_varsP e0)) <= size (free_varsP e ++ free_varsP e0).
+case sin : (s \in free_varsP e ++ free_varsP e0).
+by rewrite (size_rem sin) leq_pred.
+rewrite rem_id //.
+by rewrite sin.
+apply: (leq_trans H).
+rewrite size_cat.
+apply: (leq_trans (leq_add IH IH0) (leq_addr 1 _)).
+move=> e; apply /(leq_trans (fv_sizeD e)) /leq_addr.
+move=> e; apply /(leq_trans (fv_sizeD e)) /leq_addr.
+move=> e; apply /(leq_trans (fv_sizeD e)) /leq_addr.
+Qed.
+
+End free_variables.
 
 Section type_checking.
 Variable (R : realType).
@@ -358,13 +487,9 @@ with type_checkP : context -> expP R -> Type -> Prop :=
 | tc_letin G v e1 e2 A B : type_checkP G e1 A -> type_checkP ((v, A) :: G) e2 B ->
   type_checkP G (exp_letin v e1 e2) B.
 
-Local Open Scope ring_scope.
-
-Definition pgm1 : expP R := exp_sample (exp_bernoulli (2 / 7%:R)%:nng).
 Example tc_1 : type_checkP [::] pgm1 bool.
 Proof. apply/tc_sample /tc_bernoulli. Qed.
 
-Definition pgm2 : expP R := exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)) (exp_return (exp_var "x")).
 Example tc_2 : type_checkP [::] pgm2 bool.
 Proof.
 apply/(@tc_letin _ _ _ _ bool).
@@ -372,11 +497,6 @@ apply/tc_sample /tc_bernoulli.
 apply/tc_return /(@tc_var [::] "x").
 Qed.
 
-Example pgm3 : expD R := exp_norm (
-  exp_letin "x" (exp_sample (exp_bernoulli (2 / 7%:R)%:nng)) (
-  exp_letin "r" (exp_if (exp_var "x") (exp_return (exp_real 3%:R)) (exp_return (exp_real 10%:R))) (
-  exp_letin "_" (exp_score (exp_poisson 4 (exp_var  "r"))) (
-  exp_return (exp_var "x"))))).
 Example tc_3 : type_checkD [::] pgm3 (probability mbool R).
 Proof.
 apply/tc_norm.
@@ -752,6 +872,7 @@ destruct i.
 exact: (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
 destruct l => //.
 destruct i.
+(* exact: (measurable_fun_comp (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)) (@measurable_fun_snd _ _ _ _)). *)
 exact: (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))). (* var3of3 *)
 destruct l => //.
 destruct i.
@@ -772,6 +893,23 @@ Proof. by rewrite -(size_map fst) index_mem. Qed.
 
 Definition get_dom_kernel d d' (X : measurableType d) (Y : measurableType d')
   (l : R.-sfker X ~> Y) := X.
+(* 
+Fixpoint exec (l : context') (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expD R) : {f : projT2 G -> T | measurable_fun setT f} :=
+  match e with
+  | exp_var x => forall (H : x \in (map fst l)), let i := seq.index x (map fst l) in 
+  existT _ _
+  (* (@varof l i (false_index_size H)) *)
+  (@mvarof l i (false_index_size H))
+
+  | exp_unit => existT _ (cst tt) ktt
+  | exp_bool b => existT _ (cst b) (kb b)
+  | exp_real r => existT _ (cst r) (kr r)
+  | exp_pair e1 e2 => existT _ _ (@measurable_fun_pair _ _ _ (projT2 G) _ _ (projT1 (exec e1)) (projT1 (exec e2)) (projT2 (exec e1)) (projT2 (exec e2)))
+  | exp_poisson k e => (poisson k \o (projT1 (exec e))) 
+  (measurable_fun_comp (mpoisson k) (projT2 (exec e)))
+
+  (* | _ => existT _ (cst tt) ktt *)
+  end. *)
 
 Inductive evalD : forall (l : context') (G := prod_meas (map snd l))
     dT (T : measurableType dT) (e : expD R) 
@@ -900,7 +1038,6 @@ with evalP_mut_ind := Induction for evalP Sort Prop.
 
 Scheme expD_mut_ind := Induction for expD Sort Prop
 with expP_mut_ind := Induction for expP Sort Prop.
-
 
 Section example.
 Variables (d : _) (G : measurableType d) (R : realType).
@@ -1575,3 +1712,4 @@ Proof.
 Admitted.
 
 End letinC.
+
