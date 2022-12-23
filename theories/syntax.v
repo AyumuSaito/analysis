@@ -8,7 +8,8 @@ Require Import prob_lang.
 Set Implicit Arguments.
 Implicit Types V : Set.
 Unset Strict Implicit.
-Unset Printing Implicit Defensive.
+Set Printing Implicit Defensive.
+
 Import Order.TTheory GRing.Theory Num.Def Num.Theory.
 Import numFieldTopology.Exports.
 
@@ -269,9 +270,18 @@ Definition letin' (l : R.-sfker X ~> Y)
     (k : R.-sfker [the measurableType (d', d).-prod of (Y * X)%type] ~> Z) :=
   locked [the R.-sfker X ~> Z of l \; k].
 
+Lemma letin'E (l : R.-sfker X ~> Y)
+    (k : R.-sfker [the measurableType (d', d).-prod of (Y * X)%type] ~> Z) x U :
+  letin' l k x U = \int[l x]_y k (y, x) U.
+Proof. by rewrite /letin'; unlock. Qed.
+
 End letin'.
 
 (* new notation with letin' *)
+Notation var1of3' := (@measurable_fun_fst _ _ _ _).
+Notation var2of3' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
+Notation var3of3' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
+
 Notation var1of4' := (@measurable_fun_fst _ _ _ _).
 Notation var2of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
 Notation var3of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
@@ -487,17 +497,17 @@ with type_checkP : context -> expP R -> Type -> Prop :=
 | tc_letin G v e1 e2 A B : type_checkP G e1 A -> type_checkP ((v, A) :: G) e2 B ->
   type_checkP G (exp_letin v e1 e2) B.
 
-Example tc_1 : type_checkP [::] pgm1 bool.
+Example tc_1 : type_checkP [::] (pgm1 R) bool.
 Proof. apply/tc_sample /tc_bernoulli. Qed.
 
-Example tc_2 : type_checkP [::] pgm2 bool.
+Example tc_2 : type_checkP [::] (pgm2 R) bool.
 Proof.
 apply/(@tc_letin _ _ _ _ bool).
 apply/tc_sample /tc_bernoulli.
 apply/tc_return /(@tc_var [::] "x").
 Qed.
 
-Example tc_3 : type_checkD [::] pgm3 (probability mbool R).
+Example tc_3 : type_checkD [::] (pgm3 R) (probability mbool R).
 Proof.
 apply/tc_norm.
 apply/(@tc_letin _ _ _ _ mbool).
@@ -846,21 +856,6 @@ with freevarsP (e : expP R) : nat :=
 
 Compute freevarsP (exp_sample (pgm3 R)).
 
-(* Fixpoint freevarsD (e : expD R) : seq _ :=
-  match e with
-  | exp_var x => [::]
-  | exp_unit => [::]
-  | exp_bool b => [::]
-  | exp_real r => [::]
-  | exp_pair e1 e2 => freevarsD e1 ++ freevarsD e2
-  | exp_bernoulli r => [::]
-  | exp_poisson k e => freevarsD e
-  | exp_norm e => freevarsP e
-  end
-with freevarsP (e : expP R) : seq _ :=
-  [::]
-  . *)
-
 Lemma mvarof (l : context') (i : nat) (li : (i < size l)%nat) :
   measurable_fun setT (@varof l i li).
 Proof.
@@ -1138,7 +1133,6 @@ rewrite /kstaton_bus'.
 apply/E_sample /E_bernoulli. admit.
 apply/E_ifP /E_return. admit. admit. *)
 Admitted.
-
 
 Example eval5 :
   @evalP R [::] _ _
@@ -1678,31 +1672,75 @@ Section letinC.
 Variables (dG : _) (G : measurableType dG) (dT : _) (T : measurableType dT)
   (dU : _) (U : measurableType dU) (R : realType).
 
-Lemma letinC' (t u : expP R) (v1 v2 : R.-sfker _ ~> _) :
-  @evalP R [::] _ [the measurableType _ of (T * U)%type]
-  (exp_letin "x" t (exp_letin "y" u
-    (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v1 ->
-  @evalP R [::] _ [the measurableType _ of (T * U)%type]
-  (exp_letin "y" u (exp_letin "x" t
-    (exp_return (exp_pair (exp_var "x") (exp_var "y"))))) v2 ->
-  v1 = v2.
+Lemma tt' t (t' : R.-sfker [the measurableType _ of (U * munit)%type] ~> T) : forall x, t =1 fun z => t' (x, z).
+Admitted.
+
+Lemma uu' u (u' : R.-sfker [the measurableType _ of (T * munit)%type] ~> U) : forall y, u =1 fun z => u' (y, z).
+Admitted.
+
+Lemma __ : @evalD R
+  [:: ("y", existT _ _ U);
+          ("x", existT _ _ T)] _ _
+  (exp_var "y") fst var1of2.
 Proof.
-pose vt : R.-sfker G ~> T := exec G T t.
-pose vu : R.-sfker [the measurableType _ of (G * T)%type] ~> U := exec _ _ u.
+have -> : (var1of4' = (@mvarof R [:: ("y", existT _ _ U); ("x", existT _ _ T)] 0 (false_index_size (_ : ("y" \in map fst [:: ("y", existT _ _ U); ("x", existT _ _ T)]))))) by done.
+exact: (@E_var R [:: ("y", existT _ _ U); ("x", existT _ _ T)] _ _ _ _ "y").
+Qed.
+
+
+Lemma letinC' (t u : expP R) (v1 v2 : R.-sfker _ ~> _) z A :
+  let x := "x" in let y := "y" in
+  measurable A ->
+  @evalP R [::] _ [the measurableType _ of (U * T)%type]
+  (exp_letin x t (exp_letin y u
+    (exp_return (exp_pair (exp_var x) (exp_var y))))) v1 ->
+  @evalP R [::] _ [the measurableType _ of _]
+  (exp_letin y u (exp_letin x t
+    (exp_return (exp_pair (exp_var x) (exp_var y))))) v2 ->
+  v1 z A = v2 z A.
+Proof.
+move=> x y mA.
+pose vt : R.-sfker munit ~> T := exec munit T t.
+pose vu : R.-sfker [the measurableType _ of (T * munit)%type] ~> U := exec _ _ u.
 move=> evalv1 evalv2.
-(* pose vu := exec [the measurableType _ of (G * T)%type] _ u. *)
-(* have hv1 : v1 = (letin vt (letin vu (ret (measurable_fun_pair var2of3 var3of3)))).
-  (* apply: (eval_uniq _ _ _ evalv1). *)
-  (* apply: (@eval_uniq _ _ _ _ P _ _). *)
-  admit.
-pose vt' : R.-sfker [the measurableType _ of (G * U)%type] ~> T := exec _ _ t.
-pose vu' : R.-sfker G ~> U := exec _ _ u.
-have hv2 : v2 = (letin vu' (letin vt' (ret (measurable_fun_pair var3of3 var2of3)))).
-  (* apply: (eval_uniq evalv2). *)
-  admit.
-rewrite hv1 hv2.
-apply/eq_sfkernel=> x A.
-apply: letinC. *)
+have -> : v2 = (letin' vt (letin' vu (ret (measurable_fun_pair var1of3' var2of3')))).
+apply: (eval_uniqP evalv2).
+apply /E_letin /E_letin.
+admit. admit.
+apply /E_return /E_pair.
+have -> : (var1of4' = (@mvarof R [:: (x, existT _ _ U); (y, existT _ _ T)] 0 (false_index_size (_ : (x \in map fst [:: (x, existT _ _ U); (y, existT _ _ T)]))))) by done.
+apply: (@E_var R [:: (x, existT _ _ U); (y, existT _ _ T)] _ _ _ _ x) => //.
+have -> : (var2of4' = (@mvarof R [:: (x, existT _ _ U); (y, existT _ _ T)] 1 (false_index_size (_ : (y \in map fst [:: (x, existT _ _ U); (y, existT _ _ T)]))))) by done.
+apply: (@E_var R [:: (x, existT _ _ U); (y, existT _ _ T)] _ _ _ _ y) => //.
+pose vt' : R.-sfker [the measurableType _ of (U * munit)%type] ~> T := exec _ _ t.
+pose vu' : R.-sfker munit ~> U := exec _ _ u.
+have -> : v1 = (letin' vu' (letin' vt' (ret (measurable_fun_pair var2of3' var1of3')))).
+apply: (eval_uniqP evalv1).
+apply/E_letin /E_letin.
+admit. admit.
+apply/E_return /E_pair.
+have -> : (var2of4' = (@mvarof R [:: (y, existT _ _ T); (x, existT _ _ U)] 1 (false_index_size (_ : (x \in map fst [:: (y, existT _ _ T); (x, existT _ _ U)]))))) by done.
+apply: (@E_var R [:: (y, existT _ _ T); (x, existT _ _ U)] _ _ _ _ x) => //.
+have -> : (var1of4' = (@mvarof R [:: (y, existT _ _ T); (x, existT _ _ U)] 0 (false_index_size (_ : (y \in map fst [:: (y, existT _ _ T); (x, existT _ _ U)]))))) by done.
+apply: (@E_var R [:: (y, existT _ _ T); (x, existT _ _ U)] _ _ _ _ y) => //.
+rewrite !letin'E.
+under eq_integral.
+  move=> x0 _.
+  rewrite letin'E /=.
+  rewrite -(tt' vt).
+  under eq_integral do rewrite retE /=.
+  over.
+rewrite (sfinite_fubini _ _ (fun x => \d_(x.1, x.2) A))//; last 3 first.
+exact: sfinite_kernel_measure.
+exact: sfinite_kernel_measure.
+apply/EFin_measurable_fun => /=.
+rewrite (_ : (fun x => _) = @mindic _ [the measurableType _ of (U * T)%type] R _ mA).
+admit.
+by apply/funext => -[].
+apply eq_integral => /= x0 _.
+rewrite letin'E/= -(uu' vu').
+apply eq_integral => /= y0 _.
+by rewrite retE.
 Admitted.
 
 Lemma letinC'' (t u : expP R) :
