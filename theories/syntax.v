@@ -1360,6 +1360,7 @@ inversion 1.
 by do 3 inj H2.
 - (* pair *)
 move=> l' G0 dA dB A B e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 f {}mv.
+(* simple inversion 1 => // ev. *)
 inversion 1.
 subst.
 have Hd : dA0 = dA /\ dB0 = dB.
@@ -1371,11 +1372,12 @@ have ? : (A = A0) by admit.
 subst.
 have ? : (B = B0) by admit.
 subst.
-do 3 inj H18.
-clear H26.
+do 3 inj H26.
+inj H6.
 subst.
 have -> : (f1 = f0) by apply: IH1.
 by have -> : (f2 = f3) by apply: IH2.
+- (* var *)
 move=> l' G0 d1 d2 T1 T2 x H i H0 {}mv.
 inversion 1.
 subst.
@@ -1406,6 +1408,7 @@ have HT : (T0 = T1) by admit.
 subst.
 do 3 inj H5.
 by have -> : (k = k0) by apply: IH0.
+- (* sample *)
 move=> l0 G0 dT0 T0 e0 p mp e1 IH0 k H.
 simple inversion H => // _ ev.
 subst.
