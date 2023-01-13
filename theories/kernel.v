@@ -778,12 +778,12 @@ have [/eqP->|/eqP->|/eqP->|/eqP->] := set_bool B.
 Qed.
 
 Section mnormalize.
-Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
-Variables (f : X -> {measure set Y -> \bar R}) (P : probability Y R).
+Variables (d d' : _) (X : measurableType d) (Y : measurableType d').
+Variables (R : realType) (f : X -> {measure set Y -> \bar R}).
 
 Definition mnormalize x U :=
   let evidence := f x [set: Y] in
-  if (evidence == 0) || (evidence == +oo) then P U
+  if (evidence == 0) || (evidence == +oo) then (@point (probability_ptType Y R)) U
   else f x U * (fine evidence)^-1%:E.
 
 Let mnormalize0 x : mnormalize x set0 = 0.
@@ -825,17 +825,17 @@ Section knormalize.
 Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
 Variable f : R.-ker X ~> Y.
 
-Definition knormalize (P : probability Y R) : X -> {measure set Y -> \bar R} :=
-  fun x => [the measure _ _ of mnormalize f P x].
+Definition knormalize :=
+  fun t => [the measure _ _ of mnormalize f t].
 
-Variable P : probability Y R.
+(* Variable P : probability Y R. *)
 
 Let measurable_fun_knormalize U :
-  measurable U -> measurable_fun setT (knormalize P ^~ U).
+  measurable U -> measurable_fun setT (knormalize ^~ U).
 Proof.
 move=> mU; rewrite /knormalize/= /mnormalize /=.
 rewrite (_ : (fun _ => _) = (fun x =>
-     if f x setT == 0 then P U else if f x setT == +oo then P U
+     if f x setT == 0 then (@point (probability_ptType Y R)) U else if f x setT == +oo then (@point (probability_ptType Y R)) U
      else f x U * (fine (f x setT))^-1%:E)); last first.
   apply/funext => x; case: ifPn => [/orP[->//|->]|]; first by case: ifPn.
   by rewrite negb_or=> /andP[/negbTE -> /negbTE ->].
@@ -861,10 +861,10 @@ apply: measurable_fun_if => //.
     by have := measurable_kernel f _ measurableT; exact: measurable_funS.
 Qed.
 
-HB.instance Definition _ := isKernel.Build _ _ _ _ R (knormalize P)
+HB.instance Definition _ := isKernel.Build _ _ _ _ R knormalize
   measurable_fun_knormalize.
 
-Let knormalize1 x : knormalize P x setT = 1.
+Let knormalize1 x : knormalize x setT = 1.
 Proof.
 rewrite /knormalize/= /mnormalize.
 case: ifPn => [_|]; first by rewrite probability_setT.
@@ -875,7 +875,7 @@ by rewrite -EFinM divrr// ?lte_fin ?ltr1n// ?unitfE fine_eq0.
 Qed.
 
 HB.instance Definition _ :=
-  @Kernel_isProbability.Build _ _ _ _ _ (knormalize P) knormalize1.
+  @Kernel_isProbability.Build _ _ _ _ _ knormalize knormalize1.
 
 End knormalize.
 
