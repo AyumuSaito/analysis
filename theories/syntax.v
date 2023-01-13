@@ -792,7 +792,7 @@ Proof. rewrite /=. *)
 
 Lemma measurable_fun_normalize (R : realType) dX (X : measurableType dX)
    dY (Y : measurableType dY) (k : R.-sfker X ~> Y) (P : probability Y R) :
-  measurable_fun setT (normalize k P : X -> pprobability Y R).
+  measurable_fun setT (normalize k : X -> pprobability Y R).
 Proof.
 Admitted.
 
@@ -973,7 +973,7 @@ Inductive evalD : forall (l : context')
 | E_norm : forall l e dT (T : measurableType dT) (k : R.-sfker _ ~> T),
   @evalP l _ _ e k ->
   @evalD l _ _ (exp_norm e)
-  (normalize k point : _ -> pprobability _ _) 
+  (normalize k : _ -> pprobability _ _) 
   (measurable_fun_normalize k point)
 
 with evalP : forall (l : context')
@@ -1465,13 +1465,9 @@ subst.
 have YY0 : (Y = Y0) by admit.
 subst.
 have k01 : (k1 = k0).
-apply: IH0.
-by injection H5 => e42 <- xx0.
+by apply: IH0.
 subst.
-have <- : (k2 = k3).
-apply: IH1.
-by injection H5 => <- ? <-.
-done.
+by have <- : (k2 = k3) by apply: IH1.
 Admitted.
 
 Lemma eval_uniqP (l : context') (G := prod_meas (map snd l)) dT (T : measurableType dT) (e : expP R) (u v : R.-sfker projT2 G ~> T) :
@@ -1498,12 +1494,12 @@ by do 3 inj H2.
 
 - (* E_unit *)
   elim=>/= [{}v mv ev|].
-  apply/funext => a /=.
+  (* apply/funext => a /=. *)
   admit.
   admit.
 - (* E_bool *)
   move=> l' G0 b G1 mv.
-  case: b.
+  (* case: b. *)
   (* inversion 1.
   inj H2; subst.
   by do 4 inj H5.
@@ -1860,8 +1856,8 @@ Lemma letinC' (t u : expP R) (v1 v2 : R.-sfker _ ~> _) z A :
   v1 z A = v2 z A.
 Proof.
 move=> x y mA.
-pose vt : R.-sfker munit ~> T := exec munit T t.
-pose vu : R.-sfker [the measurableType _ of (T * munit)%type] ~> U := exec _ _ u.
+pose vt : R.-sfker munit ~> T := execP munit T t.
+pose vu : R.-sfker [the measurableType _ of (T * munit)%type] ~> U := execP _ _ u.
 move=> evalv1 evalv2.
 have -> : v2 = (letin' vt (letin' vu (ret (measurable_fun_pair var1of3' var2of3')))).
 apply: (eval_uniqP evalv2).
@@ -1872,8 +1868,8 @@ have -> : (var1of4' = (@mvarof R [:: (x, existT _ _ U); (y, existT _ _ T)] 0 (fa
 apply: (@E_var R [:: (x, existT _ _ U); (y, existT _ _ T)] _ _ _ _ x) => //.
 have -> : (var2of4' = (@mvarof R [:: (x, existT _ _ U); (y, existT _ _ T)] 1 (false_index_size (_ : (y \in map fst [:: (x, existT _ _ U); (y, existT _ _ T)]))))) by done.
 apply: (@E_var R [:: (x, existT _ _ U); (y, existT _ _ T)] _ _ _ _ y) => //.
-pose vt' : R.-sfker [the measurableType _ of (U * munit)%type] ~> T := exec _ _ t.
-pose vu' : R.-sfker munit ~> U := exec _ _ u.
+pose vt' : R.-sfker [the measurableType _ of (U * munit)%type] ~> T := execP _ _ t.
+pose vu' : R.-sfker munit ~> U := execP _ _ u.
 have -> : v1 = (letin' vu' (letin' vt' (ret (measurable_fun_pair var2of3' var1of3')))).
 apply: (eval_uniqP evalv1).
 apply/E_letin /E_letin.

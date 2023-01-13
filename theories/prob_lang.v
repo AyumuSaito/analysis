@@ -411,8 +411,8 @@ Definition ret (f : X -> Y) (mf : measurable_fun setT f)
 Definition sample (P : X -> pprobability Y R) (mP : measurable_fun setT P) :=
   locked [the R.-pker X ~> Y of kprobability mP] .
 
-Definition normalize (k : R.-sfker X ~> Y) P : X -> probability Y R :=
-  fun x => [the probability _ _ of mnormalize k P x].
+Definition normalize (k : R.-sfker X ~> Y) x :=
+  locked [the probability _ _ of mnormalize k x].
 
 Definition ite (f : X -> bool) (mf : measurable_fun setT f)
     (k1 k2 : R.-sfker X ~> Y) : R.-sfker X ~> Y :=
@@ -432,9 +432,9 @@ Proof. by []. Qed.
 Lemma sampleE (P : pprobability Y R) (x : X) : sample _ (measurable_fun_cst P) x = P.
 Proof. by rewrite [in LHS]/sample; unlock. Qed.
 
-Lemma normalizeE (f : R.-sfker X ~> Y) P x U :
-  normalize f P x U =
-  if (f x [set: Y] == 0) || (f x [set: Y] == +oo) then P U
+Lemma normalizeE (f : R.-sfker X ~> Y) x U :
+  normalize f x U =
+  if (f x [set: Y] == 0) || (f x [set: Y] == +oo) then (@point (probability_ptType Y R)) U
   else f x U * ((fine (f x [set: Y]))^-1)%:E.
 Proof. by rewrite /normalize /= /mnormalize; case: ifPn. Qed.
 
@@ -709,7 +709,8 @@ move=> mA.
 rewrite !letinE.
 under eq_integral.
   move=> x _.
-  rewrite letinE -uu'.
+  rewrite letinE/=.
+  rewrite -uu'.
   under eq_integral do rewrite retE /=.
   over.
 rewrite (sfinite_fubini
@@ -970,10 +971,10 @@ Qed.
 (* true -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
 (* false -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
 
-Lemma staton_busE P (t : R) U :
+Lemma staton_busE (t : R) U :
   let N := ((2 / 7%:R) * poisson4 3%:R +
             (5%:R / 7%:R) * poisson4 10%:R)%R in
-  staton_bus mpoisson4 P t U =
+  staton_bus mpoisson4 t U =
   ((2 / 7%:R)%:E * (poisson4 3%:R)%:E * \d_true U +
    (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U) * N^-1%:E.
 Proof.
@@ -1020,10 +1021,10 @@ Qed.
 (* true -> 5/7 * 0.019 = 5/7 * 10^4 e^-10 / 4! *)
 (* false -> 2/7 * 0.168 = 2/7 * 3^4 e^-3 / 4! *)
 
-Lemma staton_bus_exponentialE P (t : R) U :
+Lemma staton_bus_exponentialE (t : R) U :
   let N := ((2 / 7%:R) * exp1560 3%:R +
             (5%:R / 7%:R) * exp1560 10%:R)%R in
-  staton_bus mexp1560 P t U =
+  staton_bus mexp1560 t U =
   ((2 / 7%:R)%:E * (exp1560 3%:R)%:E * \d_true U +
    (5%:R / 7%:R)%:E * (exp1560 10%:R)%:E * \d_false U) * N^-1%:E.
 Proof.
