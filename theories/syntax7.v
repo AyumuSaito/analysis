@@ -827,6 +827,55 @@ Axiom largest_var_in_expD : forall (t : types) (l : context) (e : @expD R t l), 
 Axiom H : forall x (l : context), x \in (map fst l).
 
 
+Local Open Scope seq_scope.
+Fixpoint free_varsD T (l : context) (e : @expD R T l) : seq string :=
+  match e with
+  | exp_var _ x => [:: x]
+  | exp_poisson _ _ e => free_varsD e
+  | _ => [::]
+  end
+with free_varsP T l (e : expP T l) : seq string :=
+  match e with
+  | exp_if _ R e1 e2 e3 => free_varsD e1 ++ free_varsP e2 ++ free_varsP e3
+  | exp_letin _ R _ x e1 e2 => free_varsP e1 ++ rem x (free_varsP e2)
+  | exp_sample _ R e => free_varsD e
+  | exp_score _ e => free_varsD e
+  | exp_return _ R e => free_varsD e
+  end.
+  
+Lemma evalD_full (T : types) (l : context) :
+  forall e, {subset (free_varsD e) <= map fst l} ->
+  exists f (mf : measurable_fun _ f), @evalD R l T e f mf.
+Proof.
+move=> e.
+apply: (@expD_mut_ind R
+  (fun (t : types) (l : context) (e : expD t l) =>
+    {subset (free_varsD e) <= map fst l} ->
+    exists f (mf : measurable_fun _ f), evalD e mf)
+  (fun (t : types) (l : context) (e : expP t l) =>
+    {subset (free_varsP e) <= map fst l} ->
+    exists k, evalP e k)
+  _ _ _ _ _ _ _ _ _ _ _ _ _ T l e).
+do 2 eexists; apply/E_unit.
+do 2 eexists; apply/E_bool.
+do 2 eexists; apply/E_real.
+move=> t1 t2 l0 e1 H1 e2 H2.
+have h1 : {subset free_varsD e1 <= [seq i.1 | i <- l]}.
+  move=> x.
+  admit.
+have h2 : {subset free_varsD e2 <= [seq i.1 | i <- l]}.
+  admit.
+move: H1 => /(_ _ h1) => H1.
+move: H2 => /(_ _ h2) => H2.
+destruct H1 as [f1 [mf1 H1]].
+destruct H2 as [f2 [mf2 H2]].
+exists (fun x => (f1 x, f2 x)).
+eexists; exact: E_pair.
+move=> l0 x.
+do 2 eexists.
+apply/E_var.
+
+
 Lemma evalD_full dA (A : measurableType dA) (T : types) (l : context) :
   (* T = prods (map snd l) -> *)
   forall e, 

@@ -391,7 +391,6 @@ Defined.
 Definition varof3 (l l0 : context) (x : string) (lx : x \in map fst l) (lx0 : x \in map fst l0) :
   projT2 (@typei R (prods (map snd l0))) ->
   projT2 (@typei R (nth units (map snd l : seq types) (seq.index x (map fst l)))).
-
 Admitted.
 
 Lemma false_index_size2 (x : string) (l : context) (H : x \in (map fst l)) :
@@ -412,6 +411,11 @@ move=> il K.
 apply: (measurable_fun_comp (IHl _ _) (@measurable_fun_snd _ _ _ _)).
 apply: K.
 Qed.
+
+Lemma mvarof3 (l l0 : context) (x : string) (lx : x \in map fst l) (lx0 : x \in map fst l0) :
+  measurable_fun setT (@varof3 l l0 x lx lx0).
+Proof.
+Admitted.
 
 Lemma measurable_fun_knormalize d d' (X : measurableType d) (Y : measurableType d') (k : R.-sfker X ~> Y) U :
   measurable U -> measurable_fun setT (knormalize k ^~ U).
@@ -509,8 +513,8 @@ Inductive evalD : forall (l : context)
 | E_var : forall (l : context) (x : string) (H : x \in (map fst l)),
   let i := seq.index x (map fst l) in
   (* @evalD _ [the measurableType _ of (T1 * T2)%type] l _ _ (exp_var x) (proj1_sig (var_i_of2 i.+1)) (proj2_sig (var_i_of2 i.+1)) *)
-  @evalD l _ (exp_var x H) (@varof2 l i (false_index_size2 H))
-  (@mvarof2 l i (false_index_size2 H))
+  @evalD l _ (exp_var x H) (@varof3 l l x H H)
+  (@mvarof3 l l x H H)
 
 | E_bernoulli : forall l (r : {nonneg R}) (r1 : (r%:num <= 1)%R),
   @evalD l (probs bools) (exp_bernoulli r r1) (cst [the probability _ _ of bernoulli r1]) (measurable_fun_cst _)
@@ -619,7 +623,7 @@ by rewrite (IH1 _ _ e1f0) (IH2 _ _ e2f3).
 - (* var *)
 move=> l' x H n {}v {}mv.
 inversion 1.
-do 2 inj H10.
+do 2 inj H9.
 by have -> : (H = H7) by exact: Prop_irrelevance.
 - (* bernoulli *)
 move=> l' r r1 {}v {}mv.
@@ -819,7 +823,13 @@ Fixpoint free_varsD T (e : @expD R T) : seq _ :=
   match e with
   | exp_var R x _ => [:: x]
   | exp_poisson _ e => free_varsD e
-  | _ => [::]
+  | exp_pair _ _ e1 e2 => free_varsD e1 ++ free_varsD e2
+  | exp_unit => [::]
+  | exp_bool _ => [::]
+  | exp_real _ => [::]
+  | exp_bernoulli _ _ => [::]
+  | exp_norm _ e => free_varsP e
+  (* | _ => [::] *)
   end
 with free_varsP T (e : expP T) : seq _ :=
   match e with
@@ -830,18 +840,10 @@ with free_varsP T (e : expP T) : seq _ :=
   | exp_return R e => free_varsD e
   end.
 
-Lemma evalD_full dA (A : measurableType dA) (T : types) :
-  (* T = prods (map snd l) -> *)
+Lemma evalD_full (T : types) :
   forall e l, 
-  (* match e with exp_sample e' =>  *)
   {subset (free_varsD e) <= map fst l} ->
-  (* forall e x, x \in (map fst l) -> *)
-    (* match e with exp_sample e' =>
-      exists p, @evalD    *)
-    (* | _ =>  *)
-      exists f (mf : measurable_fun _ f), @evalD R l T e f mf
-    (* end *)
-    .
+  exists f (mf : measurable_fun _ f), @evalD R l T e f mf.
 Proof.
 move=> e.
 apply: (@expD_mut_ind R
@@ -855,29 +857,33 @@ apply: (@expD_mut_ind R
 do 2 eexists; apply: E_unit.
 do 2 eexists; apply: E_bool.
 do 2 eexists; apply: E_real.
+- (* pair *)
 move=> t1 t2 e1 H1 e2 H2 l el.
 have h1 : {subset free_varsD e1 <= [seq i.1 | i <- l]}.
-  admit.
+  move=> x xe1.
+  apply: el => /=.
+  by rewrite mem_cat xe1.
 have h2 : {subset free_varsD e2 <= [seq i.1 | i <- l]}.
-  admit.
+  move=> x xe2.
+  apply: el => /=.
+  by rewrite mem_cat xe2 orbT.
 move: H1 => /(_ _ h1) => H1.
 move: H2 => /(_ _ h2) => H2.
 destruct H1 as [f1 [mf1 ev1]].
 destruct H2 as [f2 [mf2 ev2]].
-exists (fun x => (f1 x, f2 x)).
-eexists; apply (E_pair ev1 ev2).
+do 2 eexists.
+by apply: (E_pair ev1 ev2).
+- (* var *)
 move=> l x xl l0 xl0.
 have xl0' : (x \in map fst l0) by admit.
 (* have -> : (l0 = l) by admit. *)
 exists (@varof3 R l l0 x xl xl0').
-eexists.
-(* exists (@mvarof2 R l0 (seq.index x (map fst l0)) (@false_index_size2 x l0 (H x l0))). *)
+(* eexists. *)
+exists (@mvarof3 R l l0 x xl xl0').
 (* apply/E_var. *)
 admit.
 move=> r r1.
-eexists.
-eexists.
-exact: E_bernoulli.
+do 2 eexists; exact: E_bernoulli.
 move=> k e0 H.
 destruct H as [f [mf ev]].
 exists (poisson k \o f).
