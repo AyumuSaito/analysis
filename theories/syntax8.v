@@ -369,9 +369,9 @@ Arguments exp_return {R _}.
 Section eval.
 Variables (R : realType).
 
-Definition varof2 (l : context) (i : nat) (li : (i < size l)%nat) :
-  projT2 (@typei R (prods (map snd l))) ->
-  projT2 (@typei R (nth units (map snd l : seq types) i)).
+Definition prods_nth (l : seq types) (i : nat) (li : (i < size l)%nat) :
+  projT2 (@typei R (prods l)) ->
+  projT2 (@typei R (nth units l i)).
   (* projT2 (nth (existT _ _ munit) (map (typei \o snd) l) i). *)
 revert l i li.
 fix H 1.
@@ -388,17 +388,19 @@ refine (H _ _ _ K.2).
 exact il.
 Defined.
 
-Definition varof3 (l l0 : context) (x : string) (lx : x \in map fst l) (lx0 : x \in map fst l0) :
-  projT2 (@typei R (prods (map snd l0))) ->
+Definition prods_nth_elt (l : context) (x : string) (lx : x \in map fst l) :
+  projT2 (@typei R (prods (map snd l))) ->
   projT2 (@typei R (nth units (map snd l : seq types) (seq.index x (map fst l)))).
-Admitted.
+apply: prods_nth.
+by rewrite size_map -(size_map fst l) index_mem.
+Defined.
 
 Lemma false_index_size2 (x : string) (l : context) (H : x \in (map fst l)) :
 	(seq.index x (map fst l) < size l)%nat.
 Proof. by rewrite -(size_map fst) index_mem. Qed.
 
-Lemma mvarof2 (l : context) (i : nat) (li : (i < size l)%nat) :
-  measurable_fun setT (@varof2 l i li).
+Lemma mprods_nth (l : seq types) (i : nat) (li : (i < size l)%nat) :
+  measurable_fun setT (@prods_nth l i li).
 Proof.
 revert l i li.
 induction l.
@@ -412,8 +414,8 @@ apply: (measurable_fun_comp (IHl _ _) (@measurable_fun_snd _ _ _ _)).
 apply: K.
 Qed.
 
-Lemma mvarof3 (l l0 : context) (x : string) (lx : x \in map fst l) (lx0 : x \in map fst l0) :
-  measurable_fun setT (@varof3 l l0 x lx lx0).
+Lemma mprods_nth_elt (l : context) (x : string) (lx : x \in map fst l) :
+  measurable_fun setT (@prods_nth_elt l x lx).
 Proof.
 Admitted.
 
@@ -486,7 +488,7 @@ Admitted.
   | exp_pair _ _ e1 e2 => 
     existT _ _ (@measurable_fun_pair _ _ _ _ _ _ _ _ (projT2 (execD l e1)) (projT2 (execD l e2)))
   | exp_var l x => forall (H : x \in (map fst l)),
-    existT _ (@varof2 l (seq.index x (map fst l)) (false_index_size2 H)) (@mvarof2 l (seq.index x (map fst l)) (false_index_size2 H))
+    existT _ (@prods_nth l (seq.index x (map fst l)) (false_index_size2 H)) (@mprods_nth l (seq.index x (map fst l)) (false_index_size2 H))
   end. *)
 
 Inductive evalD : forall (l : context) 
@@ -510,11 +512,11 @@ Inductive evalD : forall (l : context)
     ((fun x : projT2 (typei G) => (f1 x, f2 x)) : projT2 (typei G) -> projT2 (typei (pairs A B))) 
     (@measurable_fun_pair _ _ _ (projT2 (typei G)) (projT2 (typei A)) (projT2 (typei B)) f1 f2 mf1 mf2)
 
-| E_var : forall (l : context) (x : string) (H : x \in (map fst l)),
+| E_var : forall (l : context) (x : string) (xl : x \in map fst l),
   let i := seq.index x (map fst l) in
   (* @evalD _ [the measurableType _ of (T1 * T2)%type] l _ _ (exp_var x) (proj1_sig (var_i_of2 i.+1)) (proj2_sig (var_i_of2 i.+1)) *)
-  @evalD l _ (exp_var x H) (@varof3 l l x H H)
-  (@mvarof3 l l x H H)
+  @evalD l _ (exp_var x xl) (@prods_nth_elt l x xl)
+  (@mprods_nth_elt l x xl)
 
 | E_bernoulli : forall l (r : {nonneg R}) (r1 : (r%:num <= 1)%R),
   @evalD l (probs bools) (exp_bernoulli r r1) (cst [the probability _ _ of bernoulli r1]) (measurable_fun_cst _)
@@ -623,8 +625,8 @@ by rewrite (IH1 _ _ e1f0) (IH2 _ _ e2f3).
 - (* var *)
 move=> l' x H n {}v {}mv.
 inversion 1.
-do 2 inj H9.
-by have -> : (H = H7) by exact: Prop_irrelevance.
+do 2 inj H7.
+by have -> : (H = xl0) by exact: Prop_irrelevance.
 - (* bernoulli *)
 move=> l' r r1 {}v {}mv.
 inversion 1.
@@ -877,9 +879,9 @@ by apply: (E_pair ev1 ev2).
 move=> l x xl l0 xl0.
 have xl0' : (x \in map fst l0) by admit.
 (* have -> : (l0 = l) by admit. *)
-exists (@varof3 R l l0 x xl xl0').
+exists (@prods_nth_elt R l x xl).
 (* eexists. *)
-exists (@mvarof3 R l l0 x xl xl0').
+exists (@mprods_nth_elt R l l0 x xl xl0').
 (* apply/E_var. *)
 admit.
 move=> r r1.
@@ -1097,15 +1099,15 @@ Proof.
 apply/E_norm /E_letin /E_letin /E_letin.
 apply/E_sample /E_bernoulli.
 apply/E_ifP.
-have -> : (var1of4' = (@mvarof2 R [:: ("x", bools)] 0 (false_index_size2 (_ : "x" \in map fst [:: ("x", bools)])))) by done.
+have -> : (var1of4' = (@mprods_nth R [:: ("x", bools)] 0 (false_index_size2 (_ : "x" \in map fst [:: ("x", bools)])))) by done.
 exact: (@E_var R [:: ("x", bools)] "x").
 apply/E_return /E_real.
 apply/E_return /E_real.
 apply/E_score /E_poisson.
-have -> : (var1of4' = (@mvarof2 R [:: ("r", reals); ("x", bools)] 0 (false_index_size2 (_ : "r" \in map fst [:: ("r", reals); ("x", bools)])))) by done.
+have -> : (var1of4' = (@mprods_nth R [:: ("r", reals); ("x", bools)] 0 (false_index_size2 (_ : "r" \in map fst [:: ("r", reals); ("x", bools)])))) by done.
 exact: (@E_var R [:: ("r", reals); ("x", bools)] "r").
 apply/E_return.
-have -> : (var3of4' = (@mvarof2 R [:: ("_", units); ("r", reals); ("x", bools)] 2 (false_index_size2 (_ : "x" \in map fst [:: ("_", units); ("r", reals); ("x", bools)])))) by done.
+have -> : (var3of4' = (@mprods_nth R [:: ("_", units); ("r", reals); ("x", bools)] 2 (false_index_size2 (_ : "x" \in map fst [:: ("_", units); ("r", reals); ("x", bools)])))) by done.
 exact: (@E_var R [:: ("_", units); ("r", reals); ("x", bools)] "x").
 Qed.
 
