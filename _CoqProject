@@ -39,11 +39,11 @@ theories/prob_lang.v
 theories/numfun.v
 theories/lebesgue_integral.v
 theories/kernel.v
-theories/prob_lang.v
-theories/wip.v
 theories/summability.v
 theories/signed.v
-theories/syntax.v
+theories/prob_lang.v
+theories/wip.v
+theories/lang_syntax.v
 theories/altreals/xfinmap.v
 theories/altreals/discrete.v
 theories/altreals/realseq.v

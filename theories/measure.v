@@ -87,7 +87,6 @@ From HB Require Import structures.
 (*                   that it is semi_sigma_additive                           *)
 (*     isMeasure == factory corresponding to the type of measures             *)
 (*     Measure == structure corresponding to measures                         *)
-(*     finite_measure mu == the measure mu is finite                          *)
 (*                                                                            *)
 (*  pushforward mf m == pushforward/image measure of m by f, where mf is a    *)
 (*                      proof that f is measurable                            *)
@@ -182,11 +181,6 @@ From HB Require Import structures.
 (*                             generated from T1 x T2, with T1 and T2         *)
 (*                             measurableType's with resp. display d1 and d2  *)
 (*                                                                            *)
-<<<<<<< HEAD
-=======
-(*      probability T R == probability measure over the measurableType T with *)
-(*                         value in R : realType                              *)
->>>>>>> add defs to measure.v
 (******************************************************************************)
 
 Set Implicit Arguments.
@@ -1591,10 +1585,6 @@ Arguments measure_bigcup {d R T} _ _.
 #[global] Hint Extern 0 (sigma_additive _) =>
   solve [apply: measure_sigma_additive] : core.
 
-Definition finite_measure d (T : measurableType d) (R : realType)
-    (mu : set T -> \bar R) :=
-  mu setT < +oo.
-
 Section pushforward_measure.
 Local Open Scope ereal_scope.
 Context d d' (T1 : measurableType d) (T2 : measurableType d') (f : T1 -> T2).
@@ -1937,16 +1927,6 @@ HB.instance Definition _ := isMeasure.Build _ _ _ counting
 
 End measure_count.
 
-<<<<<<< HEAD
-=======
-Lemma sigma_finite_counting (R : realType) :
-  sigma_finite [set: nat] (counting R).
-Proof.
-exists (fun n => `I_n.+1); first by apply/seteqP; split=> //x _; exists x => /=.
-by move=> k; split => //; rewrite /counting/= asboolT// ltry.
-Qed.
-
->>>>>>> integral of constant function (#781)
 Lemma big_trivIset (I : choiceType) D T (R : Type) (idx : R)
    (op : Monoid.com_law idx) (A : I -> set T) (F : set T -> R) :
     finite_set D -> trivIset D A -> F set0 = idx ->
@@ -4084,22 +4064,3 @@ exact: (measurable_fun_comp _ _ mf).
 Qed.
 
 End partial_measurable_fun.
-
-HB.mixin Record isProbability d (T : measurableType d)
-  (R : realType) (P : set T -> \bar R) of isMeasure d R T P :=
-  { probability_setT : P setT = 1%E }.
-
-#[short(type=probability)]
-HB.structure Definition Probability d (T : measurableType d) (R : realType) :=
-  {P of isProbability d T R P & isMeasure d R T P }.
-
-Section probability_lemmas.
-Context d (T : measurableType d) (R : realType) (P : probability T R).
-
-Lemma probability_le1 (A : set T) : measurable A -> (P A <= 1)%E.
-Proof.
-move=> mA; rewrite -(@probability_setT _ _ _ P).
-by apply: le_measure => //; rewrite ?in_setE.
-Qed.
-
-End probability_lemmas.
