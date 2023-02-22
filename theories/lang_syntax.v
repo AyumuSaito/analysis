@@ -23,13 +23,13 @@ Local Open Scope string.
 Import Notations.
 
 Notation var1of3' := (@measurable_fun_fst _ _ _ _).
-Notation var2of3' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
-Notation var3of3' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
+Notation var2of3' := (measurable_funT_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
+Notation var3of3' := (measurable_funT_comp (@measurable_fun_fst _ _ _ _) (measurable_funT_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
 
 Notation var1of4' := (@measurable_fun_fst _ _ _ _).
-Notation var2of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
-Notation var3of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
-Notation var4of4' := (measurable_fun_comp (@measurable_fun_fst _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (measurable_fun_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _)))).
+Notation var2of4' := (measurable_funT_comp (@measurable_fun_fst _ _ _ _) (@measurable_fun_snd _ _ _ _)).
+Notation var3of4' := (measurable_funT_comp (@measurable_fun_fst _ _ _ _) (measurable_funT_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
+Notation var4of4' := (measurable_funT_comp (@measurable_fun_fst _ _ _ _) (measurable_funT_comp (@measurable_fun_snd _ _ _ _) (measurable_funT_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _)))).
 
 Section kcomp'_def.
 Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
@@ -401,18 +401,12 @@ simpl => _.
 intro K.
 exact: measurable_fun_fst.
 move=> il K.
-apply: (measurable_fun_comp (IHl _ _) (@measurable_fun_snd _ _ _ _)).
+apply: (measurable_funT_comp (IHl _ _) (@measurable_fun_snd _ _ _ _)).
 apply: K.
 Qed.
 
-Lemma measurable_fun_knormalize d d' (X : measurableType d) (Y : measurableType d') (k : R.-sfker X ~> Y) U :
-  measurable U -> measurable_fun setT (knormalize k ^~ U).
-Proof.
-apply: measurable_kernel.
-Qed.
-
 Lemma measurable_fun_normalize d d' (X : measurableType d) (Y : measurableType d') (k : R.-sfker X ~> Y) :
-  measurable_fun setT (normalize k : X -> pprobability Y R).
+  measurable_fun setT (normalize k point : X -> pprobability Y R).
 Proof.
 move=> mX U mU.
 rewrite setTI.
@@ -508,11 +502,11 @@ Inductive evalD : forall (l : context) (T : stype) (e : @expD R l T)
 | E_poisson l k e f mf :
   l |- e -D-> f # mf ->
   l |- exp_poisson k e -D-> poisson k \o f #
-  measurable_fun_comp (mpoisson k) mf
+  measurable_funT_comp (mpoisson k) mf
 
 | E_norm l (t : stype) (e : expP l t) (k : R.-sfker _ ~> projT2 (typei t)) :
   l |- e -P-> k ->
-  l |- exp_norm e -D-> (normalize k : _ -> pprobability _ _) #
+  l |- exp_norm e -D-> (normalize k point : _ -> pprobability _ _) #
   measurable_fun_normalize k
 
 where "l |- e -D-> v # mv" := (@evalD l _ e v mv)
@@ -870,7 +864,7 @@ have h : {subset free_varsD e0 <= [seq i.1 | i <- l0]}.
 move: H => /(_ h) => H.
 destruct H as [f [mf]].
 exists (poisson k \o f).
-exists (measurable_fun_comp (mpoisson k) mf).
+exists (measurable_funT_comp (mpoisson k) mf).
 exact: E_poisson.
 move=> l0 t0 e0 H el.
 have h : {subset free_varsP e0 <= map fst l0}.
@@ -878,7 +872,7 @@ have h : {subset free_varsP e0 <= map fst l0}.
   by apply: el => /=.
 move: H => /(_ h) => H.
 destruct H as [k].
-exists (normalize k).
+exists (normalize k point).
 exists (measurable_fun_normalize k).
 exact: E_norm.
 move=> l0 t0 e1 H1 e2 H2 e3 H3 el.
@@ -997,7 +991,7 @@ have h : {subset free_varsD e0 <= [seq i.1 | i <- l0]}.
 move: H => /(_ h) => H.
 destruct H as [f [mf]].
 exists (poisson k \o f).
-exists (measurable_fun_comp (mpoisson k) mf).
+exists (measurable_funT_comp (mpoisson k) mf).
 exact: E_poisson.
 move=> l0 t0 e0 H el.
 have h : {subset free_varsP e0 <= map fst l0}.
@@ -1005,7 +999,7 @@ have h : {subset free_varsP e0 <= map fst l0}.
   by apply: el => /=.
 move: H => /(_ h) => H.
 destruct H as [k].
-exists (normalize k).
+exists (normalize k point).
 exists (measurable_fun_normalize k).
 exact: E_norm.
 move=> l0 t0 e1 H1 e2 H2 e3 H3 el.
@@ -1176,6 +1170,30 @@ apply.
 exact/E_return/E_real.
 Qed.
 
+Definition vx : R.-sfker munit ~> mR R := execP_cst [:: ("x", sreal)] [::] 1.
+Definition VX z : set (mR R) -> \bar R := vx z.
+Let VX0 z : (VX z) set0 = 0. Proof. by []. Qed.
+Let VX_ge0 z x : 0 <= (VX z) x. Proof. by []. Qed.
+Let VX_semi_sigma_additive z : semi_sigma_additive (VX z).
+Proof. exact: measure_semi_sigma_additive. Qed.
+HB.instance Definition _ z := @isMeasure.Build _ R (mR R) (VX z) (VX0 z) 
+  (VX_ge0 z) (@VX_semi_sigma_additive z).
+Let sfinVX z : sfinite_measure_def (VX z). Proof. exact: sfinite_kernel_measure. Qed.
+HB.instance Definition _ z := @Measure_isSFinite_subdef.Build _ (mR R) R
+  (VX z) (sfinVX z).
+
+Definition vy' : R.-sfker munit ~> mR R := execP_cst  [::] [::] 2.
+Definition VY z : set (mR R) -> \bar R := vy' z.
+Let VY0 z : (VY z) set0 = 0. Proof. by []. Qed.
+Let VY_ge0 z x : 0 <= (VY z) x. Proof. by []. Qed.
+Let VY_semi_sigma_additive z : semi_sigma_additive (VY z).
+Proof. exact: measure_semi_sigma_additive. Qed.
+HB.instance Definition _ z := @isMeasure.Build _ R (mR R) (VY z) (VY0 z) 
+  (VY_ge0 z) (@VY_semi_sigma_additive z).
+Let sfinVY z : sfinite_measure_def (VY z). Proof. exact: sfinite_kernel_measure. Qed.
+HB.instance Definition _ z := @Measure_isSFinite_subdef.Build _ (mR R) R
+  (VY z) (sfinVY z).
+
 Lemma letinC12 v1 v2 t M :
   let x := "x" in
   let y := "y" in
@@ -1275,9 +1293,11 @@ under eq_integral.
   rewrite /vx' /execP_cst /ssr_have /sval/=.
   by case: cid.
   over.
-rewrite (sfinite_fubini _ _ (fun t => \d_(t.1, t.2) M))//; last 3 first.
-exact: sfinite_kernel_measure.
-exact: sfinite_kernel_measure.
+rewrite /=.
+rewrite (sfinite_fubini
+  [the {sfinite_measure set (mR R) -> \bar R} of VX t]
+  [the {sfinite_measure set (mR R) -> \bar R} of VY t]
+  (fun t => \d_(t.1, t.2) M)) //; last first.
 apply/EFin_measurable_fun => /=.
 rewrite (_ : (fun x => _) = @mindic _ [the measurableType _ of (mR R * mR R)%type] R _ mM).
 by apply: measurable_fun_indic.
@@ -1313,7 +1333,7 @@ Definition ite_3_10 :
   ite var1of4' (ret k3) (ret k10).
 Definition score_poi :
   R.-sfker [the measurableType _ of ((mR R) * (mbool * munit)%type)%type] ~> munit :=
-  score (measurable_fun_comp (mpoisson 4) var1of4').
+  score (measurable_funT_comp (mpoisson 4) var1of4').
 
 Local Definition kstaton_bus'' := 
   letin' sample_bern 
