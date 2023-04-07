@@ -5,17 +5,20 @@ Require Import reals ereal topology normedtype sequences esum measure.
 Require Import lebesgue_measure fsbigop numfun lebesgue_integral kernel.
 Require Import prob_lang.
 
+Local Open Scope ring_scope.
+Import Order.TTheory GRing.Theory Num.Def Num.ExtraDef Num.Theory.
+
 Section bernoulli.
 Variable (R : realType) (p : {nonneg R}%R) (p1 : (p%:num <= 1)%R).
 
-Lemma b10 : bernoulli p1 [set 0] = (`1-(p%:num))%:E.
+Lemma b10 : bernoulli p1 [set 0%N] = (`1-(p%:num))%:E.
 Proof.
 rewrite /bernoulli/= /measure_add/= /msum.
 rewrite 2!big_ord_recr/= big_ord0 add0e.
 rewrite /mscale/= !diracE memNset// mem_set//= mule1 mule0 add0e //.
 Qed.
 
-Lemma b11 : bernoulli p1 [set 1] = p%:num%:E.
+Lemma b11 : bernoulli p1 [set 1%N] = p%:num%:E.
 Proof.
 rewrite /bernoulli/= /measure_add/= /msum.
 rewrite 2!big_ord_recr/= big_ord0 add0e.
@@ -24,18 +27,14 @@ Qed.
 
 End bernoulli.
 Section binomial.
-Local Open Scope ring_scope.
 Variables (R : realType).
-
-(* Compute p%:num%:E.
-Compute p%:num%R ^+ 2. *)
 
 Definition binomial2 (p : {nonneg R}) (p1 : p%:num <= 1) :=
   measure_add
     (mscale (p%:num ^+ 2)%:nng (dirac 2%N))
     (measure_add
-    (mscale (2 * p%:num * (onem_nonneg p1)%:num)%:nng (dirac 1%N))
-    (mscale ((onem_nonneg p1)%:num ^+ 2)%:nng (dirac 0%N))).
+      (mscale (2 * p%:num * (onem_nonneg p1)%:num)%:nng (dirac 1%N))
+      (mscale ((onem_nonneg p1)%:num ^+ 2)%:nng (dirac 0%N))).
 
 Lemma b20 p p1 : binomial2 p p1 [set 2%N] = (p%:num ^+ 2)%:E.
 Proof.
@@ -45,9 +44,6 @@ rewrite /mscale/= !diracE mem_set//= memNset// memNset// mule1 mule0 mule0 add0e
 Qed.
 
 End binomial.
-
-Local Open Scope ring_scope.
-Import Order.TTheory GRing.Theory Num.Def Num.ExtraDef Num.Theory.
 
 Section example.
 Variables (R : realType).
