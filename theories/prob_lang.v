@@ -1170,7 +1170,7 @@ under eq_integral.
   rewrite letin'E -uu'.
   under eq_integral do rewrite retE /=.
   over.
-rewrite (sfinite_fubini
+rewrite (sfinite_Fubini
   [the {sfinite_measure set X -> \bar R} of T' z]
   [the {sfinite_measure set Y -> \bar R} of U' z]
   (fun x => \d_(x.1, x.2) A ))//; last first.
