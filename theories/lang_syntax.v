@@ -102,6 +102,23 @@ with expP : context -> stype -> Type :=
 | exp_score l : expD l sreal -> expP l sunit
 | exp_return l t : expD l t -> expP l t.
 
+(* Fixpoint exp_extendD {l st} x (e : expD l st) : expD (x :: l) st :=
+  match e with
+  | exp_unit l => exp_unit (x :: l)
+  | exp_bool l b => exp_bool (x :: l) b
+  | exp_real l r => exp_real (x :: l) r
+  | exp_pair l t1 t2 e1 e2 => @exp_pair (x :: l) t1 t2 (exp_extendD x e1) (exp_extendD x e2)
+  | exp_var l s t ti => @exp_var (x :: l) s t _
+  | exp_bernoulli l r r1 => @exp_bernoulli (x :: l) r r1
+  | exp_poisson l n e => @exp_poisson (x :: l) n (exp_extendD x e)
+  | exp_norm l t e => @exp_norm (x :: l) t (exp_extendP x e)
+  end
+with exp_extendP {l st} x (e : expP l st) : expP (x :: l) st :=
+  match e with
+  | exp_if l _ e1 e2 e3 => @exp_if (x :: l) _ (exp_extendD x e1) (exp_extendP x e2) (exp_extendP x e3)
+  | exp_letin l _ _ s e1 e2 => @exp_letin (x :: l) _ _ s (exp_extendP x e1) (exp_extendP x e2)
+  end. *)
+
 (* Fixpoint expWP_list l (st : stype) h (t : context) (tl : forall x : (string * stype)%type, x \in h :: t -> x.1 \notin (map fst l)) (e : expP l st) :=
   match t with
   | [::] => @expWP l st h e (tl h _)
@@ -1092,7 +1109,7 @@ by rewrite execP_ret execD_real.
 by rewrite execP_ret execD_var; congr ret. *)
 Admitted.
 
-Lemma letinC_new l t1 t2 (e1 : @expP R l t1) (e2 : expP l t2)
+Lemma LetInC l t1 t2 (e1 : @expP R l t1) (e2 : expP l t2)
   (xl : "x" \notin map fst l) (yl : "y" \notin map fst l) :
   forall U, measurable U ->
   execP [Let "x" <~ e1 In
@@ -1128,34 +1145,88 @@ set rhs := measurable_fun_pair _ _.
 by have -> : lhs = rhs by exact: Prop_irrelevance.
 Qed.
 
-Lemma letinA12 :
-  (* (xl : "x" \notin map fst l) (yl : "y" \notin map fst l) : *)
+(* Reserved Notation "x =k y". *)
+
+Lemma execP_LetIn l t1 t2 x (e1 : @expP R l t1) (e1' : expP l t1) (e2 : expP ((x, t1) :: l) t2) :
   forall U, measurable U ->
-  @execP R [::] _ [Let "y" <~ Ret {1}:r In
-         {([Let "x" <~ Ret {2}:r In
-         Ret %{"x"}])}] ^~ U =
-  @execP R [::] _ [Let "x" <~ Let "y" <~ Ret {1}:r In Ret {2}:r In 
-         Ret %{"x"}] ^~ U.
+  execP e1 = (* =k *) execP e1' ->
+  execP [Let x <~ e1 In e2] ^~ U =
+  execP [Let x <~ e1' In e2] ^~ U.
 Proof.
-move=> U mU.
-apply/funext => x.
-rewrite !execP_letin !execP_ret !execD_real !execD_var /=.
-exact: letin'A.
+move=> U mU e1e1'.
+by rewrite !execP_letin e1e1'.
 Qed.
 
-Lemma letinA l t1 t2 t3 (e1 : @expP R l t1) (e2 : expP l t2) (e3 : expP l t3)
-  (xl : "x" \notin map fst l) (yl : "y" \notin map fst l) :
+Lemma execP_LetInR l t1 t2 x (e1 : @expP R l t1) (e2 : expP _ t2) (e2' : expP ((x, t1) :: l) t2) :
+  forall U, measurable U ->
+  execP e2 = execP e2' ->
+  execP [Let x <~ e1 In e2] ^~ U =
+  execP [Let x <~ e1 In e2'] ^~ U.
+Proof.
+move=> U mU e1e1'.
+by rewrite !execP_letin e1e1'.
+Qed.
+
+Example letinC12 : forall U, measurable U ->
+  @execP R [::] _ [Let "x" <~ Ret {1}:r In
+         Let "y" <~ Ret {2}:r In
+         Ret (%{"x"}, %{"y"})] ^~ U =
+  execP [Let "y" <~ Ret {2}:r In
+         Let "x" <~ Ret {1}:r In
+         Ret (%{"x"}, %{"y"})] ^~ U.
+Proof.
+move=> U mU.
+apply: (@trans_eq _ _ (execP
+  [Let "x" <~ Ret {1} :r In 
+   Let "y" <~ {@expWP R [::] sreal ("x", sreal) [Ret {2}:r] erefl} In Ret (% {"x"}, % {"y"})] ^~ U)).
+  apply: execP_LetInR => //.
+  apply: eq_sfkernel=> ? ?.
+  (* apply: execP_LetIn => //.
+  have H : (execP [Ret {2}:r] = execP (@expWP R [::] sreal ("x", sreal) [Ret {2}:r] erefl)).
+    rewrite execP_WP_keta1 !execP_ret !execD_real.
+    exact/eq_sfkernel.
+  apply: execP_LetInR => //.
+  erewrite (execP_LetIn _ _ _  H).
+rewrite LetInC //.
+apply: execP_LetIn3.
+  have H : (execP [Ret {1}:r] = execP (@expWP R [::] sreal ("y", sreal) [Ret {1}:r] erefl)).
+  rewrite execP_WP_keta1 !execP_ret !execD_real.
+  exact/eq_sfkernel.
+  apply: execP_LetIn3.
+exact: LetInC. *)
+Admitted.
+
+Lemma LetInA l t1 t2 t3 (e1 : @expP R l t1) (e2 : expP [:: ("y", t1) & l] t2) 
+  (e3 : expP l t3) (xl : "x" \notin map fst l) (yl : "y" \notin map fst l) :
   forall U, measurable U ->
   execP [Let "y" <~ e1 In
-         Let "x" <~ {@expWP _ _ _ ("y", t1) e2 yl} In
+         Let "x" <~ e2 In
          {@expWP _ _ _ ("x", t2) (@expWP _ _ _ ("y", t1) e3 yl) xl}] ^~ U =
-  execP [Let "x" <~ Let "y" <~ e1 In {@expWP _ _ _ ("y", t1) e2 yl} In 
+  execP [Let "x" <~ Let "y" <~ e1 In e2 In 
          {@expWP _ _ _ ("x", t2) e3 xl}] ^~ U.
 Proof.
 move=> U mU; apply/funext=> x.
 rewrite !execP_letin !execP_WP_keta1.
 exact: letin'A.
 Qed.
+
+Lemma letinA12 : forall U, measurable U ->
+  @execP R [::] _ [Let "y" <~ Ret {1}:r In
+         Let "x" <~ Ret {2}:r In Ret %{"x"}] ^~ U =
+  @execP R [::] _ [Let "x" <~ Let "y" <~ Ret {1}:r In Ret {2}:r In 
+         Ret %{"x"}] ^~ U.
+Proof.
+move=> U mU.
+(* apply: (@trans_eq _ _ (execP
+  [Let "x" <~ Let "y" <~ Ret {1}:r In Ret {2}:r In Ret %{"x"}] ^~ U)). *)
+apply: (@trans_eq _ _ (execP
+  [Let "y" <~ Ret {1}:r In
+   Let "x" <~ Ret {2}:r In
+   Ret %{"x"}] ^~ U)).
+(* apply: letinA.
+rewrite !execP_letin !execP_ret !execD_real !execD_var /=.
+exact: letin'A. *)
+Admitted.
 
 Lemma letinC l t1 t2 (e1 : @expP R l t1) (e2 : expP l t2)
   (xl : "x" \notin map fst l) (yl : "y" \notin map fst l)
@@ -1233,7 +1304,7 @@ Example letinr_ ta tb (l := [:: ("r", ta); ("_", tb)]) t1 t2
   forall U, measurable U -> v1 ^~ U = v2 ^~ U.
 Proof. exact: letinC. Abort.
 
-Example letinC12 (v1 v2 : R.-sfker munit ~> typei2 (spair sreal sreal)) U :
+(* Example letinC12 (v1 v2 : R.-sfker munit ~> typei2 (spair sreal sreal)) U :
   measurable U ->
   [::] # [Let "x" <~ Ret {1}:r In
            Let "y" <~ Ret {2}:r In
@@ -1286,6 +1357,6 @@ apply: letin'C; [ | | by []].
   apply/esym/evalP_uni_new.
   + exact: evalP_execP.
   + exact: evalP_execP.
-Qed.
+Qed. *)
 
 End letinC.
