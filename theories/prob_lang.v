@@ -1158,10 +1158,10 @@ Context d d1 d' (X : measurableType d) (Y : measurableType d1)
 Import Notations.
 
 Variables (t : R.-sfker Z ~> X)
+          (u' : R.-sfker [the measurableType _ of (X * Z)%type] ~> Y)
+          (u : R.-sfker Z ~> Y)
           (t' : R.-sfker [the measurableType _ of (Y * Z)%type] ~> X)
           (tt' : forall y, t =1 fun z => t' (y, z))
-          (u : R.-sfker Z ~> Y)
-          (u' : R.-sfker [the measurableType _ of (X * Z)%type] ~> Y)
           (uu' : forall x, u =1 fun z => u' (x, z)).
 
 Definition T' z : set X -> \bar R := t z.
@@ -1215,3 +1215,5 @@ by rewrite letin'E/= -tt'; apply: eq_integral => // x _; rewrite retE.
 Qed.
 
 End letin'C.
+
+Arguments letin'C {d d1 d' X Y Z R} _ _ _ _.
