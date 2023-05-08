@@ -27,15 +27,15 @@ Declare Scope lang_scope.
 Reserved Notation "l # e -D-> v ; mv" (at level 40).
 Reserved Notation "l # e -P-> v" (at level 40).
 
-Section type_syntax.
-Variables (R : realType).
-
 Section string_eq.
 
 Definition string_eqMixin := @EqMixin string eqb eqb_spec.
 Canonical string_eqType := EqType string string_eqMixin.
 
 End string_eq.
+
+Section type_syntax.
+Variables (R : realType).
 
 Fixpoint prod_meas (l : list {d & measurableType d})
     : {d & measurableType d} :=
@@ -44,6 +44,28 @@ Fixpoint prod_meas (l : list {d & measurableType d})
   | h :: t => let t' := prod_meas t in
     existT _ _ [the measurableType (projT1 h, projT1 t').-prod of (projT2 h * projT2 t')%type]
   end.
+
+(* Program Fixpoint varof (l : seq stype) (i : nat) :
+  typei2 (slist l) -> @typei2 R (nth sunit l i) :=
+  match l return (typei2 (slist l) -> typei2 (nth sunit l i)) with
+  | [::] => match i with | O => id | j.+1 => id end
+  | [:: h] => _
+  | _ :: _ => match i with
+               | O => fst
+               | j.+1 => fun H => varof j _
+               end
+  end.
+Next Obligation.
+rewrite /typei2 /= => _.
+case => /=.
+move=> h _; exact: id.
+move=> n h _ /=. rewrite nth_nil.
+exact: (fun=> tt).
+Defined.
+Next Obligation.
+move=> _ i s _ s0 li j _.
+exact: snd.
+Defined. *)
 
 Inductive stype :=
 | sunit : stype
@@ -218,7 +240,6 @@ apply: measurable_fun_if => //.
                            [set t | k t setT == +oo]); last first.
     by apply/seteqP; split=> x /= /orP//.
   by apply: measurableU; exact: kernel_measurable_eq_cst.
-- exact: measurable_fun_cst.
 - apply/emeasurable_funM; first exact/measurable_funTS/measurable_kernel.
   apply/EFin_measurable_fun; rewrite setTI.
   apply: (@measurable_fun_comp _ _ _ _ _ _ [set r : R | r != 0%R]).
@@ -226,8 +247,7 @@ apply: measurable_fun_if => //.
   + by move=> /= _ [x /norP[s0 soo]] <-; rewrite -eqe fineK ?ge0_fin_numE ?ltey.
   + apply: open_continuous_measurable_fun => //; apply/in_setP => x /= x0.
     exact: inv_continuous.
-  + apply: measurable_funT_comp; last exact/measurable_funTS/measurable_kernel.
-    exact: measurable_fun_fine.
+  + by apply: measurable_funT_comp => //; exact/measurable_funTS/measurable_kernel.
 Qed.
 
 End measurable_fun_normalize.
@@ -272,7 +292,7 @@ Let sk : exists2 s : (R.-ker (@typei2 R (slist (map snd (x :: l)))) ~> @typei2 R
   forall n, measure_fam_uub (s n) &
   forall x0 U, measurable U -> (@keta1 x l t k) x0 U = kseries s x0 U .
 Proof.
-have [s hs] := sfinite k.
+have [s hs] := sfinite_kernel k.
 exists (fun n => [the _.-ker _ ~> _ of @keta1 x l t (s n)]).
   move=> n.
   have [M hM] := measure_uub (s n).
@@ -886,17 +906,17 @@ Definition sample_bern : R.-sfker munit ~> mbool :=
   sample [the probability _ _ of bernoulli p27].
 Definition ite_3_10 :
   R.-sfker [the measurableType _ of (mbool * munit)%type] ~> (mR R) :=
-  ite var1of4' (ret k3) (ret k10).
+  ite (@newmvar1of2 _ _ _ _ R) (ret k3) (ret k10).
 Definition score_poi :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
-  score (measurable_funT_comp (mpoisson 4) var1of4').
+  score (measurable_funT_comp (mpoisson 4) (@newmvar1of2 _ _ _ _ R)).
 
 Local Definition kstaton_bus'' :=
   letin' sample_bern
     (letin' ite_3_10
-      (letin' score_poi (ret var3of4'))).
+      (letin' score_poi (ret (@newmvar3of3' _ _ _ _ _ _ R)))).
 
-Example eval_staton_bus_exp :
+(* Example eval_staton_bus_exp :
   [::] # staton_bus_exp -D-> _ ; measurable_fun_normalize kstaton_bus''.
 Proof.
 apply/EV_norm/EV_letin.
@@ -923,7 +943,7 @@ apply/EV_norm/EV_letin.
     set l := (X in X # _ -D-> _ ; _).
     rewrite (_ : var3of4' = @mvarof R (map snd l) 2)//.
     exact: (EV_var _ _ "x").
-Qed.
+Qed. *)
 
 End staton_bus.
 
@@ -931,7 +951,7 @@ Section letinC.
 Local Open Scope lang_scope.
 Variable R : realType.
 
-Lemma ex_var_ret l : @execP R l _ [Let "x" <~ Ret {1}:r In Ret %{"x"}] = letin' (ret (kr 1)) (ret var1of2).
+Lemma ex_var_ret l : @execP R l _ [Let "x" <~ Ret {1}:r In Ret %{"x"}] = letin' (ret (kr 1)) (ret (@newmvar1of2 _ _ _ _ R)).
 Proof.
 rewrite execP_letin; congr letin'.
 by rewrite execP_ret execD_real.
@@ -946,10 +966,10 @@ Lemma ex_var_ret2 l :
 Proof.
 rewrite !execP_letin !execP_ret !execD_real.
 rewrite !execD_pair !execD_var /=.
-have -> : mvarof (R := R) [:: sreal, sreal & [seq i.2 | i <- l]] 0 = var1of2.
+(* have -> : mvarof (R := R) [:: sreal, sreal & [seq i.2 | i <- l]] 0 = var1of2.
   exact: Prop_irrelevance.
 have -> : mvarof (R := R) [:: sreal, sreal & [seq i.2 | i <- l]] 1 = var2of4'.
-  exact: Prop_irrelevance.
+  exact: Prop_irrelevance. *)
 (* rewrite (letin'C _ _ (ret (kr 2))). *)
 (* rewrite letin_pair /=.
 by rewrite execP_ret execD_real.
@@ -964,25 +984,20 @@ Lemma LetInC l t1 t2 (e1 : @expP R l t1) (e2 : expP l t2)
         Ret (%{"x"}, %{"y"})] ^~ U =
   execP [Let "y" <~ e2 In
         Let "x" <~ {@expWP _ _ _ ("y", t2) e1 yl} In
-        Ret (%{"x"}, %{"y"})] ^~ U :> (typei2 (slist (map snd l)) -> \bar R).
+        Ret (%{"x"}, %{"y"})] ^~ U. 
+        (* :> (typei2 (slist (map snd l)) -> \bar R). *)
 Proof.
 move=> U mU; apply/funext => x.
 rewrite 4!execP_letin.
 rewrite 2!execP_WP_keta1.
-rewrite 2!execP_ret /=.
+rewrite 2!execP_ret/=.
 rewrite 2!execD_pair/=.
-rewrite (execD_var _ _ "x")/= (execD_var _ _ "y")/=.
-have -> : mvarof (R := R) [:: t2, t1 & [seq i.2 | i <- l]] 0 = var1of2.
-  exact: Prop_irrelevance.
-have -> : mvarof (R := R) [:: t2, t1 & [seq i.2 | i <- l]] 1 = var2of4'.
-  exact: Prop_irrelevance.
+rewrite !(execD_var _ _ "x")/= !(execD_var _ _ "y")/=.
+have -> : mvarof (R := R) [:: t2, t1 & [seq i.2 | i <- l]] 0 = (@newmvar1of3' _ _ _ _ _ _ R) by [].
+have -> : mvarof (R := R) [:: t2, t1 & [seq i.2 | i <- l]] 1 = (@newmvar2of3' _ _ _ _ _ _ R) by [].
 rewrite (letin'C _ _ (execP e2) [the R.-sfker _ ~> _ of @keta1 _  ("y", t2) _ _ (execP e1)]); [ |by [] | by [] |by []].
-rewrite (execD_var _ _ "x")/= (execD_var _ _ "y")/=.
-have -> : mvarof (R := R) [:: t1, t2 & [seq i.2 | i <- l]] 0 = var1of2.
-  exact: Prop_irrelevance.
-have -> : mvarof (R := R) [:: t1, t2 & [seq i.2 | i <- l]] 1 = var2of4'.
-  exact: Prop_irrelevance.
-done.
+have -> : mvarof (R := R) [:: t1, t2 & [seq i.2 | i <- l]] 0 = (@newmvar1of3' _ _ _ _ _ _ R) by [].
+by have -> : mvarof (R := R) [:: t1, t2 & [seq i.2 | i <- l]] 1 = (@newmvar2of3' _ _ _ _ _ _ R) by [].
 Qed.
 
 (* Reserved Notation "x =k y". *)
@@ -1014,11 +1029,14 @@ Example LetInC12 : forall U, measurable U ->
          Ret (%{"x"}, %{"y"})] ^~ U.
 Proof.
 move=> U mU.
-apply: (@trans_eq _ _ (execP
+apply: funext=> x.
+rewrite !execP_letin !execP_ret !execD_real !execD_pair.
+rewrite (execD_var _ _ "x")/= (execD_var _ _ "y")/=.
+(* apply: (@trans_eq _ _ (execP
   [Let "x" <~ Ret {1} :r In 
    Let "y" <~ {@expWP R [::] sreal ("x", sreal) [Ret {2}:r] erefl} In Ret (% {"x"}, % {"y"})] ^~ U)).
   apply: execP_LetInR => //.
-  apply: eq_sfkernel=> ? ?.
+  apply: eq_sfkernel=> ? ?. *)
   (* apply: execP_LetInL => //.
   have H : (execP [Ret {2}:r] = execP (@expWP R [::] sreal ("x", sreal) [Ret {2}:r] erefl)).
     rewrite execP_WP_keta1 !execP_ret !execD_real.
@@ -1067,7 +1085,8 @@ apply: funext=> x.
 exact: letin'A.
 Qed.
 
-Lemma letinC l t1 t2 (e1 : @expP R l t1) (e2 : expP l t2)
+(* legacy letinC *)
+(* Lemma letinC l t1 t2 (e1 : @expP R l t1) (e2 : expP l t2)
   (xl : "x" \notin map fst l) (yl : "y" \notin map fst l)
   (v1 v2 : R.-sfker typei2 (slist (map snd l)) ~> typei2 (spair t1 t2)) :
   l # [Let "x" <~ e1 In
@@ -1141,6 +1160,6 @@ Example letinr_ ta tb (l := [:: ("r", ta); ("_", tb)]) t1 t2
         Let "x" <~ %WP {"y"} # e1 In
         Ret (%{"x"}, %{"y"})] -P-> v2 ->
   forall U, measurable U -> v1 ^~ U = v2 ^~ U.
-Proof. exact: letinC. Abort.
+Proof. exact: letinC. Abort. *)
 
 End letinC.
