@@ -208,6 +208,7 @@ Proof.
 elim: l i => //= h t ih [|j]; first exact: measurable_fun_fst.
 exact: (measurable_funT_comp (ih _) (@measurable_fun_snd _ _ _ _)).
 Qed.
+
 End varof.
 
 Arguments varof {R} l i.
@@ -806,6 +807,22 @@ congr existT.
 apply Prop_irrelevance.
 Qed.
 
+Lemma execD_poisson l k (e : expD l sreal) :
+  execD (exp_poisson k e) = existT _ (poisson k \o (projT1 (execD e)))
+  (measurable_funT_comp (mpoisson k) (projT2 (execD e))).
+Proof.
+rewrite /execD /=.
+case: cid => f ?.
+case: cid => mf ev1.
+have IHev : (l # e -D-> projT1 (execD e); projT2 (execD e)).
+exact/evalD_execD.
+have ev2 := (EV_poisson k IHev).
+have ? := (evalD_uniq ev1 ev2).
+subst.
+congr existT.
+exact/Prop_irrelevance.
+Qed.
+
 Lemma execP_WP_keta1 x l (st : stype_eqType) (e : expP l st) (xl : x.1 \notin map fst l) :
   execP (@expWP R l st _ e xl) = [the _.-sfker _ ~> _ of keta1 (execP e)].
 Proof.
@@ -940,6 +957,20 @@ Definition exp_var' (x : string) (t : stype) (g : find x t) :=
 
 Notation "%1 x" := (@exp_var' x%string _ _) (in custom expr at level 1).
 
+(* Lemma execD_var' l (x : string) :
+  let i := seq.index x (map fst l) in
+  @execD _ _ _ [%1 {x} ] = existT _ (varof (map snd l) i) (@mvarof R (map snd l) i).
+Proof.
+rewrite /execD /=.
+case: cid => f ?.
+case: cid => ? ev1.
+have ev2 := (EV_var R l x).
+have fcstr := (evalD_uniq ev1 ev2).
+subst.
+congr existT.
+exact: Prop_irrelevance.
+Qed. *)
+
 Example e3 := [Let "x" <~ Ret {1%:R}:r In
                Let "y" <~ Ret %1{"x"} In 
                Let "z" <~ Ret %1{"y"} In Ret %1{"z"}] : expP [::] _.
@@ -959,64 +990,28 @@ Definition score_poi :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
   score (measurable_funT_comp (mpoisson 4) (@newmvar1of2 _ _ _ _ R)).
 
-Notation var3of3' := (measurable_funT_comp (@measurable_fun_fst _ _ _ _) (measurable_funT_comp (@measurable_fun_snd _ _ _ _) (@measurable_fun_snd _ _ _ _))).
-Local Definition kstaton_bus'' :=
-  letin' sample_bern
-    (letin' ite_3_10
-      (letin' score_poi (ret var3of3'))).
-
 Example kstaton_bus_exp : expP [::] sbool := 
   [Let "x" <~ {exp_sample_bern [::] (2 / 7%:R)%:nng p27} In
    Let "r" <~ If %1{"x"} Then Ret {3}:r Else Ret {10}:r In
    Let "_" <~ {exp_score (exp_poisson 4 [%1{"r"}])} In
    Ret %{"x"}].
 
+Local Definition kstaton_bus'' :=
+  letin' sample_bern
+    (letin' ite_3_10
+      (letin' score_poi (ret (@newmvar3of4' _ _ _ _ _ _ _ _ R)))).
+
 Example exec_staton_bus :
   execP kstaton_bus_exp = kstaton_bus''.
 Proof.
-rewrite /kstaton_bus'' !execP_letin execP_sample_bern execP_if !execP_ret execP_score.
-rewrite !execD_real.
-congr (letin' _ _).
-rewrite (execD_var _ _ "x").
+rewrite /kstaton_bus''.
+rewrite execP_letin execP_sample_bern.
+rewrite execP_letin execP_if.
+rewrite execP_letin execP_score execD_poisson !execP_ret !execD_real /=.
+rewrite /exp_var'/= !(execD_var _ _ "x")/=.
+congr letin'.
+(* TODO: *)
 Abort.
-
-Example eval_staton_bus_exp :
-  [::] # staton_bus_exp -D-> _ ; measurable_fun_normalize kstaton_bus''.
-Proof.
-apply/EV_norm/EV_letin.
-- exact/EV_sample.
-- apply/EV_letin.
-  + apply/EV_ifP.
-    * rewrite /exp_var' /=.
-      rewrite (_ : left_pf _ _ _ = erefl) //.
-      set l := (X in X # _ -D-> _ ; _).
-      rewrite (_ : newmvar1of2 R = @mvarof R (map snd l) 0)//.
-      exact: (EV_var _ _ "x").
-    * exact/EV_return/EV_real.
-    * exact/EV_return/EV_real.
-- apply: EV_letin.
-  + apply/EV_score/EV_poisson.
-    rewrite /exp_var'/=.
-    rewrite (_ : left_pf _ _ _ = erefl) //.
-    set l := (X in X # _ -D-> _ ; _).
-    rewrite (_ : newmvar1of2 R= @mvarof R (map snd l) 0)//.
-    exact: (EV_var _ _ "r").
-  + apply/EV_return.
-    rewrite /exp_var'/=.
-    rewrite (_ : right_pf _ _ _ = erefl) //.
-    set l := (X in X # _ -D-> _ ; _).
-    rewrite (_ : var3of3' = @mvarof R (map snd l) 2)//.
-    exact: (EV_var _ _ "x").
-Qed.
-
-Local Definition kstaton_bus3 :=
-  letin' sample_bern
-    (letin' ite_3_10
-      (letin' score_poi (ret (@newmvar3of3' _ _ _ _ _ _ R)))).
-
-(* TODO: Adapt to newvarof *)
-Fail Example exec_staton_bus :
-  execP kstaton_bus_exp = kstaton_bus3.
 
 End staton_bus.
 

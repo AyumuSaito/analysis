@@ -638,7 +638,7 @@ End addU.
 
 Section newvar.
 Import Notations.
-Context d d' d2 (T : measurableType d) (T' : measurableType d') (T2 : measurableType d2) (R : realType).
+Context d d' d2 d3 (T : measurableType d) (T' : measurableType d') (T2 : measurableType d2) (T3 : measurableType d3) (R : realType).
 
 Definition newvar1of2 : [the measurableType _ of (T * T')%type] -> T := fun
 	x => 
@@ -670,6 +670,53 @@ Defined.
 
 Definition addU3 : ([the measurableType _ of T * T' * T2] -> [the measurableType _ of T * (T' * (T2 * munit))])%type :=
 fun x => (x.1.1, (x.1.2, (x.2, tt))).
+
+Lemma maddU3 : measurable_fun setT addU3.
+Proof.
+apply: measurable_fun_pair.
+apply: measurable_funT_comp.
+exact: measurable_fun_fst.
+exact: measurable_fun_fst.
+apply: measurable_fun_pair.
+apply: measurable_funT_comp.
+exact: measurable_fun_snd.
+apply: measurable_fun_fst.
+apply: measurable_fun_pair.
+exact: measurable_fun_snd.
+exact: measurable_fun_cst.
+Qed.
+
+Definition newvar2of3 : [the measurableType _ of (T * T' * T2)%type] -> T' := fun
+	x => 
+   (@varof R
+      [:: sconst (existT [eta measurableType] d T);
+          sconst (existT [eta measurableType] d' T');
+          sconst (existT _ d2 T2)] 1) (addU3 x).
+
+Lemma newmvar2of3 : measurable_fun setT newvar2of3.
+apply: measurable_funT_comp.
+exact: (mvarof 
+        [:: sconst (existT [eta measurableType] d T);
+            sconst (existT [eta measurableType] d' T');
+            sconst (existT _ d2 T2)] 1).
+exact: maddU3.
+Qed.
+
+Definition newvar3of3 : [the measurableType _ of (T * T' * T2)%type] -> T2 :=
+	fun x => 
+   (@varof R
+      [:: sconst (existT [eta measurableType] d T);
+          sconst (existT [eta measurableType] d' T');
+          sconst (existT _ d2 T2)] 2) (addU3 x).
+
+Lemma newmvar3of3 : measurable_fun setT newvar3of3.
+apply: measurable_funT_comp.
+exact: (mvarof 
+        [:: sconst (existT [eta measurableType] d T);
+            sconst (existT [eta measurableType] d' T');
+            sconst (existT _ d2 T2)] 2).
+exact: maddU3.
+Qed.
 
 Definition addU3' : ([the measurableType _ of T * (T' * T2)] -> [the measurableType _ of T * (T' * (T2 * munit))])%type :=
 fun x => (x.1, (x.2.1, (x.2.2, tt))).
@@ -737,25 +784,49 @@ exact: (mvarof
 exact: maddU3'.
 Qed.
 
-Definition newvar2of3 : [the measurableType _ of (T * T' * T2)%type] -> T' := fun
-	x => 
-   (@varof R
-      [:: sconst (existT [eta measurableType] d T);
-          sconst (existT [eta measurableType] d' T');
-          sconst (existT _ d2 T2)] 1) (addU3 x).
+Definition addU4' : ([the measurableType _ of T * (T' * (T2 * T3))] -> [the measurableType _ of T * (T' * (T2 * (T3 * munit)))])%type :=
+fun x => (x.1, (x.2.1, (x.2.2.1, (x.2.2.2, tt)))).
 
-Lemma newmvar2of3 : measurable_fun setT newvar2of3.
-Admitted.
+Lemma maddU4' : measurable_fun setT addU4'.
+Proof.
+apply: measurable_fun_pair.
+exact: measurable_fun_fst.
+apply: measurable_fun_pair.
+apply: measurable_funT_comp.
+exact: measurable_fun_fst.
+exact: measurable_fun_snd.
+apply: measurable_fun_pair.
+apply: measurable_funT_comp.
+exact: measurable_fun_fst.
+apply: measurable_funT_comp.
+exact: measurable_fun_snd.
+exact: measurable_fun_snd.
+apply: measurable_fun_pair.
+apply: measurable_funT_comp.
+exact: measurable_fun_snd.
+apply: measurable_funT_comp.
+exact: measurable_fun_snd.
+exact: measurable_fun_snd.
+exact: measurable_fun_cst.
+Qed.
 
-Definition newvar3of3 : [the measurableType _ of (T * T' * T2)%type] -> T2 :=
-	fun x => 
-   (@varof R
-      [:: sconst (existT [eta measurableType] d T);
-          sconst (existT [eta measurableType] d' T');
-          sconst (existT _ d2 T2)] 2) (addU3 x).
+Definition newvar3of4' : [the measurableType _ of (T * (T' * (T2 * T3)))%type] -> T2 
+  := fun x => 
+  (@varof R
+    [:: sconst (existT [eta measurableType] d T);
+        sconst (existT [eta measurableType] d' T');
+        sconst (existT _ d2 T2);
+        sconst (existT _ d3 T3)] 2) (addU4' x).
 
-Lemma newmvar3of3 : measurable_fun setT newvar3of3.
-Admitted.
+Lemma newmvar3of4' : measurable_fun setT newvar3of4'.
+apply: measurable_funT_comp.
+exact: (mvarof 
+        [:: sconst (existT [eta measurableType] d T);
+            sconst (existT [eta measurableType] d' T');
+            sconst (existT _ d2 T2);
+            sconst (existT _ d3 T3)] 2).
+exact: maddU4'.
+Qed.
 
 End newvar.
 
