@@ -68,11 +68,13 @@ Variables (R : realType).
 Section exp.
 Inductive exp : Type :=
 | Real : R -> exp
-| Var (x : string) : exp
+| Var G T (x : string) : 
+  T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp
 | Letin (x : string) : exp -> exp -> exp
 | Plus : exp -> exp -> exp.
 End exp.
 
+Arguments Var {G T}.
 Declare Custom Entry exp.
 
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
@@ -80,7 +82,7 @@ Notation "x ':r'" := (Real x) (in custom exp at level 1)
   : easylang_scope.
 Notation "x + y" := (Plus x y) (in custom exp at level 2) 
   : easylang_scope.
-Notation "% x" := (Var x) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1) 
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -92,9 +94,10 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 
 Local Open Scope easylang_scope.
 
-Example e1 := [Let x <~ {1%:R}:r In %{"x"}].
-Example e2 := [Let "x" <~ {1%:R}:r In Let "y" <~ %{"x"} In %{"y"}].
-Example e3 := [Let x <~ {1%:R}:r In
+Example e1' := @Letin "x" (Real 1) (@Var [:: ("x", TReal)] TReal x erefl).
+Fail Example e1 := [Let x <~ {1%:R}:r In %{"x"}].
+Fail Example e2 := [Let "x" <~ {1%:R}:r In Let "y" <~ %{"x"} In %{"y"}].
+Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In 
                %{x} + %{y}].
 
@@ -135,19 +138,20 @@ Section exp.
 Inductive exp : Ty -> Type :=
 | Real : R -> exp TReal
 | Plus : exp TReal -> exp TReal -> exp TReal
-| Var T (x : string) : exp T
+| Var G T (x : string) :
+  T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp T
 | Letin t u : string -> exp t -> exp u -> exp u
 .
 End exp.
 
-Arguments Var {T}.
+Arguments Var {G T}.
 Declare Custom Entry exp.
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
 Notation "x ':r'" := (Real x) (in custom exp at level 1) 
   : easylang_scope.
 Notation "x + y" := (Plus x y) (in custom exp at level 2) 
   : easylang_scope.
-Notation "% x" := (Var x) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1) 
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -159,9 +163,11 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 
 Local Open Scope easylang_scope.
 
-Example e1 := [Let x <~ {1%:R}:r In %{"x"}] : exp TReal.
+Example e1 := (Letin "x" (Real 1%R) (@Var [:: ("x", TReal)] _ "x" erefl)).
+Fail Example e1 := [Let x <~ {1%:R}:r In %{"x"}] : exp TReal.
+Fail Example e2' := (Letin x [{1%:R}:r] (@Letin TReal _ y [%{"x"}] [%{"y"}])) : exp TReal.
 Fail Example e2 := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp TReal.
-Example e3 := [Let x <~ {1%:R}:r In
+Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In 
                %{x} + %{y}] : exp _.
 
@@ -209,12 +215,13 @@ Section exp.
 Inductive exp : Ctx -> Type :=
 | Real g : R -> exp g
 | Plus g : exp g -> exp g -> exp g
-| Var g (x : string) : exp g
+| Var G T (x : string) : 
+  T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp G
 | Letin g t (x : string) : exp g -> exp ((x, t) :: g) -> exp g
 .
 End exp.
 
-Arguments Var {g}.
+Arguments Var {G T}.
 Arguments Real {g}.
 Arguments Letin {g t}.
 Declare Custom Entry exp.
@@ -223,7 +230,7 @@ Notation "x ':r'" := (Real x) (in custom exp at level 1)
   : easylang_scope.
 Notation "x + y" := (Plus x y) (in custom exp at level 2) 
   : easylang_scope.
-Notation "% x" := (Var x) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1) 
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -236,7 +243,7 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 Local Open Scope easylang_scope.
 
 Example e0 := [{1%:R}:r] : exp [::].
-Fail Example e1 := (Letin "x" (Real 1%R) (Var "x")) : exp [::].
+Example e1 := (Letin "x" (Real 1%R) (@Var [:: ("x", TReal)] _ "x" erefl)) : exp [::].
 Fail Example e1 := [Let x <~ {1%:R}:r In %{"x"}] : exp [::].
 Fail Example e2 := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::].
 Fail Example e3 := [Let x <~ {1%:R}:r In
@@ -260,7 +267,7 @@ Inductive eval : forall (g : Ctx) (t : Ty), exp g -> (typei R (TList (map snd g)
     @eval g TReal e2 (fun=> v2) -> 
     @eval g TReal (Plus e1 e2) (fun=> (v1 + v2)%R)
 | EVVar (g : Ctx) (x : string) i : 
-    i = seq.index x (map fst g) -> eval (Var x) (@varof (map snd g) i)
+    i = seq.index x (map fst g) -> eval (Var x erefl) (@varof (map snd g) i)
 (* | EVLetin :  *)
 .
 
@@ -283,14 +290,14 @@ Section exp.
 Inductive exp : Ctx -> Ty -> Type :=
 | Real g : R -> exp g TReal
 | Plus g : exp g TReal -> exp g TReal -> exp g TReal
-| Var g t (x : string) : exp g t
-| Letin g t u (x : string) : exp g t -> exp ((x, t) :: g) u -> exp g u
-.
+| Var G T (x : string) : 
+    T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp G T
+| Letin g t u (x : string) : exp g t -> exp ((x, t) :: g) u -> exp g u.
 End exp.
 
 Arguments Real {g}.
 Arguments Plus {g}.
-Arguments Var {g t}.
+Arguments Var {G T}.
 Arguments Letin {g t u}.
 
 Declare Custom Entry exp.
@@ -299,7 +306,7 @@ Notation "x ':r'" := (Real x) (in custom exp at level 1)
   : easylang_scope.
 Notation "x + y" := (Plus x y) (in custom exp at level 2) 
   : easylang_scope.
-Notation "% x" := (Var x) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1) 
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -312,13 +319,15 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 Local Open Scope easylang_scope.
 
 Example e0 := [{1%:R}:r] : exp [::] _.
-Example e1 := (Letin "x" (Real 1%R) (Var "x")) : exp [::] TReal.
+Example e1 := (Letin "x" (Real 1%R) (Var "x" erefl)) : exp [::] _.
 Example e1' := [Let x <~ {1%:R}:r In %{"x"}] : exp [::] TReal.
-Example e2' := Letin "x" [{1%:R}:r] (@Letin _ TReal TReal "y" [%{"x"}] [%{"y"}]) : exp [::] _.
-Fail Example e2 := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::] TReal.
-Example e3 := [Let x <~ {1%:R}:r In
+Example e2 := Letin "x" (Real 1%R) (Letin "y" (Var "x" erefl) (Var "x" erefl)) : exp [::] _.
+Example e3 := Letin "x" (Real 1%R) (Letin "y" (Real 2%R) (@Plus [:: ("y", TReal); ("x", TReal)] (Var "x" erefl) (Var "y" erefl))) : exp [::] _.
+Example e2' := Letin "x" [{1%:R}:r] (Letin "y" [%{"x"}] [%{"y"}]) : exp [::] _.
+Example e2'' := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::] _.
+(* Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In
-               %{x} + %{y}] : exp [::] TReal.
+               %{x} + %{y}] : exp [::] TReal. *)
 
 Fixpoint varof (l : seq Ty) (i : nat) :
   typei R (TList l) -> @typei R (nth TUnit l i) :=
@@ -336,9 +345,9 @@ Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (typei R (TList (map snd 
     @eval g _ e1 (fun=> v1) -> 
     @eval g _ e2 (fun=> v2) -> 
     @eval g _ [e1 + e2] (fun=> (v1 + v2)%R)
-| EVVar (g : Ctx) (x : string) : 
+| EVVar (g : Ctx) (x : string) :
     (* let i := seq.index x (map fst g) in eval (Var x) (@varof (map snd g) i) *)
-    forall i, i = seq.index x (map fst g) -> eval (Var x) (@varof (map snd g) i)
+    let i := seq.index x (map fst g) in eval (Var x erefl) (@varof (map snd g) i)
 (* | EVLetin (g : Ctx) (t : Ty) (x : string) e1 e2 v1 v2 :
     @eval g TReal e1 (fun=> v1) ->
     @eval ((x, TReal) :: g) _ e2 (fun=> v2) ->
