@@ -66,9 +66,14 @@ Fixpoint typei (t : Ty) : Type :=
   | TList l => prod_meas (map typei l)
   end.
 
-End type.
-
 Definition Ctx := seq (string * Ty)%type.
+
+Definition ctxi (G : Ctx) := prod_meas (map (typei \o snd) G).
+
+Goal ctxi [:: ("x", TReal); ("y", TReal)] = (R * (R * unit))%type.
+Proof. by []. Qed.
+
+End type.
 
 Module lang_extrinsic.
 Section lang_extrinsic.
@@ -78,7 +83,7 @@ Section exp.
 Inductive exp : Type :=
 | Real : R -> exp
 | Var G T (x : string) : 
-  T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp
+  T = nth TReal (map snd G) (seq.index x (map fst G)) -> exp
 | Letin (x : string) : exp -> exp -> exp
 | Plus : exp -> exp -> exp.
 End exp.
@@ -110,9 +115,9 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In 
                %{x} + %{y}].
 
-Fixpoint acc (l : seq Ty) (i : nat) :
-  typei R (TList l) -> @typei R (nth TUnit l i) :=
-  match l return (typei R (TList l) -> typei R (nth TUnit l i)) with
+Fixpoint acc (g : Ctx) (i : nat) :
+  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
+  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -120,7 +125,8 @@ Fixpoint acc (l : seq Ty) (i : nat) :
                end
   end.
 
-Inductive eval : forall (g : Ctx) (t : Ty), exp -> (typei R (TList (map snd g)) -> typei R t) -> Prop :=
+
+Inductive eval : forall (g : Ctx) (t : Ty), exp -> (ctxi R g -> typei R t) -> Prop :=
 | EVReal g c : @eval g TReal (Real c) (fun=> c)
 | EVPlus g e1 e2 (v1 v2 : R) : 
     @eval g TReal e1 (fun=> v1) -> 
@@ -180,9 +186,9 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In 
                %{x} + %{y}] : exp _.
 
-Fixpoint acc (l : seq Ty) (i : nat) :
-  typei R (TList l) -> @typei R (nth TUnit l i) :=
-  match l return (typei R (TList l) -> typei R (nth TUnit l i)) with
+Fixpoint acc (g : Ctx) (i : nat) :
+  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
+  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -190,7 +196,7 @@ Fixpoint acc (l : seq Ty) (i : nat) :
                end
   end.
 
-Fail Inductive eval : forall (g : Ctx) (t : Ty), exp t -> (typei R (TList (map snd g)) -> typei R t) -> Prop :=
+Inductive eval : forall (g : Ctx) (t : Ty), exp t -> (typei R (TList (map snd g)) -> typei R t) -> Prop :=
 | EVReal g c : @eval g _ (Real c) (fun=> c)
 | EVPlus g (e1 e2 : exp TReal) (v1 v2 : _ -> _) : 
     @eval g TReal e1 v1 -> 
@@ -198,10 +204,10 @@ Fail Inductive eval : forall (g : Ctx) (t : Ty), exp t -> (typei R (TList (map s
     @eval g TReal (Plus e1 e2) (fun x => v1 x + v2 x)%R
 (* | EVVar (g : Ctx) (x : string) i : 
     i = seq.index x (map fst g) -> eval (Var x erefl) (@acc (map snd g) i) *)
-| EVLetin (g : Ctx) (t : Ty) (x : string) e1 e2 (v1 v2 : _ -> _) :
+(* | EVLetin (g : Ctx) (t : Ty) (x : string) e1 e2 (v1 v2 : _ -> _) :
     @eval g TReal e1 v1 ->
     @eval ((x, TReal) :: g) TReal e2 v2 ->
-    @eval g TReal (Letin x e1 e2) (v2 \o v1)
+    @eval g TReal (Letin x e1 e2) (v2 \o v1) *)
 .
 
 (* Goal @eval [::] _ [{1%R}:r] (fun=> 1%R).
@@ -259,24 +265,25 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                     Let y <~ {2%:R}:r In
                     %{x} + %{y}] : exp [::].
 
-Fixpoint varof (l : seq Ty) (i : nat) :
-  typei R (TList l) -> @typei R (nth TUnit l i) :=
-  match l return (typei R (TList l) -> typei R (nth TUnit l i)) with
+Fixpoint acc (g : Ctx) (i : nat) :
+  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
+  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
-               | j.+1 => fun H => varof j H.2
+               | j.+1 => fun H => acc j H.2
                end
   end.
 
-Inductive eval : forall (g : Ctx) (t : Ty), exp g -> (typei R (TList (map snd g)) -> typei R t) -> Prop :=
+
+Inductive eval : forall (g : Ctx) (t : Ty), exp g -> (ctxi R g -> typei R t) -> Prop :=
 | EVReal g c : @eval g TReal (Real c) (fun=> c)
 | EVPlus g (e1 e2 : exp g) (v1 v2 : R) : 
     @eval g TReal e1 (fun=> v1) -> 
     @eval g TReal e2 (fun=> v2) -> 
     @eval g TReal (Plus e1 e2) (fun=> (v1 + v2)%R)
 | EVVar (g : Ctx) (x : string) i : 
-    i = seq.index x (map fst g) -> eval (Var x erefl) (@varof (map snd g) i)
+    i = seq.index x (map fst g) -> eval (Var x erefl) (@acc g i)
 (* | EVLetin :  *)
 .
 
@@ -284,7 +291,7 @@ Goal @eval [::] TReal [{1%R}:r] (fun=> 1%R).
 Proof. exact/EVReal. Qed.
 Goal @eval [::] TReal [{1%R}:r + {2%R}:r] (fun=> 3%R).
 Proof. exact/EVPlus/EVReal/EVReal. Qed.
-Goal @eval [:: ("x", TReal)] _ [% {"x"}] (@varof [:: TReal] 0).
+Goal @eval [:: ("x", TReal)] _ [% {"x"}] (@acc [:: ("x", TReal)] 0).
 Proof. exact/EVVar. Qed.
 Check [Let x <~ {1%R}:r In %{"x"} + {2%R}:r].
 
@@ -300,7 +307,8 @@ Inductive exp : Ctx -> Ty -> Type :=
 | Real g : R -> exp g TReal
 | Plus g : exp g TReal -> exp g TReal -> exp g TReal
 | Var G T (x : string) : 
-    T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp G T
+    T = nth TUnit (map snd G) (seq.index x (map fst G)) -> 
+    exp G T
 | Letin g t u (x : string) : exp g t -> exp ((x, t) :: g) u -> exp g u.
 End exp.
 
@@ -338,9 +346,9 @@ Example e2'' := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::] _.
                Let y <~ {2%:R}:r In
                %{x} + %{y}] : exp [::] TReal. *)
 
-Fixpoint acc (l : seq Ty) (i : nat) :
-  typei R (TList l) -> @typei R (nth TUnit l i) :=
-  match l return (typei R (TList l) -> typei R (nth TUnit l i)) with
+Fixpoint acc (g : Ctx) (i : nat) :
+  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
+  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -348,7 +356,7 @@ Fixpoint acc (l : seq Ty) (i : nat) :
                end
   end.
 
-Definition coucou (g : Ctx) (t t' : Ty) (e1 : exp g t) x (e2 :exp ((x, t)::g) t') (v1 : typei R (TList (map snd g)) -> typei R t)
+(* Definition coucou (g : Ctx) (t t' : Ty) (e1 : exp g t) x (e2 :exp ((x, t)::g) t') (v1 : typei R (TList (map snd g)) -> typei R t)
 (v2 : typei R (TList (map snd ((x,t)::g))) -> typei R t')
 : typei R (TList (map snd (g))) -> typei R t'.
 move=> a.
@@ -359,16 +367,16 @@ exact: a.
 Show Proof.
 done.
 Show Proof.
-Abort.
+Abort. *)
 
-Program Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (typei R (TList (map snd g)) -> typei R t) -> Prop :=
+Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (ctxi R g -> typei R t) -> Prop :=
 | EVReal g c : @eval g _ (Real c) (fun=> c)
 | EVPlus g (e1 e2 : exp g TReal) v1 v2 : 
     @eval g TReal e1 v1 -> 
     @eval g TReal e2 v2 -> 
     @eval g TReal (Plus e1 e2) (fun x => v1 x + v2 x)%R
 | EVVar (g : Ctx) (x : string) : 
-    let i := seq.index x (map fst g) in eval (Var x erefl) (@acc (map snd g) i)
+    let i := seq.index x (map fst g) in eval (Var x erefl) (@acc g i)
 | EVLetin (g : Ctx) (t t' : Ty) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
     @eval g t e1 v1 ->
     @eval ((x, t) :: g) t' e2 v2 ->
@@ -379,7 +387,7 @@ Goal @eval [::] _ [{1%R}:r] (fun=> 1%R).
 Proof. exact/EVReal. Qed.
 Goal @eval [::] _ [{1%R}:r + {2%R}:r] (fun=> 3%R).
 Proof. exact/EVPlus/EVReal/EVReal. Qed.
-Goal @eval [:: ("x", TReal)] _ [% {"x"}] (@acc [:: TReal] 0).
+Goal @eval [:: ("x", TReal)] _ [% {"x"}] (@acc [:: ("x", TReal)] 0).
 Proof. exact/EVVar. Qed.
 Goal @eval [::] _ [Let x <~ {1%R}:r In %{"x"}] (fun=> 1%R).
 Proof. exact: (EVLetin (EVReal _ _) (EVVar _ _)). Qed.

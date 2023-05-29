@@ -34,33 +34,22 @@ Canonical string_eqType := EqType string string_eqMixin.
 
 End string_eq.
 
+Section context.
+Variables (R : realType).
 Definition context := seq (string * stype)%type.
+
+Definition ctxi (l : context) := @ltypei R (map snd l).
+Definition ctxi2 (l : context) := projT2 (ctxi l).
+
+End context.
+
+Arguments ctxi {R}.
+Arguments ctxi2 {R}.
+
+Notation "[| G |]%ctx" := (ctxi2 G).
 
 Section expr.
 Variables (R : realType).
-
-(* Inductive expD (l : context) : stype -> Type :=
-(* | expWD st x (e : expD l st) : x.1 \notin map fst l -> expD (x :: l) st *)
-| exp_unit : expD l sunit
-| exp_bool : bool -> expD l sbool
-| exp_real : R -> expD l sreal
-| exp_pair t1 t2 : expD l t1 -> expD l t2 -> expD l (spair t1 t2)
-| exp_var x t : (* x \in map fst l -> *)
-  t = nth sunit (map snd l) (seq.index x (map fst l)) ->
-  expD l t
-| exp_bernoulli (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expD l (sprob sbool)
-| exp_poisson : nat -> expD l sreal -> expD l sreal
-| exp_norm t : expP l t -> expD l (sprob t)
-with expP (l : context) : stype -> Type :=
-(* | expWP st x (e : expP l st) : x.1 \notin map fst l -> expP (x :: l) st *)
-(* | expWPL l st xs (e : expP l st) : subseq (map fst xs) (map fst l) -> expP (xs ++ l) st *)
-| exp_if t : expD l sbool -> expP l t -> expP l t -> expP l t
-| exp_letin t1 t2 (x : string) :
-  expP l t1 -> expP ((x, t1) :: l) t2 -> expP l t2
-(* | exp_sample : forall t l, expD (sprob t) l -> expP t l *)
-| exp_sample_bern (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expP l sbool
-| exp_score : expD l sreal -> expP l sunit
-| exp_return t : expD l t -> expP l t. *)
 
 Inductive expD : context -> stype -> Type :=
 | expWD l st x (e : expD l st) : x.1 \notin map fst l -> expD (x :: l) st
@@ -93,8 +82,8 @@ Arguments expWD {R l st x}.
 Arguments exp_unit {R l}.
 Arguments exp_bool {R l}.
 Arguments exp_real {R l}.
-Arguments exp_pair {R l _ _}.
-Arguments exp_var {R _}.
+Arguments exp_pair {R l t1 t2}.
+Arguments exp_var {R l} _ {t}.
 Arguments exp_bernoulli {R l}.
 Arguments exp_poisson {R l}.
 Arguments exp_norm {R l _}.
@@ -128,6 +117,8 @@ Notation "'If' e1 'Then' e2 'Else' e3" := (exp_if e1 e2 e3)
 Notation "{ x }" := x (in custom expr, x constr) : lang_scope.
 Notation "x" := x (in custom expr at level 0, x ident) : lang_scope.
 
+Local Open Scope lang_scope.
+
 Section eval.
 Variables (R : realType).
 
@@ -156,25 +147,20 @@ subst p2.
 by f_equal.
 Qed.
 
-Definition eta1 x (l : context) t
-    (f : @typei2 R (slist (map snd l)) -> @typei2 R t) :
-    typei2 (slist (map snd (x :: l))) -> @typei2 R t :=
-  f \o snd.
+Definition eta1 x (l : context) t (f : @ctxi2 R l -> @typei2 R t) 
+  : ctxi2 (x :: l) -> typei2 t := f \o snd.
 
-Lemma meta1 x (l : context) t
-    (f : @typei2 R (slist (map snd l)) -> @typei2 R t)
-    (mf : measurable_fun setT f) :
-  measurable_fun setT (@eta1 x l t f).
-Proof. exact/(measurableT_comp mf). Qed.
+Lemma meta1 x (l : context) t (f : @ctxi2 R l -> @typei2 R t)
+  (mf : measurable_fun setT f) : measurable_fun setT (@eta1 x l t f).
+Proof. exact: (measurableT_comp mf). Qed.
 
 Definition keta1 (x : string * stype) (l : context) t
-    (k : R.-sfker (@typei2 R (slist (map snd l))) ~> @typei2 R t) :
-    @typei2 R (slist (map snd (x :: l))) -> {measure set @typei2 R t -> \bar R}
-  := k \o snd.
+  (k : R.-sfker (@ctxi2 R l) ~> @typei2 R t) 
+  : ctxi2 (x :: l) -> {measure set typei2 t -> \bar R} := k \o snd.
 
 Section kernel_eta1.
 Variables (x : string * stype) (l : context) (t : stype)
-  (k : R.-sfker (@typei2 R (slist (map snd l))) ~> @typei2 R t).
+  (k : R.-sfker (@ctxi2 R l) ~> @typei2 R t).
 
 Let mk U : measurable U -> measurable_fun setT ((@keta1 x l t k) ^~ U).
 Proof.
@@ -187,9 +173,9 @@ End kernel_eta1.
 
 Section sfkernel.
 Variables (x : string * stype) (l : context) (t : stype)
-  (k : R.-sfker (@typei2 R (slist (map snd l))) ~> @typei2 R t).
+  (k : R.-sfker (@ctxi2 R l) ~> @typei2 R t).
 
-Let sk : exists2 s : (R.-ker (@typei2 R (slist (map snd (x :: l)))) ~> @typei2 R t)^nat,
+Let sk : exists2 s : (R.-ker (@ctxi2 R (x :: l)) ~> @typei2 R t)^nat,
   forall n, measure_fam_uub (s n) &
   forall x0 U, measurable U -> (@keta1 x l t k) x0 U = kseries s x0 U .
 Proof.
@@ -210,7 +196,7 @@ End sfkernel.
 
 Section fkernel_eta1.
 Variables (x : string * stype) (l : context) (t : stype)
-  (k : R.-fker (@typei2 R (slist (map snd l))) ~> @typei2 R t).
+  (k : R.-fker (@ctxi2 R l) ~> @typei2 R t).
 
 Let uub : measure_fam_uub (@keta1 x l t k).
 Proof.
@@ -246,7 +232,7 @@ with free_varsP T l (e : expP T l) : seq _ :=
   end.
 
 Inductive evalD : forall (l : context) (T : stype) (e : @expD R l T)
-  (f : typei2 (slist (map snd l)) -> typei2 T),
+  (f : ctxi2 l -> typei2 T),
   measurable_fun setT f -> Prop :=
 | EV_unit l :
   l # exp_unit -D-> cst tt ; ktt
@@ -255,18 +241,17 @@ Inductive evalD : forall (l : context) (T : stype) (e : @expD R l T)
   l # exp_bool b -D-> cst b ; kb b
 
 | EV_real l r :
-  l # exp_real r -D-> cst r ; kr r
+  l # [r :r] -D-> cst r ; kr r
 
-| EV_pair l t1 t2 (G := slist (map snd l)) e1 f1 mf1 e2 f2 mf2 :
+| EV_pair l t1 t2 e1 f1 mf1 e2 f2 mf2 :
   l # e1 -D-> f1 ; mf1 ->
   l # e2 -D-> f2 ; mf2 ->
-
-  l # exp_pair e1 e2 -D-> fun x => (f1 x, f2 x) ;
-  @measurable_fun_prod _ _ _ (typei2 G) (typei2 t1) (typei2 t2) f1 f2 mf1 mf2
+  l # [(e1, e2)] -D-> fun x => (f1 x, f2 x) ;
+  @measurable_fun_prod _ _ _ (ctxi2 l) (typei2 t1) (typei2 t2) f1 f2 mf1 mf2
 
 | EV_var (l : context) (x : string) :
   let i := seq.index x (map fst l) in
-  l # exp_var x _ erefl -D-> acc (map snd l) i ; macc (map snd l) i
+  l # [% x] -D-> acc (map snd l) i ; macc (map snd l) i
 
 | EV_bernoulli l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   l # exp_bernoulli r r1 -D->
@@ -290,7 +275,7 @@ where "l # e -D-> v ; mv" := (@evalD l _ e v mv)
 
 with evalP : forall (l : context) (T : stype),
   expP l T ->
-  R.-sfker (typei2 (slist (map snd l))) ~> typei2 T -> Prop :=
+  R.-sfker (ctxi2 l) ~> typei2 T -> Prop :=
 | EV_sample l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   l # @exp_sample_bern R _ r r1 -P->
   sample [the probability _ _ of bernoulli r1]
@@ -299,24 +284,24 @@ with evalP : forall (l : context) (T : stype),
   l # e1 -D-> f1 ; mf ->
   l # e2 -P-> k2 ->
   l # e3 -P-> k3 ->
-  l # exp_if e1 e2 e3 : expP l T -P-> ite mf k2 k3
+  l # [If e1 Then e2 Else e3] : expP l T -P-> ite mf k2 k3
 
-| EV_score l (G := slist (map snd l)) e (f : typei2 G -> R)
+| EV_score l e (f : ctxi2 l -> R)
   (mf : measurable_fun _ f) :
   l # e : expD l sreal -D-> f ; mf ->
   l # exp_score e -P-> [the R.-sfker _ ~> _ of kscore mf]
 
 | EV_return l T e (f : _ -> _) (mf : measurable_fun _ f) :
   l # e -D-> f ; mf ->
-  l # exp_return e : expP l T -P-> ret mf
+  l # [Ret e] : expP l T -P-> ret mf
 
-| EV_letin (l : context) (G := slist (map snd l)) (t1 t2 : stype)
+| EV_letin (l : context) (t1 t2 : stype)
   (x : string) (e1 : expP l t1) (e2 : expP ((x, t1) :: l) t2)
-  (k1 : R.-sfker (typei2 G) ~> typei2 t1)
-  (k2 : R.-sfker (typei2 (spair t1 G)) ~> typei2 t2) :
+  (k1 : R.-sfker (ctxi2 l) ~> typei2 t1)
+  (k2 : R.-sfker (ctxi2 ((x, t1) :: l)) ~> typei2 t2) :
   l # e1 -P-> k1 ->
   ((x, t1) :: l)%SEQ # e2 -P-> k2 ->
-  l # exp_letin x e1 e2 -P-> letin' k1 k2
+  l # [Let x <~ e1 In e2] -P-> letin' k1 k2
 
 | EV_WeakP l (t : stype) (e : expP l t) x (xl : x.1 \notin map fst l) k :
   l # e -P-> k ->
@@ -352,23 +337,23 @@ Scheme expD_mut_ind := Induction for expD Sort Prop
 with expP_mut_ind := Induction for expP Sort Prop.
 
 Section eval_prop.
-Local Open Scope lang_scope.
 Variables (R : realType).
 
-Lemma evalD_uniq (l : context) (G := slist (map snd l)) t
-  (e : @expD R l t) (u v : typei2 G -> typei2 t)
+Lemma evalD_uniq (l : context) t
+  (e : @expD R l t) (u v : ctxi2 l -> typei2 t)
   (mu : measurable_fun setT u) (mv : measurable_fun setT v) :
   l # e -D-> u ; mu -> l # e -D-> v ; mv -> u = v.
 Proof.
 move=> hu.
 apply: (@evalD_mut_ind R
-  (fun l (G := slist (map snd l)) t (e : expD l t) (f : typei2 G -> typei2 t)
+  (fun l t (e : expD l t) (f : ctxi2 l -> typei2 t)
   (mf : measurable_fun setT f) (h1 : evalD e mf) =>
-    forall (v : typei2 G -> typei2 t) (mv : measurable_fun setT v), evalD e mv -> f = v)
-  (fun l (G := slist (map snd l)) t (e : expP l t)
-    (u : R.-sfker typei2 G ~> typei2 t) (h1 : evalP e u) =>
-    forall (v : R.-sfker typei2 G ~> typei2 t), evalP e v -> u = v)); last exact: hu.
-all: (rewrite {l G t e u v mu mv hu}).
+    forall (v : ctxi2 l -> typei2 t) (mv : measurable_fun setT v), 
+    evalD e mv -> f = v)
+  (fun l t (e : expP l t)
+    (u : R.-sfker ctxi2 l ~> typei2 t) (h1 : evalP e u) =>
+    forall (v : R.-sfker ctxi2 l ~> typei2 t), evalP e v -> u = v)); last exact: hu.
+all: (rewrite {l t e u v mu mv hu}).
 - move=> l {}v {}mv.
   inversion 1; subst l0.
   by inj_ex H3.
@@ -378,7 +363,7 @@ all: (rewrite {l G t e u v mu mv hu}).
 - move=> l r {}v {}mv.
   inversion 1; subst l0 r0.
   by inj_ex H3.
-- move=> l t1 t2 G e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+- move=> l t1 t2 e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
   simple inversion 1 => //; subst l0.
   case: H3 => ? ?; subst t0 t3.
   inj_ex H4; case: H4 => He1 He2.
@@ -423,7 +408,7 @@ all: (rewrite {l G t e u v mu mv hu}).
   have ? := IH1 _ _ H6; subst f2.
   have -> : mf1 = mf by exact: Prop_irrelevance.
   by rewrite (IH2 _ H7) (IH3 _ H8).
-- move=> l G e0 f mf ev IH k.
+- move=> l e0 f mf ev IH k.
   simple inversion 1 => //; subst l0.
   inj_ex H4; subst k.
   inj_ex H3; case: H3 => H3; inj_ex H3; subst e0.
@@ -435,12 +420,12 @@ all: (rewrite {l G t e u v mu mv hu}).
   inj_ex H7; subst k.
   have ? := IH _ _ H3; subst f1.
   by have -> : mf = mf1 by exact: Prop_irrelevance.
-- move=> l G t1 t2 x e1 e2 k1 k2 ev1 IH1 ev2 IH2 k.
+- move=> l t1 t2 x e1 e2 k1 k2 ev1 IH1 ev2 IH2 k.
   inversion 1; subst l0 t0 t3 x0.
-  inj_ex H10; subst k.
-  inj_ex H8; subst e5.
-  inj_ex H7; subst e4.
-  by rewrite (IH1 _ H4) (IH2 _ H11).
+  inj_ex H7; subst k.
+  inj_ex H6; subst e5.
+  inj_ex H5; subst e4.
+  by rewrite (IH1 _ H4) (IH2 _ H8).
 - move=> l t e0 x xl k1 ev IH {}k.
   inversion 1; subst l0 t0 x0.
   inj_ex H4; subst e0.
@@ -449,17 +434,17 @@ all: (rewrite {l G t e u v mu mv hu}).
 Qed.
 
 Lemma evalP_uniq (l : context) t (e : expP l t)
-  (u v : R.-sfker typei2 (slist (map snd l)) ~> typei2 t) :
+  (u v : R.-sfker ctxi2 l ~> typei2 t) :
   evalP e u -> evalP e v -> u = v.
 Proof.
 move=> hu.
 apply: (@evalP_mut_ind R
-  (fun l (G := slist (map snd l)) t (e : expD l t) (f : typei2 G -> typei2 t)
+  (fun l t (e : expD l t) (f : ctxi2 l -> typei2 t)
     (mf : measurable_fun setT f) (h1 : evalD e mf) =>
-    forall (v : typei2 G -> typei2 t) (mv : measurable_fun setT v), evalD e mv -> f = v)
-  (fun l (G := slist (map snd l)) t (e : expP l t)
-    (u : R.-sfker typei2 G ~> typei2 t) (h1 : evalP e u) =>
-    forall (v : R.-sfker typei2 G ~> typei2 t), evalP e v -> u = v)); last exact: hu.
+    forall (v : ctxi2 l -> typei2 t) (mv : measurable_fun setT v), evalD e mv -> f = v)
+  (fun l t (e : expP l t)
+    (u : R.-sfker ctxi2 l ~> typei2 t) (h1 : evalP e u) =>
+    forall (v : R.-sfker ctxi2 l ~> typei2 t), evalP e v -> u = v)); last exact: hu.
 all: rewrite {l t e u v hu}.
 - move=> l {}v {}mv.
   inversion 1; subst l0.
@@ -470,7 +455,7 @@ all: rewrite {l t e u v hu}.
 - move=> l r {}v {}mv.
   inversion 1; subst l0 r0.
   by inj_ex H3.
-- move=> l t1 t2 G e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+- move=> l t1 t2 e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
   simple inversion 1 => //; subst l0.
   case: H3 => ? ?; subst t0 t3.
   inj_ex H4; case: H4 => He1 He2.
@@ -520,7 +505,7 @@ all: rewrite {l t e u v hu}.
   have ? := IH _ _ H6; subst f0.
   have -> : mf0 = mf by exact: Prop_irrelevance.
   by rewrite (IH1 _ H7) (IH2 _ H8).
-- move=> l G e f mf ev IH k.
+- move=> l e f mf ev IH k.
   simple inversion 1 => //; subst l0.
   inj_ex H4; subst k.
   inj_ex H3; case: H3 => H3; inj_ex H3; subst e0.
@@ -532,12 +517,12 @@ all: rewrite {l t e u v hu}.
   inj_ex H5; subst e1.
   have ? := IH _ _ H3; subst f1.
   by have -> : mf = mf1 by exact: Prop_irrelevance.
-- move=> l G t1 t2 x e1 e2 k1 k2 ev1 IH1 ev2 IH2 k.
+- move=> l t1 t2 x e1 e2 k1 k2 ev1 IH1 ev2 IH2 k.
   inversion 1; subst l0 x0 t3 t0.
-  inj_ex H10; subst k.
-  inj_ex H7; subst e4.
-  inj_ex H8; subst e5.
-  by rewrite (IH1 _ H4) (IH2 _ H11).
+  inj_ex H7; subst k.
+  inj_ex H5; subst e4.
+  inj_ex H6; subst e5.
+  by rewrite (IH1 _ H4) (IH2 _ H8).
 - move=> l t e x xl k1 ev IH {}k.
   inversion 1; subst x0 l0 t0.
   inj_ex H4; subst e0.
@@ -613,7 +598,7 @@ all: rewrite {l t e}.
 Qed.
 
 Definition execP l t (e : @expP R l t) :
-  R.-sfker (@typei2 R (slist (map snd l))) ~> @typei2 R t.
+  R.-sfker @ctxi2 R l ~> @typei2 R t.
 Proof.
 have /cid h := @evalP_full l t e.
 exact: (proj1_sig h).
@@ -623,7 +608,7 @@ Lemma evalP_execP l t e : l # e -P-> @execP l t e.
 Proof. by rewrite /execP/= /sval ?/ssr_have/=; case: cid. Qed.
 
 Definition execD l t (e : @expD R l t) :
-  {f : (@typei2 R (slist (map snd l))) -> @typei2 R t & measurable_fun setT f}.
+  {f : (@ctxi2 R l) -> @typei2 R t & measurable_fun setT f}.
 Proof.
 have /cid [f /cid[mf H]] := @evalD_full l t e.
 by exists f.
@@ -637,7 +622,7 @@ by case: cid.
 Defined.
 
 Definition execP_ret_real (l : context) (r : R) :
-    R.-sfker (@typei2 R (slist (map snd l))) ~> @typei2 R sreal :=
+    R.-sfker @ctxi2 R l ~> @typei2 R sreal :=
   execP (exp_return (exp_real r)).
 
 Scheme expD_mut_rec := Induction for expD Sort Type
@@ -741,7 +726,7 @@ exact/evalP_execP.
 exact/evalP_execP.
 Qed.
 
-Lemma execD_pair l (G := slist (map snd l)) t1 t2
+Lemma execD_pair l (G := map snd l) t1 t2
   (x : @expD R l t1)
   (y : @expD R l t2) :
   let f := projT1 (execD x) in
@@ -750,7 +735,7 @@ Lemma execD_pair l (G := slist (map snd l)) t1 t2
   let mg := projT2 (execD y) in
   execD [(x, y)] =
   @existT _ _ (fun z => (f z, g z))
-  (@measurable_fun_prod _ _ _ (typei2 (slist (map snd l))) (typei2 t1) (typei2 t2)
+  (@measurable_fun_prod _ _ _ (ctxi2 l) (typei2 t1) (typei2 t2)
     f g mf mg).
 Proof.
 move=> f g mf mg.
@@ -881,12 +866,12 @@ Local Definition kstaton_bus'' :=
 Example exec_staton_bus :
   execP kstaton_bus_exp = kstaton_bus''.
 Proof.
-rewrite /kstaton_bus''.
+(* rewrite /kstaton_bus''. *)
 rewrite execP_letin execP_sample_bern.
+congr letin'.
 rewrite execP_letin execP_if.
 rewrite execP_letin execP_score execD_poisson !execP_ret !execD_real /=.
 rewrite /exp_var'/= !(execD_var _ _ "x")/=.
-congr letin'.
 (* TODO: *)
 Abort.
 

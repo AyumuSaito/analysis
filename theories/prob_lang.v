@@ -571,7 +571,6 @@ Inductive stype :=
 | sreal : stype
 | spair : stype -> stype -> stype
 | sprob : stype -> stype
-| slist : list stype -> stype
 | sconst : {d & measurableType d} -> stype.
 
 (* Canonical stype_eqType := Equality.Pack (@gen_eqMixin stype). *)
@@ -585,23 +584,28 @@ Fixpoint typei (t : stype) : {d & measurableType d} :=
       [the measurableType (projT1 (typei A), projT1 (typei B)).-prod%mdisp of
       (projT2 (typei A) * projT2 (typei B))%type]
   | sprob A => existT _ _ (pprobability (projT2 (typei A)) R)
-  | slist l => iter_mprod (map typei l)
   | sconst T => T
   end.
 
 Definition typei2 t := projT2 (typei t).
 
+Definition ltypei (l : seq stype) := iter_mprod (map typei l).
+
+Definition ltypei2 t := projT2 (ltypei t).
+
 End type_syntax.
 
 Arguments typei {R}.
 Arguments typei2 {R}.
+Arguments ltypei {R}.
+Arguments ltypei2 {R}.
 
 Section acc.
 Context {R : realType}.
 
 Fixpoint acc (l : seq stype) (i : nat) :
-  typei2 (slist l) -> @typei2 R (nth sunit l i) :=
-  match l return (typei2 (slist l) -> typei2 (nth sunit l i)) with
+  ltypei2 l -> @typei2 R (nth sunit l i) :=
+  match l return (ltypei2 l -> typei2 (nth sunit l i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -700,6 +704,7 @@ Arguments pairAAArAAi {d0 d1 d2 d3 T0 T1 T2 T3}.
 
 Section accessor_funcions.
 Import Notations.
+(* Context (x0 x1 x2 x3 : string). *)
 Context d0 d1 d2 d3 (T0 : measurableType d0) (T1 : measurableType d1)
   (T2 : measurableType d2) (T3 : measurableType d3) (R : realType).
 
@@ -771,11 +776,6 @@ Proof.
 rewrite /= /kcomp /kscore /= ge0_integral_mscale//=.
 by rewrite integral_dirac// indicT mul1e.
 Qed.
-
-Goal @typei2 R (slist [:: spair (sconst (existT _ _ mbool)) (sconst (existT _ _ munit)); sreal]) =
-     ((bool * unit) * (R * unit))%type.
-done.
-Abort.
 
 Lemma scoreE d' (T' : measurableType d') (x : T * T') (U : set T') (f : R -> R)
     (r : R) (r0 : (0 <= r)%R)
