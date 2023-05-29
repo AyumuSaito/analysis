@@ -155,12 +155,12 @@ Lemma meta1 x (l : context) t (f : @ctxi2 R l -> @typei2 R t)
 Proof. exact: (measurableT_comp mf). Qed.
 
 Definition keta1 (x : string * stype) (l : context) t
-  (k : R.-sfker (@ctxi2 R l) ~> @typei2 R t) 
+  (k : R.-sfker @ctxi2 R l ~> @typei2 R t) 
   : ctxi2 (x :: l) -> {measure set typei2 t -> \bar R} := k \o snd.
 
 Section kernel_eta1.
 Variables (x : string * stype) (l : context) (t : stype)
-  (k : R.-sfker (@ctxi2 R l) ~> @typei2 R t).
+  (k : R.-sfker @ctxi2 R l ~> @typei2 R t).
 
 Let mk U : measurable U -> measurable_fun setT ((@keta1 x l t k) ^~ U).
 Proof.
@@ -173,9 +173,9 @@ End kernel_eta1.
 
 Section sfkernel.
 Variables (x : string * stype) (l : context) (t : stype)
-  (k : R.-sfker (@ctxi2 R l) ~> @typei2 R t).
+  (k : R.-sfker @ctxi2 R l ~> @typei2 R t).
 
-Let sk : exists2 s : (R.-ker (@ctxi2 R (x :: l)) ~> @typei2 R t)^nat,
+Let sk : exists2 s : (R.-ker @ctxi2 R (x :: l) ~> @typei2 R t)^nat,
   forall n, measure_fam_uub (s n) &
   forall x0 U, measurable U -> (@keta1 x l t k) x0 U = kseries s x0 U .
 Proof.
@@ -196,7 +196,7 @@ End sfkernel.
 
 Section fkernel_eta1.
 Variables (x : string * stype) (l : context) (t : stype)
-  (k : R.-fker (@ctxi2 R l) ~> @typei2 R t).
+  (k : R.-fker @ctxi2 R l ~> @typei2 R t).
 
 Let uub : measure_fam_uub (@keta1 x l t k).
 Proof.
@@ -608,7 +608,7 @@ Lemma evalP_execP l t e : l # e -P-> @execP l t e.
 Proof. by rewrite /execP/= /sval ?/ssr_have/=; case: cid. Qed.
 
 Definition execD l t (e : @expD R l t) :
-  {f : (@ctxi2 R l) -> @typei2 R t & measurable_fun setT f}.
+  {f : @ctxi2 R l -> @typei2 R t & measurable_fun setT f}.
 Proof.
 have /cid [f /cid[mf H]] := @evalD_full l t e.
 by exists f.
@@ -863,6 +863,23 @@ Local Definition kstaton_bus'' :=
     (letin' ite_3_10
       (letin' score_poi (ret (macc2of4' R)))).
 
+Example eval_staton_bus :
+  [::] # kstaton_bus_exp -P-> kstaton_bus''.
+Proof.
+apply/EV_letin.
+apply/EV_sample.
+apply/EV_letin.
+apply/EV_ifP/EV_return/EV_real/EV_return/EV_real.
+rewrite/exp_var'/=.
+have /= := (EV_var R [:: ("x", sbool)] "x").
+have <- : ([% {"x"}] = @exp_var R _ "x" _ (left_pf "x" sbool [::])).
+congr exp_var; exact: Prop_irrelevance.
+(* have : (fst = @acc0of2 _ _ mbool munit R) by [].
+apply: evalD_uniq.
+rewrite /acc0of2.
+apply: evalD_uniq. *)
+Abort.
+
 Example exec_staton_bus :
   execP kstaton_bus_exp = kstaton_bus''.
 Proof.
@@ -872,6 +889,7 @@ congr letin'.
 rewrite execP_letin execP_if.
 rewrite execP_letin execP_score execD_poisson !execP_ret !execD_real /=.
 rewrite /exp_var'/= !(execD_var _ _ "x")/=.
+rewrite /ite_3_10.
 (* TODO: *)
 Abort.
 
