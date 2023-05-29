@@ -69,7 +69,7 @@ with expP : context -> stype -> Type :=
 | exp_if l t : expD l sbool -> expP l t -> expP l t -> expP l t
 | exp_letin l t1 t2 (x : string) :
   expP l t1 -> expP ((x, t1) :: l) t2 -> expP l t2
-(* | exp_sample : forall t l, expD (sprob t) l -> expP t l *)
+| exp_sample l t : expD l (sprob t) -> expP l t
 | exp_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expP l sbool
 | exp_score l : expD l sreal -> expP l sunit
 | exp_return l t : expD l t -> expP l t.
@@ -90,6 +90,7 @@ Arguments exp_norm {R l _}.
 Arguments expWP {R l st x}.
 Arguments exp_if {R l t}.
 Arguments exp_letin {R l _ _}.
+Arguments exp_sample {R l t}.
 Arguments exp_sample_bern {R} l r.
 Arguments exp_score {R l}.
 Arguments exp_return {R l _}.
@@ -225,6 +226,7 @@ with free_varsP T l (e : expP T l) : seq _ :=
   match e with
   | exp_if _ _ e1 e2 e3     => free_varsD e1 ++ free_varsP e2 ++ free_varsP e3
   | exp_letin _ _ _ x e1 e2 => free_varsP e1 ++ rem x (free_varsP e2)
+  | exp_sample _ _ _ => [::]
   | exp_sample_bern _ _ _   => [::]
   | exp_score _ e           => free_varsD e
   | exp_return _ _ e        => free_varsD e
@@ -276,7 +278,12 @@ where "l # e -D-> v ; mv" := (@evalD l _ e v mv)
 with evalP : forall (l : context) (T : stype),
   expP l T ->
   R.-sfker (ctxi2 l) ~> typei2 T -> Prop :=
-| EV_sample l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
+
+| EV_sample l t (e : expD l (sprob t)) (p : probability _ _) mp :
+  l # e -D-> (fun => p) ; mp ->
+  l # @exp_sample R l _ e -P-> sample p
+
+| EV_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   l # @exp_sample_bern R _ r r1 -P->
   sample [the probability _ _ of bernoulli r1]
 
@@ -395,6 +402,11 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H3; case: H3 => H3; inj_ex H3; subst e0.
   inj_ex H4; subst v.
   by move=> /IH <-.
+- move=> l t e0 p mp ev IH k.
+  inversion 1.
+  inj_ex H0.
+  inj_ex H3.
+  admit.
 - move=> l r r1 p.
   inversion 1; subst l0 r0.
   inj_ex H3; subst p.

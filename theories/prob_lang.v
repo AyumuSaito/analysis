@@ -405,8 +405,8 @@ Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
 Definition ret (f : X -> Y) (mf : measurable_fun setT f)
   : R.-pker X ~> Y := [the R.-pker _ ~> _ of kdirac mf].
 
-Definition sample (P : pprobability Y R) : R.-pker X ~> Y :=
-  [the R.-pker _ ~> _ of kprobability (measurable_cst P)].
+Definition sample (P : X -> pprobability Y R) (mP : measurable_fun setT P) : R.-pker X ~> Y :=
+  [the R.-pker _ ~> _ of kprobability mP].
 
 Definition normalize (k : R.-sfker X ~> Y) P : X -> probability Y R :=
   fun x => [the probability _ _ of mnormalize k P x].
@@ -426,7 +426,7 @@ Lemma retE (f : X -> Y) (mf : measurable_fun setT f) x :
   ret mf x = \d_(f x) :> (_ -> \bar R).
 Proof. by []. Qed.
 
-Lemma sampleE (P : probability Y R) (x : X) : sample P x = P.
+Lemma sampleE (P : X -> pprobability Y R) (mP : measurable_fun setT P) (x : X) : sample P x = P.
 Proof. by []. Qed.
 
 Lemma normalizeE (f : R.-sfker X ~> Y) P x U :
