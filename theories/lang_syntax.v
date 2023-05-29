@@ -819,19 +819,10 @@ Definition exp_var' (x : string) (t : stype) (g : find x t) :=
 
 Notation "%1 x" := (@exp_var' x%string _ _) (in custom expr at level 1).
 
-(* Lemma execD_var' l (x : string) :
-  let i := seq.index x (map fst l) in
-  @execD _ _ _ [%1 {x} ] = existT _ (varof (map snd l) i) (@mvarof R (map snd l) i).
-Proof.
-rewrite /execD /=.
-case: cid => f ?.
-case: cid => ? ev1.
-have ev2 := (EV_var R l x).
-have fcstr := (evalD_uniq ev1 ev2).
-subst.
-congr existT.
-exact: Prop_irrelevance.
-Qed. *)
+(* Lemma execD_var' l t (x : string) i :
+  i = seq.index x (map fst l) ->
+  @execD R ((x, t) :: l) t (exp_var x (left_pf x _ l)) = execD [% x].
+Proof. congr execD; congr exp_var; exact: Prop_irrelevance. Qed. *)
 
 Example e3 := [Let "x" <~ Ret {1%:R}:r In
                Let "y" <~ Ret %1{"x"} In
@@ -874,24 +865,48 @@ rewrite/exp_var'/=.
 have /= := (EV_var R [:: ("x", sbool)] "x").
 have <- : ([% {"x"}] = @exp_var R _ "x" _ (left_pf "x" sbool [::])).
 congr exp_var; exact: Prop_irrelevance.
-(* have : (fst = @acc0of2 _ _ mbool munit R) by [].
-apply: evalD_uniq.
-rewrite /acc0of2.
-apply: evalD_uniq. *)
-Abort.
+congr evalD; exact: Prop_irrelevance.
+apply/EV_letin.
+apply/EV_score.
+apply/EV_poisson.
+rewrite/exp_var'/=.
+have /= := (EV_var R [:: ("r", sreal); ("x", sbool)] "r").
+have <- : ([% {"r"}] = @exp_var R _ "r" _ (left_pf "r" sreal [:: ("x", sbool)])).
+congr exp_var; exact: Prop_irrelevance.
+congr evalD; exact: Prop_irrelevance.
+apply/EV_return.
+have /= := (EV_var R [:: ("_", sunit); ("r", sreal); ("x", sbool)] "x").
+rewrite/acc2of4'/comp/=.
+congr evalD; exact: Prop_irrelevance.
+Qed.
 
 Example exec_staton_bus :
   execP kstaton_bus_exp = kstaton_bus''.
 Proof.
 (* rewrite /kstaton_bus''. *)
-rewrite execP_letin execP_sample_bern.
+rewrite 3!execP_letin execP_sample_bern execP_ret.
+rewrite (execD_var _ _ "x") /= execP_if execD_var'.
 congr letin'.
 rewrite execP_letin execP_if.
-rewrite execP_letin execP_score execD_poisson !execP_ret !execD_real /=.
-rewrite /exp_var'/= !(execD_var _ _ "x")/=.
-rewrite /ite_3_10.
-(* TODO: *)
-Abort.
+congr letin'.
+rewrite /= /ite_3_10.
+rewrite 2!execP_ret 2!execD_real /=.
+rewrite /exp_var' /=.
+have -> : (@execD R _ _ (exp_var "x" (left_pf "x" sbool [::])) = execD [% {"x"}]).
+congr execD; congr exp_var; exact: Prop_irrelevance.
+rewrite execD_var /=.
+by have -> : (@macc R [:: sbool] 0 = macc0of2 R).
+rewrite execP_letin.
+congr letin'.
+rewrite execP_score execD_poisson /score_poi /=.
+rewrite /exp_var' /=.
+have -> : (@execD R _ _ (exp_var "r" (left_pf "r" sreal [:: ("x", sbool)])) = execD [% {"r"}]).
+congr execD; congr exp_var; exact: Prop_irrelevance.
+rewrite execD_var /=.
+by have -> : (@macc R [:: sreal; sbool] 0 = macc0of2 R).
+rewrite execP_ret (execD_var _ _ "x") /=.
+by have -> : (macc [:: sunit; sreal; sbool] 2 = macc2of4' (T0:=munit) (T1:=mR R) (T2:=mbool) (T3:=munit) R).
+Qed.
 
 End staton_bus.
 
