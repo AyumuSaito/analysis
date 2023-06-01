@@ -90,7 +90,7 @@ Arguments exp_norm {R l _}.
 Arguments expWP {R l st x}.
 Arguments exp_if {R l t}.
 Arguments exp_letin {R l _ _}.
-Arguments exp_sample {R l t}.
+(* Arguments exp_sample {R l t}. *)
 Arguments exp_sample_bern {R} l r.
 Arguments exp_score {R l}.
 Arguments exp_return {R l _}.
@@ -279,13 +279,15 @@ with evalP : forall (l : context) (T : stype),
   expP l T ->
   R.-sfker (ctxi2 l) ~> typei2 T -> Prop :=
 
-| EV_sample l t (e : expD l (sprob t)) (p : probability _ _) mp :
-  l # e -D-> (fun => p) ; mp ->
-  l # @exp_sample R l _ e -P-> sample p
+| EV_sample l t (e : expD l (sprob t)) (p : pprobability (typei2 t) _) mp :
+  l # e -D-> cst p ; mp ->
+  l # @exp_sample R l _ e -P-> sample (cst p) (measurable_cst p)
 
-| EV_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-  l # @exp_sample_bern R _ r r1 -P->
-  sample [the probability _ _ of bernoulli r1]
+(* | EV_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
+  l # exp_bernoulli r r1 -D-> cst (@bernoulli R r r1) ; (measurable_cst _) ->
+  l # exp_sample (exp_bernoulli r r1) -P-> sample_cst (bernoulli r1) *)
+  (* l # @exp_sample_bern R _ r r1 -P->
+  sample_cst [the probability _ _ of bernoulli r1] *)
 
 | EV_ifP l T e1 f1 mf e2 k2 e3 k3 :
   l # e1 -D-> f1 ; mf ->
@@ -315,7 +317,10 @@ with evalP : forall (l : context) (T : stype),
   (x :: l) # expWP e xl -P-> [the R.-sfker _ ~> _ of @keta1 x l t k]
 where "l # e -P-> v" := (@evalP l _ e v).
 
+Example ex1 := (exp_sample (exp_bernoulli _ p27)) : @expP R [::] _.
+
 End eval.
+
 Notation "l # e -D-> v ; mv" := (@evalD _ l _ e v mv) : lang_scope.
 Notation "l # e -P-> v" := (@evalP _ l _ e v) : lang_scope.
 
@@ -345,6 +350,21 @@ with expP_mut_ind := Induction for expP Sort Prop.
 
 Section eval_prop.
 Variables (R : realType).
+
+Local Ltac inj := let H := fresh in intros H; injection H; clear H; auto.
+
+Lemma inj_cst x y : @exp_real R [::] x = exp_real y -> x = y.
+Proof.
+inj.
+Qed.
+
+Lemma sample_sample_cst  dX dY (X : measurableType dX) (Y : measurableType dY) p : @sample_cst dX _ X _ R p = @sample _ dY _ Y R (@cst X _ p) (measurable_cst p).
+Proof.
+Abort.
+
+Lemma __ dX dY (X : measurableType dX) Y x y : @cst X _ x = cst y -> @sample_cst dX dY X Y R x = sample_cst y.
+Proof.
+Abort.
 
 Lemma evalD_uniq (l : context) t
   (e : @expD R l t) (u v : ctxi2 l -> typei2 t)
@@ -403,14 +423,12 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H4; subst v.
   by move=> /IH <-.
 - move=> l t e0 p mp ev IH k.
-  inversion 1.
-  inj_ex H0.
-  inj_ex H3.
-  admit.
-- move=> l r r1 p.
-  inversion 1; subst l0 r0.
-  inj_ex H3; subst p.
-  by have -> : r1 = r3 by exact: Prop_irrelevance.
+  simple inversion 1 => //; subst.
+  inj_ex H4; subst.
+  inj_ex H3; subst.
+  case: H3 => H3; inj_ex H3; subst e0 => ev1.
+  have Hp := (IH _ _ ev1).
+  (* rewrite Hp. *) admit.
 - move=> l t e0 f1 mf1 e2 k2 e3 k3 ev1 IH1 ev2 IH2 ev3 IH3 k.
   inversion 1; subst l0 T.
   inj_ex H0; subst e0.
@@ -443,7 +461,7 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H4; subst e0.
   inj_ex H5; subst k.
   by rewrite (IH _ H3).
-Qed.
+Admitted.
 
 Lemma evalP_uniq (l : context) t (e : expP l t)
   (u v : R.-sfker ctxi2 l ~> typei2 t) :
@@ -504,10 +522,11 @@ all: rewrite {l t e u v hu}.
   inj_ex H4; subst v.
   inj_ex H5; subst mv.
   by move/IH => <-.
-- move=> l r r1 ev.
+- admit.
+(* - move=> l r r1 ev IH k.
   inversion 1; subst l0 r0.
-  inj_ex H3; subst ev.
-  by have -> : r1 = r3 by exact: Prop_irrelevance.
+  inj_ex H4.
+  by have -> : r1 = r3 by exact: Prop_irrelevance. *)
 - move=> l t e f mf e1 k1 e2 k2 ev IH ev1 IH1 ev2 IH2 k.
   inversion 1; subst l0 T.
   inj_ex H0; subst e0.
@@ -540,7 +559,7 @@ all: rewrite {l t e u v hu}.
   inj_ex H4; subst e0.
   inj_ex H5; subst k.
   by rewrite (IH _ H3).
-Qed.
+Admitted.
 
 Lemma evalD_full (l : context) (t : stype) e :
   exists f (mf : measurable_fun _ f), @evalD R l t e f mf.
@@ -569,8 +588,9 @@ all: rewrite {l t e}.
   by exists (ite mf k2 k3); exact: EV_ifP.
 - move=> l t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
   by exists (letin' k1 k2); exact: EV_letin.
+- admit.
 - move=> l r r1.
-  by exists (sample [the pprobability _ _ of bernoulli r1]); exact: EV_sample.
+  by exists (sample_cst [the pprobability _ _ of bernoulli r1]); exact: EV_sample.
 - move=> l e [f [mf f_mf]].
   by exists (score mf); exact: EV_score.
 - by move=> l t e [f [mf f_mf]]; exists (ret mf); exact: EV_return.
@@ -603,8 +623,9 @@ all: rewrite {l t e}.
   by exists (ite mf k2 k3); exact: EV_ifP.
 - move=> l t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
   by exists (letin' k1 k2); exact: EV_letin.
+- admit.
 - move=> l r r1.
-  by exists (sample [the pprobability _ _ of bernoulli r1]); exact: EV_sample.
+  by exists (sample_cst [the pprobability _ _ of bernoulli r1]); exact: EV_sample_bern.
 - by move=> l e [f [mf H]]; exists (score mf); exact: EV_score.
 - by move=> l t e [f [mf H]]; exists (ret mf); exact: EV_return.
 Qed.

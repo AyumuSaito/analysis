@@ -13,7 +13,7 @@ Require Import lebesgue_measure  numfun lebesgue_integral exp kernel.
 (*       bernoulli r1 == Bernoulli probability with r1 a proof that           *)
 (*                       r : {nonneg R} is smaller than 1                     *)
 (*                                                                            *)
-(*           sample P == sample according to the probability P                *)
+(*           sample_cst P == sample according to the probability P                *)
 (*          letin l k == execute l, augment the context, and execute k        *)
 (*             ret mf == access the context with f and return the result      *)
 (*           score mf == observe t from d, where f is the density of d and    *)
@@ -405,6 +405,9 @@ Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
 Definition ret (f : X -> Y) (mf : measurable_fun setT f)
   : R.-pker X ~> Y := [the R.-pker _ ~> _ of kdirac mf].
 
+Definition sample_cst (P : pprobability Y R) : R.-pker X ~> Y :=
+  [the R.-pker _ ~> _ of kprobability (measurable_cst P)].
+
 Definition sample (P : X -> pprobability Y R) (mP : measurable_fun setT P) : R.-pker X ~> Y :=
   [the R.-pker _ ~> _ of kprobability mP].
 
@@ -417,6 +420,7 @@ Definition ite (f : X -> bool) (mf : measurable_fun setT f)
 
 End insn2.
 Arguments ret {d d' X Y R f} mf.
+Arguments sample_cst {d d' X Y R}.
 Arguments sample {d d' X Y R}.
 
 Section insn2_lemmas.
@@ -426,7 +430,10 @@ Lemma retE (f : X -> Y) (mf : measurable_fun setT f) x :
   ret mf x = \d_(f x) :> (_ -> \bar R).
 Proof. by []. Qed.
 
-Lemma sampleE (P : X -> pprobability Y R) (mP : measurable_fun setT P) (x : X) : sample P x = P.
+Lemma sample_cstE (P : probability Y R) (x : X) : sample_cst P x = P.
+Proof. by []. Qed.
+
+Lemma sampleE (P : X -> pprobability Y R) (mP : measurable_fun setT P) (x : X) : sample P mP x = P x.
 Proof. by []. Qed.
 
 Lemma normalizeE (f : R.-sfker X ~> Y) P x U :
@@ -806,10 +813,10 @@ rewrite {1}/letin; unlock.
 by rewrite kcomp_scoreE/= /mscale/= diracE normrM muleA EFinM.
 Qed.
 
-(* hard constraints to express score below 1 *)
+(* hard constraints to express score below 1 *)        
 Lemma score_fail (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   score (kr r%:num) =
-  letin (sample [the probability _ _ of bernoulli r1] : R.-pker T ~> _)
+  letin (sample_cst (bernoulli r1) : R.-pker T ~> _)
         (ite (macc1of2 R) (ret ktt) fail).
 Proof.
 apply/eq_sfkernel => x U.
@@ -1021,7 +1028,7 @@ End exponential.
 Lemma letin_sample_bernoulli d d' (T : measurableType d)
     (T' : measurableType d') (R : realType)(r : {nonneg R}) (r1 : (r%:num <= 1)%R)
     (u : R.-sfker [the measurableType _ of (T * bool)%type] ~> T') x y :
-  letin (sample [the probability _ _ of bernoulli r1]) u x y =
+  letin (sample_cst (bernoulli r1)) u x y =
   r%:num%:E * u (x, true) y + (`1- (r%:num))%:E * u (x, false) y.
 Proof.
 rewrite letinE/=.
@@ -1035,7 +1042,7 @@ Context d (T : measurableType d) (R : realType).
 
 Definition sample_and_return : R.-sfker T ~> _ :=
   letin
-    (sample [the probability _ _ of bernoulli p27]) (* T -> B *)
+    (sample_cst [the probability _ _ of bernoulli p27]) (* T -> B *)
     (ret (macc1of2 R)) (* T * B -> B *).
 
 Lemma sample_and_returnE t U : sample_and_return t U =
@@ -1057,7 +1064,7 @@ Context d (T : measurableType d) (R : realType).
 
 Definition sample_and_branch : R.-sfker T ~> mR R :=
   letin
-    (sample [the probability _ _ of bernoulli p27]) (* T -> B *)
+    (sample_cst [the probability _ _ of bernoulli p27]) (* T -> B *)
     (ite (macc1of2 R) (ret k3) (ret k10)).
 
 Lemma sample_and_branchE t U : sample_and_branch t U =
@@ -1090,13 +1097,13 @@ apply: measurableI.
 Qed.
 
 Definition bernoulli_and : R.-sfker T ~> mbool :=
-    (letin (sample [the probability _ _ of bernoulli p12])
-     (letin (sample [the probability _ _ of bernoulli p12])
+    (letin (sample_cst [the probability _ _ of bernoulli p12])
+     (letin (sample_cst [the probability _ _ of bernoulli p12])
         (ret (measurable_fun_mand (macc1of3 R) (macc2of3 R))))).
 
 Lemma bernoulli_andE t U :
   bernoulli_and t U =
-  sample [the probability _ _ of bernoulli p14] t U.
+  sample_cst (bernoulli p14) t U.
 Proof.
 rewrite /bernoulli_and 3!letin_sample_bernoulli/= /mand/= muleDr//= -muleDl//.
 rewrite !muleA -addeA -muleDl// -!EFinM !onem1S/= -splitr mulr1.
@@ -1114,7 +1121,7 @@ Import Notations.
 Context d (T : measurableType d) (R : realType) (h : R -> R).
 Hypothesis mh : measurable_fun setT h.
 Definition kstaton_bus : R.-sfker T ~> mbool :=
-  letin (sample [the probability _ _ of bernoulli p27])
+  letin (sample_cst [the probability _ _ of bernoulli p27])
   (letin
     (letin (ite (macc1of2 R) (ret k3) (ret k10))
       (score (measurableT_comp mh (macc2of3 R))))
