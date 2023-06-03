@@ -427,8 +427,12 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H4; subst.
   inj_ex H3; subst.
   case: H3 => H3; inj_ex H3; subst e0 => ev1.
-  have Hp := (IH _ _ ev1).
-  (* rewrite Hp. *) admit.
+  have Hp := IH _ _ ev1.
+  have ? : p = p0.
+    clear -Hp.
+    move/(congr1 (fun x => x point)) : Hp.
+    done.
+  by subst p0.
 - move=> l t e0 f1 mf1 e2 k2 e3 k3 ev1 IH1 ev2 IH2 ev3 IH3 k.
   inversion 1; subst l0 T.
   inj_ex H0; subst e0.
@@ -461,7 +465,7 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H4; subst e0.
   inj_ex H5; subst k.
   by rewrite (IH _ H3).
-Admitted.
+Qed.
 
 Lemma evalP_uniq (l : context) t (e : expP l t)
   (u v : R.-sfker ctxi2 l ~> typei2 t) :
@@ -522,11 +526,16 @@ all: rewrite {l t e u v hu}.
   inj_ex H4; subst v.
   inj_ex H5; subst mv.
   by move/IH => <-.
-- admit.
-(* - move=> l r r1 ev IH k.
-  inversion 1; subst l0 r0.
-  inj_ex H4.
-  by have -> : r1 = r3 by exact: Prop_irrelevance. *)
+- move=> l t e p mp ep IH v.
+  inversion 1; subst l0 t0.
+  inj_ex H0; subst e0.
+  inj_ex H3.
+  have pp1 := IH _ _ H4.
+  have ? : p = p1.
+    clear -pp1.
+    move/(congr1 (fun x => x point)) : pp1.
+    done.
+  by subst p1.
 - move=> l t e f mf e1 k1 e2 k2 ev IH ev1 IH1 ev2 IH2 k.
   inversion 1; subst l0 T.
   inj_ex H0; subst e0.
@@ -559,7 +568,7 @@ all: rewrite {l t e u v hu}.
   inj_ex H4; subst e0.
   inj_ex H5; subst k.
   by rewrite (IH _ H3).
-Admitted.
+Qed.
 
 Lemma evalD_full (l : context) (t : stype) e :
   exists f (mf : measurable_fun _ f), @evalD R l t e f mf.
@@ -588,6 +597,7 @@ all: rewrite {l t e}.
   by exists (ite mf k2 k3); exact: EV_ifP.
 - move=> l t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
   by exists (letin' k1 k2); exact: EV_letin.
+
 - admit.
 - move=> l r r1.
   by exists (sample_cst [the pprobability _ _ of bernoulli r1]); exact: EV_sample.
