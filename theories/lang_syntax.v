@@ -70,7 +70,7 @@ with expP : context -> stype -> Type :=
 | exp_letin l t1 t2 (x : string) :
   expP l t1 -> expP ((x, t1) :: l) t2 -> expP l t2
 | exp_sample l t : expD l (sprob t) -> expP l t
-| exp_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expP l sbool
+(*| exp_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expP l sbool*)
 | exp_score l : expD l sreal -> expP l sunit
 | exp_return l t : expD l t -> expP l t.
 
@@ -91,7 +91,7 @@ Arguments expWP {R l st x}.
 Arguments exp_if {R l t}.
 Arguments exp_letin {R l _ _}.
 (* Arguments exp_sample {R l t}. *)
-Arguments exp_sample_bern {R} l r.
+(*Arguments exp_sample_bern {R} l r.*)
 Arguments exp_score {R l}.
 Arguments exp_return {R l _}.
 
@@ -227,7 +227,7 @@ with free_varsP T l (e : expP T l) : seq _ :=
   | exp_if _ _ e1 e2 e3     => free_varsD e1 ++ free_varsP e2 ++ free_varsP e3
   | exp_letin _ _ _ x e1 e2 => free_varsP e1 ++ rem x (free_varsP e2)
   | exp_sample _ _ _ => [::]
-  | exp_sample_bern _ _ _   => [::]
+(*  | exp_sample_bern _ _ _   => [::]*)
   | exp_score _ e           => free_varsD e
   | exp_return _ _ e        => free_varsD e
   | expWP _ _ x e _ => free_varsP e (*NB: why different from expWD case?*)
@@ -279,9 +279,10 @@ with evalP : forall (l : context) (T : stype),
   expP l T ->
   R.-sfker (ctxi2 l) ~> typei2 T -> Prop :=
 
-| EV_sample l t (e : expD l (sprob t)) (p : pprobability (typei2 t) _) mp :
-  l # e -D-> cst p ; mp ->
-  l # @exp_sample R l _ e -P-> sample (cst p) (measurable_cst p)
+| EV_sample l t (e : expD l (sprob t)) (p : [|l|]%ctx -> pprobability (typei2 t) R)
+  mp :
+  l # e -D-> p ; mp ->
+  l # @exp_sample R l _ e -P-> sample p mp
 
 (* | EV_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   l # exp_bernoulli r r1 -D-> cst (@bernoulli R r r1) ; (measurable_cst _) ->
@@ -428,11 +429,8 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H3; subst.
   case: H3 => H3; inj_ex H3; subst e0 => ev1.
   have Hp := IH _ _ ev1.
-  have ? : p = p0.
-    clear -Hp.
-    move/(congr1 (fun x => x point)) : Hp.
-    done.
-  by subst p0.
+  subst p0.
+  by have -> : mp = mp0 by exact: Prop_irrelevance.
 - move=> l t e0 f1 mf1 e2 k2 e3 k3 ev1 IH1 ev2 IH2 ev3 IH3 k.
   inversion 1; subst l0 T.
   inj_ex H0; subst e0.
@@ -528,14 +526,10 @@ all: rewrite {l t e u v hu}.
   by move/IH => <-.
 - move=> l t e p mp ep IH v.
   inversion 1; subst l0 t0.
-  inj_ex H0; subst e0.
-  inj_ex H3.
-  have pp1 := IH _ _ H4.
-  have ? : p = p1.
-    clear -pp1.
-    move/(congr1 (fun x => x point)) : pp1.
-    done.
-  by subst p1.
+  inj_ex H7; subst v.
+  inj_ex H5; subst e1.
+  have ? := IH _ _ H3; subst p1.
+  by have -> : mp = mp1 by apply: Prop_irrelevance.
 - move=> l t e f mf e1 k1 e2 k2 ev IH ev1 IH1 ev2 IH2 k.
   inversion 1; subst l0 T.
   inj_ex H0; subst e0.
@@ -597,10 +591,14 @@ all: rewrite {l t e}.
   by exists (ite mf k2 k3); exact: EV_ifP.
 - move=> l t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
   by exists (letin' k1 k2); exact: EV_letin.
-
-- admit.
-- move=> l r r1.
-  by exists (sample_cst [the pprobability _ _ of bernoulli r1]); exact: EV_sample.
+- move=> l t e [f [/= mf ef]].
+  eexists.
+  apply: EV_sample.
+    exact: mf.
+  move=> mf'.
+  by have <- : mf = mf' by exact: Prop_irrelevance.
+(*- move=> l r r1.
+  by exists (sample_cst [the pprobability _ _ of bernoulli r1]); exact: EV_sample.*)
 - move=> l e [f [mf f_mf]].
   by exists (score mf); exact: EV_score.
 - by move=> l t e [f [mf f_mf]]; exists (ret mf); exact: EV_return.
@@ -633,9 +631,12 @@ all: rewrite {l t e}.
   by exists (ite mf k2 k3); exact: EV_ifP.
 - move=> l t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
   by exists (letin' k1 k2); exact: EV_letin.
-- admit.
-- move=> l r r1.
-  by exists (sample_cst [the pprobability _ _ of bernoulli r1]); exact: EV_sample_bern.
+- move=> l t e [f [mf ef]].
+  eexists.
+  apply: EV_sample.
+    exact: mf.
+  move=> mf'.
+  by have <- : mf = mf' by exact: Prop_irrelevance.
 - by move=> l e [f [mf H]]; exists (score mf); exact: EV_score.
 - by move=> l t e [f [mf H]]; exists (ret mf); exact: EV_return.
 Qed.
@@ -748,10 +749,12 @@ apply: evalP_uniq; first exact/evalP_execP.
 by apply: EV_return; exact/evalD_execD.
 Qed.
 
-Lemma execP_sample_bern l r r1 : execP (exp_sample_bern l r r1) = sample (bernoulli r1).
+Lemma execP_sample_bern l r r1 :
+  execP (exp_sample (@exp_bernoulli R l r r1)) = sample_cst (bernoulli r1).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
-exact/EV_sample.
+apply: EV_sample => /=.
+exact: EV_bernoulli.
 Qed.
 
 Lemma execP_score l (e : @expD R l sreal) : execP (exp_score e) = score (projT2 (execD e)).
@@ -872,13 +875,13 @@ Example e3 := [Let "x" <~ Ret {1%:R}:r In
                Let "z" <~ Ret %1{"y"} In Ret %1{"z"}] : expP [::] _.
 
 Example staton_bus_exp := exp_norm (
-  [Let "x" <~ {exp_sample_bern [::] (2 / 7%:R)%:nng p27} In
+  [Let "x" <~ {exp_sample (@exp_bernoulli _ [::] (2 / 7%:R)%:nng p27)} In
    Let "r" <~ If %1{"x"} Then Ret {3}:r Else Ret {10}:r In
    Let "_" <~ {exp_score (exp_poisson 4 [%1{"r"}])} In
    Ret %1{"x"}]).
 
 Definition sample_bern : R.-sfker munit ~> mbool :=
-  sample [the probability _ _ of bernoulli p27].
+  sample_cst [the probability _ _ of bernoulli p27].
 Definition ite_3_10 :
   R.-sfker [the measurableType _ of (mbool * munit)%type] ~> (mR R) :=
   ite (macc0of2 R) (ret k3) (ret k10).
@@ -887,7 +890,7 @@ Definition score_poi :
   score (measurableT_comp (mpoisson 4) (macc0of2 R)).
 
 Example kstaton_bus_exp : expP [::] sbool :=
-  [Let "x" <~ {exp_sample_bern [::] (2 / 7%:R)%:nng p27} In
+  [Let "x" <~ {exp_sample (@exp_bernoulli R [::] (2 / 7%:R)%:nng p27)} In
    Let "r" <~ If %1{"x"} Then Ret {3}:r Else Ret {10}:r In
    Let "_" <~ {exp_score (exp_poisson 4 [%1{"r"}])} In
    Ret %{"x"}].
@@ -901,22 +904,23 @@ Example eval_staton_bus :
   [::] # kstaton_bus_exp -P-> kstaton_bus''.
 Proof.
 apply/EV_letin.
-apply/EV_sample.
+  apply: EV_sample.
+  exact: EV_bernoulli.
 apply/EV_letin.
-apply/EV_ifP/EV_return/EV_real/EV_return/EV_real.
-rewrite/exp_var'/=.
-have /= := (EV_var R [:: ("x", sbool)] "x").
-have <- : ([% {"x"}] = @exp_var R _ "x" _ (left_pf "x" sbool [::])).
-congr exp_var; exact: Prop_irrelevance.
-congr evalD; exact: Prop_irrelevance.
+  apply/EV_ifP/EV_return/EV_real/EV_return/EV_real.
+  rewrite/exp_var'/=.
+  have /= := (EV_var R [:: ("x", sbool)] "x").
+  have <- : ([% {"x"}] = @exp_var R _ "x" _ (left_pf "x" sbool [::])).
+    congr exp_var; exact: Prop_irrelevance.
+  congr evalD; exact: Prop_irrelevance.
 apply/EV_letin.
-apply/EV_score.
-apply/EV_poisson.
-rewrite/exp_var'/=.
-have /= := (EV_var R [:: ("r", sreal); ("x", sbool)] "r").
-have <- : ([% {"r"}] = @exp_var R _ "r" _ (left_pf "r" sreal [:: ("x", sbool)])).
-congr exp_var; exact: Prop_irrelevance.
-congr evalD; exact: Prop_irrelevance.
+  apply/EV_score.
+  apply/EV_poisson.
+  rewrite/exp_var'/=.
+  have /= := (EV_var R [:: ("r", sreal); ("x", sbool)] "r").
+  have <- : ([% {"r"}] = @exp_var R _ "r" _ (left_pf "r" sreal [:: ("x", sbool)])).
+    congr exp_var; exact: Prop_irrelevance.
+  congr evalD; exact: Prop_irrelevance.
 apply/EV_return.
 have /= := (EV_var R [:: ("_", sunit); ("r", sreal); ("x", sbool)] "x").
 rewrite/acc2of4'/comp/=.
@@ -928,7 +932,10 @@ Example exec_staton_bus :
 Proof.
 (* rewrite /kstaton_bus''. *)
 rewrite 3!execP_letin execP_sample_bern execP_ret.
-rewrite (execD_var _ _ "x") /= execP_if execD_var'.
+rewrite (execD_var _ _ "x") /= execP_if/=.
+rewrite /kstaton_bus'' /sample_bern /ite_3_10 /=.
+rewrite !execP_ret.
+rewrite execD_var'.
 congr letin'.
 rewrite execP_letin execP_if.
 congr letin'.
