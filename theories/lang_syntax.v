@@ -38,7 +38,7 @@ Section context.
 Variables (R : realType).
 Definition context := seq (string * stype)%type.
 
-Definition ctxi (l : context) := @ltypei R (map snd l).
+Definition ctxi (l : context) := @pairs_of_seq R (map snd l).
 Definition ctxi2 (l : context) := projT2 (ctxi l).
 
 End context.
@@ -70,7 +70,6 @@ with expP : context -> stype -> Type :=
 | exp_letin l t1 t2 (x : string) :
   expP l t1 -> expP ((x, t1) :: l) t2 -> expP l t2
 | exp_sample l t : expD l (sprob t) -> expP l t
-(*| exp_sample_bern l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expP l sbool*)
 | exp_score l : expD l sreal -> expP l sunit
 | exp_return l t : expD l t -> expP l t.
 
