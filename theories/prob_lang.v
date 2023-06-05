@@ -596,23 +596,24 @@ Fixpoint typei (t : stype) : {d & measurableType d} :=
 
 Definition typei2 t := projT2 (typei t).
 
-Definition ltypei (l : seq stype) := iter_mprod (map typei l).
+Definition pairs_of_seq (l : seq stype) : {d & measurableType d} :=
+  iter_mprod (map typei l).
 
-Definition ltypei2 t := projT2 (ltypei t).
+Definition pairs_of_seq2 t := projT2 (pairs_of_seq t).
 
 End type_syntax.
 
 Arguments typei {R}.
 Arguments typei2 {R}.
-Arguments ltypei {R}.
-Arguments ltypei2 {R}.
+Arguments pairs_of_seq {R}.
+Arguments pairs_of_seq2 {R}.
 
 Section acc.
 Context {R : realType}.
 
 Fixpoint acc (l : seq stype) (i : nat) :
-  ltypei2 l -> @typei2 R (nth sunit l i) :=
-  match l return (ltypei2 l -> typei2 (nth sunit l i)) with
+  pairs_of_seq2 l -> @typei2 R (nth sunit l i) :=
+  match l return (pairs_of_seq2 l -> typei2 (nth sunit l i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
