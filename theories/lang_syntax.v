@@ -36,7 +36,7 @@ End string_eq.
 
 Section context.
 Variables (R : realType).
-Definition context := seq (string * stype)%type.
+Definition context := seq (string * typ).
 
 Definition ctxi (l : context) := @pairs_of_seq R (map snd l).
 Definition ctxi2 (l : context) := projT2 (ctxi l).
@@ -51,26 +51,26 @@ Notation "[| G |]%ctx" := (ctxi2 G).
 Section expr.
 Variables (R : realType).
 
-Inductive expD : context -> stype -> Type :=
+Inductive expD : context -> typ -> Type :=
 | expWD l st x (e : expD l st) : x.1 \notin map fst l -> expD (x :: l) st
-| exp_unit l : expD l sunit
-| exp_bool l : bool -> expD l sbool
-| exp_real l : R -> expD l sreal
-| exp_pair l t1 t2 : expD l t1 -> expD l t2 -> expD l (spair t1 t2)
-| exp_var (l : context) x t : (* x \in map fst l -> *)
-  t = nth sunit (map snd l) (seq.index x (map fst l)) ->
+| exp_unit l : expD l Unit
+| exp_bool l : bool -> expD l Bool
+| exp_real l : R -> expD l Real
+| exp_pair l t1 t2 : expD l t1 -> expD l t2 -> expD l (t1, t2)%P
+| exp_var (l : context) x t :
+  t = nth Unit (map snd l) (seq.index x (map fst l)) ->
   expD l t
-| exp_bernoulli l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expD l (sprob sbool)
-| exp_poisson l : nat -> expD l sreal -> expD l sreal
-| exp_norm l t : expP l t -> expD l (sprob t)
-with expP : context -> stype -> Type :=
+| exp_bernoulli l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expD l (Prob Bool)
+| exp_poisson l : nat -> expD l Real -> expD l Real
+| exp_norm l t : expP l t -> expD l (Prob t)
+with expP : context -> typ -> Type :=
 | expWP l st x (e : expP l st) : x.1 \notin map fst l -> expP (x :: l) st
 (* | expWPL l st xs (e : expP l st) : subseq (map fst xs) (map fst l) -> expP (xs ++ l) st *)
-| exp_if l t : expD l sbool -> expP l t -> expP l t -> expP l t
+| exp_if l t : expD l Bool -> expP l t -> expP l t -> expP l t
 | exp_letin l t1 t2 (x : string) :
   expP l t1 -> expP ((x, t1) :: l) t2 -> expP l t2
-| exp_sample l t : expD l (sprob t) -> expP l t
-| exp_score l : expD l sreal -> expP l sunit
+| exp_sample l t : expD l (Prob t) -> expP l t
+| exp_score l : expD l Real -> expP l Unit
 | exp_return l t : expD l t -> expP l t.
 
 End expr.
@@ -147,19 +147,19 @@ subst p2.
 by f_equal.
 Qed.
 
-Definition eta1 x (l : context) t (f : @ctxi2 R l -> @typei2 R t) 
+Definition eta1 x (l : context) t (f : @ctxi2 R l -> @typei2 R t)
   : ctxi2 (x :: l) -> typei2 t := f \o snd.
 
 Lemma meta1 x (l : context) t (f : @ctxi2 R l -> @typei2 R t)
   (mf : measurable_fun setT f) : measurable_fun setT (@eta1 x l t f).
 Proof. exact: (measurableT_comp mf). Qed.
 
-Definition keta1 (x : string * stype) (l : context) t
-  (k : R.-sfker @ctxi2 R l ~> @typei2 R t) 
+Definition keta1 (x : string * typ) (l : context) t
+  (k : R.-sfker @ctxi2 R l ~> @typei2 R t)
   : ctxi2 (x :: l) -> {measure set typei2 t -> \bar R} := k \o snd.
 
 Section kernel_eta1.
-Variables (x : string * stype) (l : context) (t : stype)
+Variables (x : string * typ) (l : context) (t : typ)
   (k : R.-sfker @ctxi2 R l ~> @typei2 R t).
 
 Let mk U : measurable U -> measurable_fun setT ((@keta1 x l t k) ^~ U).
@@ -172,7 +172,7 @@ HB.instance Definition _ := isKernel.Build _ _ _ _ _ (@keta1 x l t k) mk.
 End kernel_eta1.
 
 Section sfkernel.
-Variables (x : string * stype) (l : context) (t : stype)
+Variables (x : string * typ) (l : context) (t : typ)
   (k : R.-sfker @ctxi2 R l ~> @typei2 R t).
 
 Let sk : exists2 s : (R.-ker @ctxi2 R (x :: l) ~> @typei2 R t)^nat,
@@ -195,7 +195,7 @@ HB.instance Definition _ :=
 End sfkernel.
 
 Section fkernel_eta1.
-Variables (x : string * stype) (l : context) (t : stype)
+Variables (x : string * typ) (l : context) (t : typ)
   (k : R.-fker @ctxi2 R l ~> @typei2 R t).
 
 Let uub : measure_fam_uub (@keta1 x l t k).
@@ -232,8 +232,8 @@ with free_varsP T l (e : expP T l) : seq _ :=
   | expWP _ _ x e _ => free_varsP e (*NB: why different from expWD case?*)
   end.
 
-Inductive evalD : forall (l : context) (T : stype) (e : @expD R l T)
-  (f : ctxi2 l -> typei2 T),
+Inductive evalD : forall (l : context) t (e : @expD R l t)
+  (f : ctxi2 l -> typei2 t),
   measurable_fun setT f -> Prop :=
 | EV_unit l :
   l # exp_unit -D-> cst tt ; ktt
@@ -263,22 +263,22 @@ Inductive evalD : forall (l : context) (T : stype) (e : @expD R l T)
   l # exp_poisson k e -D-> poisson k \o f ;
   measurableT_comp (mpoisson k) mf
 
-| EV_norm l (t : stype) (e : expP l t) (k : R.-sfker _ ~> typei2 t) :
+| EV_norm l t (e : expP l t) (k : R.-sfker _ ~> typei2 t) :
   l # e -P-> k ->
   l # exp_norm e -D-> (normalize k point : _ -> pprobability _ _) ;
   measurable_fun_mnormalize k
 
-| EV_WeakD l (t : stype) (e : expD l t) x (xl : x.1 \notin map fst l) f mf :
+| EV_WeakD l t (e : expD l t) x (xl : x.1 \notin map fst l) f mf :
   l # e -D-> f ; mf ->
   (x :: l) # expWD e xl -D-> (@eta1 x l t f) ; (@meta1 x l t f mf)
 
 where "l # e -D-> v ; mv" := (@evalD l _ e v mv)
 
-with evalP : forall (l : context) (T : stype),
-  expP l T ->
-  R.-sfker (ctxi2 l) ~> typei2 T -> Prop :=
+with evalP : forall (l : context) t,
+  expP l t ->
+  R.-sfker (ctxi2 l) ~> typei2 t -> Prop :=
 
-| EV_sample l t (e : expD l (sprob t)) (p : [|l|]%ctx -> pprobability (typei2 t) R)
+| EV_sample l t (e : expD l (Prob t)) (p : [|l|]%ctx -> pprobability (typei2 t) R)
   mp :
   l # e -D-> p ; mp ->
   l # @exp_sample R l _ e -P-> sample p mp
@@ -297,14 +297,14 @@ with evalP : forall (l : context) (T : stype),
 
 | EV_score l e (f : ctxi2 l -> R)
   (mf : measurable_fun _ f) :
-  l # e : expD l sreal -D-> f ; mf ->
+  l # e : expD l Real -D-> f ; mf ->
   l # exp_score e -P-> [the R.-sfker _ ~> _ of kscore mf]
 
 | EV_return l T e (f : _ -> _) (mf : measurable_fun _ f) :
   l # e -D-> f ; mf ->
   l # [Ret e] : expP l T -P-> ret mf
 
-| EV_letin (l : context) (t1 t2 : stype)
+| EV_letin (l : context) t1 t2
   (x : string) (e1 : expP l t1) (e2 : expP ((x, t1) :: l) t2)
   (k1 : R.-sfker (ctxi2 l) ~> typei2 t1)
   (k2 : R.-sfker (ctxi2 ((x, t1) :: l)) ~> typei2 t2) :
@@ -312,7 +312,7 @@ with evalP : forall (l : context) (T : stype),
   ((x, t1) :: l)%SEQ # e2 -P-> k2 ->
   l # [Let x <~ e1 In e2] -P-> letin' k1 k2
 
-| EV_WeakP l (t : stype) (e : expP l t) x (xl : x.1 \notin map fst l) k :
+| EV_WeakP l t (e : expP l t) x (xl : x.1 \notin map fst l) k :
   l # e -P-> k ->
   (x :: l) # expWP e xl -P-> [the R.-sfker _ ~> _ of @keta1 x l t k]
 where "l # e -P-> v" := (@evalP l _ e v).
@@ -563,7 +563,7 @@ all: rewrite {l t e u v hu}.
   by rewrite (IH _ H3).
 Qed.
 
-Lemma evalD_full (l : context) (t : stype) e :
+Lemma evalD_full (l : context) t (e : expD l t) :
   exists f (mf : measurable_fun _ f), @evalD R l t e f mf.
 Proof.
 apply: (@expD_mut_ind R
@@ -603,7 +603,7 @@ all: rewrite {l t e}.
 - by move=> l t e [f [mf f_mf]]; exists (ret mf); exact: EV_return.
 Qed.
 
-Lemma evalP_full (l : context) (t : stype) e :
+Lemma evalP_full (l : context) t (e : expP l t) :
   exists (k : R.-sfker _ ~> _), @evalP R l t e k.
 Proof.
 apply: (@expP_mut_ind R
@@ -665,7 +665,7 @@ by case: cid.
 Defined.
 
 Definition execP_ret_real (l : context) (r : R) :
-    R.-sfker @ctxi2 R l ~> @typei2 R sreal :=
+    R.-sfker @ctxi2 R l ~> @typei2 R Real :=
   execP (exp_return (exp_real r)).
 
 Scheme expD_mut_rec := Induction for expD Sort Type
@@ -712,7 +712,7 @@ congr existT.
 apply Prop_irrelevance.
 Qed.
 
-Lemma execD_poisson l k (e : expD l sreal) :
+Lemma execD_poisson l k (e : expD l Real) :
   execD (exp_poisson k e) = existT _ (poisson k \o (projT1 (execD e)))
   (measurableT_comp (mpoisson k) (projT2 (execD e))).
 Proof.
@@ -728,8 +728,8 @@ congr existT.
 exact/Prop_irrelevance.
 Qed.
 
-Lemma execP_WP_keta1 x l (st : stype) (e : expP l st) (xl : x.1 \notin map fst l) :
-  execP (@expWP R l st _ e xl) = [the _.-sfker _ ~> _ of keta1 (execP e)].
+Lemma execP_WP_keta1 x l t (e : expP l t) (xl : x.1 \notin map fst l) :
+  execP (@expWP R l t _ e xl) = [the _.-sfker _ ~> _ of keta1 (execP e)].
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 by apply: EV_WeakP; exact: evalP_execP.
@@ -756,7 +756,7 @@ apply: EV_sample => /=.
 exact: EV_bernoulli.
 Qed.
 
-Lemma execP_score l (e : @expD R l sreal) : execP (exp_score e) = score (projT2 (execD e)).
+Lemma execP_score l (e : @expD R l Real) : execP (exp_score e) = score (projT2 (execD e)).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 exact/EV_score/evalD_execD.
@@ -831,13 +831,13 @@ Structure tagged_context := Tag {untag : context}.
 Definition recurse_tag h := Tag h.
 Canonical found_tag h := recurse_tag h.
 
-Structure find (s : string) (t : stype) := Find {
+Structure find (s : string) (t : typ) := Find {
   context_of : tagged_context ;
-  ctxt_prf : t = nth sunit (map snd (untag context_of))
+  ctxt_prf : t = nth Unit (map snd (untag context_of))
                            (seq.index s (map fst (untag context_of)))}.
 
-Lemma left_pf (s : string) (t : stype) (l : context) :
-  t = nth sunit (map snd ((s, t) :: l)) (seq.index s (map fst ((s, t) :: l))).
+Lemma left_pf (s : string) (t : typ) (l : context) :
+  t = nth Unit (map snd ((s, t) :: l)) (seq.index s (map fst ((s, t) :: l))).
 Proof.
 by rewrite /= !eqxx/=.
 Qed.
@@ -845,10 +845,10 @@ Qed.
 Canonical found_struct s t (l : context) : find s t :=
   Eval hnf in @Find s t (found_tag ((s, t) :: l)) (@left_pf s t l).
 
-Lemma right_pf (s : string) (t : stype) (l : context) u t' :
+Lemma right_pf (s : string) (t : typ) (l : context) u t' :
   s != u ->
-  t' = nth sunit (map snd l) (seq.index u (map fst l)) ->
-  t' = nth sunit (map snd ((s, t) :: l)) (seq.index u (map fst ((s, t) :: l))).
+  t' = nth Unit (map snd l) (seq.index u (map fst l)) ->
+  t' = nth Unit (map snd ((s, t) :: l)) (seq.index u (map fst ((s, t) :: l))).
 Proof.
 move=> su ut'l /=.
 case: ifPn => //=.
@@ -859,7 +859,7 @@ Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u
   Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (context_of l)))
   (@right_pf s t (untag (context_of l)) u t' su (ctxt_prf l)).
 
-Definition exp_var' (x : string) (t : stype) (g : find x t) :=
+Definition exp_var' (x : string) (t : typ) (g : find x t) :=
   @exp_var R (untag (context_of g)) x t (ctxt_prf g).
 
 Notation "%1 x" := (@exp_var' x%string _ _) (in custom expr at level 1).
@@ -888,7 +888,7 @@ Definition score_poi :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
   score (measurableT_comp (mpoisson 4) (macc0of2 R)).
 
-Example kstaton_bus_exp : expP [::] sbool :=
+Example kstaton_bus_exp : expP [::] Bool :=
   [Let "x" <~ {exp_sample (@exp_bernoulli R [::] (2 / 7%:R)%:nng p27)} In
    Let "r" <~ If %1{"x"} Then Ret {3}:r Else Ret {10}:r In
    Let "_" <~ {exp_score (exp_poisson 4 [%1{"r"}])} In
@@ -908,20 +908,20 @@ apply/EV_letin.
 apply/EV_letin.
   apply/EV_ifP/EV_return/EV_real/EV_return/EV_real.
   rewrite/exp_var'/=.
-  have /= := (EV_var R [:: ("x", sbool)] "x").
-  have <- : ([% {"x"}] = @exp_var R _ "x" _ (left_pf "x" sbool [::])).
+  have /= := (EV_var R [:: ("x", Bool)] "x").
+  have <- : ([% {"x"}] = @exp_var R _ "x" _ (left_pf "x" Bool [::])).
     congr exp_var; exact: Prop_irrelevance.
   congr evalD; exact: Prop_irrelevance.
 apply/EV_letin.
   apply/EV_score.
   apply/EV_poisson.
   rewrite/exp_var'/=.
-  have /= := (EV_var R [:: ("r", sreal); ("x", sbool)] "r").
-  have <- : ([% {"r"}] = @exp_var R _ "r" _ (left_pf "r" sreal [:: ("x", sbool)])).
+  have /= := (EV_var R [:: ("r", Real); ("x", Bool)] "r").
+  have <- : ([% {"r"}] = @exp_var R _ "r" _ (left_pf "r" Real [:: ("x", Bool)])).
     congr exp_var; exact: Prop_irrelevance.
   congr evalD; exact: Prop_irrelevance.
 apply/EV_return.
-have /= := (EV_var R [:: ("_", sunit); ("r", sreal); ("x", sbool)] "x").
+have /= := (EV_var R [:: ("_", Unit); ("r", Real); ("x", Bool)] "x").
 rewrite/acc2of4'/comp/=.
 congr evalD; exact: Prop_irrelevance.
 Qed.
@@ -933,19 +933,19 @@ rewrite /kstaton_bus''.
 rewrite 3!execP_letin execP_sample_bern.
 congr letin'.
 rewrite !execP_if !execP_ret !execD_real.
-have -> : (@execD R _ _ (exp_var "x" (left_pf "x" sbool [::])) = execD [% {"x"}]).
+have -> : (@execD R _ _ (exp_var "x" (left_pf "x" Bool [::])) = execD [% {"x"}]).
 congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /= /ite_3_10.
-have -> : (@macc R [:: sbool] 0 = macc0of2 R) by [].
+have -> : (@macc R [:: Bool] 0 = macc0of2 R) by [].
 congr letin'.
 rewrite execP_score execD_poisson /=.
-have -> : (@execD R _ _ (exp_var "r" (left_pf "r" sreal [:: ("x", sbool)])) = execD [% {"r"}]).
+have -> : (@execD R _ _ (exp_var "r" (left_pf "r" Real [:: ("x", Bool)])) = execD [% {"r"}]).
 congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /=.
-have ->/= : (@macc R [:: sreal; sbool] 0 = macc0of2 R) by [].
+have ->/= : (@macc R [:: Real; Bool] 0 = macc0of2 R) by [].
 congr letin'.
 rewrite (execD_var _ _ "x") /=.
-by have -> : (macc [:: sunit; sreal; sbool] 2 = macc2of4' (T0:=munit) (T1:=mR R) (T2:=mbool) (T3:=munit) R).
+by have -> : (macc [:: Unit; Real; Bool] 2 = macc2of4' (T0:=munit) (T1:=mR R) (T2:=mbool) (T3:=munit) R).
 Qed.
 
 End staton_bus.
