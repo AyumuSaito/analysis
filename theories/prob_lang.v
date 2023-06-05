@@ -601,7 +601,7 @@ Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
   | Const T => T
   end.
 
-Definition typei2 t : measurableType (projT1 (measurable_of_typ t)) :=
+Definition mtyp t : measurableType (projT1 (measurable_of_typ t)) :=
   projT2 (measurable_of_typ t).
 
 Definition measurable_of_seq (l : seq typ) : {d & measurableType d} :=
@@ -612,7 +612,7 @@ Definition pairs_of_seq2 l : measurableType (projT1 (measurable_of_seq l)) :=
 
 End type_syntax.
 Arguments measurable_of_typ {R}.
-Arguments typei2 {R}.
+Arguments mtyp {R}.
 Arguments measurable_of_seq {R}.
 Arguments pairs_of_seq2 {R}.
 
@@ -622,8 +622,8 @@ Section acc.
 Context {R : realType}.
 
 Fixpoint acc (l : seq typ) (i : nat) :
-  pairs_of_seq2 l -> @typei2 R (nth Unit l i) :=
-  match l return (pairs_of_seq2 l -> typei2 (nth Unit l i)) with
+  pairs_of_seq2 l -> @mtyp R (nth Unit l i) :=
+  match l return (pairs_of_seq2 l -> mtyp (nth Unit l i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
