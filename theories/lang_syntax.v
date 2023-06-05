@@ -930,31 +930,22 @@ Qed.
 Example exec_staton_bus :
   execP kstaton_bus_exp = kstaton_bus''.
 Proof.
-(* rewrite /kstaton_bus''. *)
-rewrite 3!execP_letin execP_sample_bern execP_ret.
-rewrite (execD_var _ _ "x") /= execP_if/=.
-rewrite /kstaton_bus'' /sample_bern /ite_3_10 /=.
-rewrite !execP_ret.
-rewrite execD_var'.
+rewrite /kstaton_bus''.
+rewrite 3!execP_letin execP_sample_bern.
 congr letin'.
-rewrite execP_letin execP_if.
-congr letin'.
-rewrite /= /ite_3_10.
-rewrite 2!execP_ret 2!execD_real /=.
-rewrite /exp_var' /=.
+rewrite !execP_if !execP_ret !execD_real.
 have -> : (@execD R _ _ (exp_var "x" (left_pf "x" sbool [::])) = execD [% {"x"}]).
 congr execD; congr exp_var; exact: Prop_irrelevance.
-rewrite execD_var /=.
-by have -> : (@macc R [:: sbool] 0 = macc0of2 R).
-rewrite execP_letin.
+rewrite execD_var /= /ite_3_10.
+have -> : (@macc R [:: sbool] 0 = macc0of2 R) by [].
 congr letin'.
-rewrite execP_score execD_poisson /score_poi /=.
-rewrite /exp_var' /=.
+rewrite execP_score execD_poisson /=.
 have -> : (@execD R _ _ (exp_var "r" (left_pf "r" sreal [:: ("x", sbool)])) = execD [% {"r"}]).
 congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /=.
-by have -> : (@macc R [:: sreal; sbool] 0 = macc0of2 R).
-rewrite execP_ret (execD_var _ _ "x") /=.
+have ->/= : (@macc R [:: sreal; sbool] 0 = macc0of2 R) by [].
+congr letin'.
+rewrite (execD_var _ _ "x") /=.
 by have -> : (macc [:: sunit; sreal; sbool] 2 = macc2of4' (T0:=munit) (T1:=mR R) (T2:=mbool) (T3:=munit) R).
 Qed.
 
