@@ -46,10 +46,22 @@ End string_eq.
 Section type.
 Variables (R : realType).
 
-Inductive Ty := TReal | TUnit
-  | TArrow : Ty -> Ty -> Ty
-  | TList : seq Ty -> Ty
-  .
+Inductive Ty := TReal | TUnit.
+
+Definition eqbTy (t1 t2 : Ty) :=
+  match t1, t2 with
+  | TReal, TReal => true
+  | TUnit, TUnit => true
+  | _, _ => false
+  end.
+
+Lemma eqbTy_spec (t1 t2 : Ty) : reflect (t1 = t2) (eqbTy t1 t2).
+Proof.
+destruct t1, t2; constructor. all: easy.
+Qed.
+
+Definition Ty_eqMixin := @EqMixin Ty eqbTy eqbTy_spec.
+Canonical Ty_eqType := EqType Ty Ty_eqMixin.
 
 Fixpoint prod_meas (l : list Type)
     : Type :=
@@ -62,8 +74,8 @@ Fixpoint typei (t : Ty) : Type :=
   match t with
   | TReal => R
   | TUnit => unit
-  | TArrow t u => typei t -> typei u
-  | TList l => prod_meas (map typei l)
+  (* | TArrow t u => typei t -> typei u
+  | TList l => prod_meas (map typei l) *)
   end.
 
 Definition Ctx := seq (string * Ty)%type.
@@ -186,39 +198,6 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In 
                %{x} + %{y}] : exp _.
 
-Fixpoint acc (g : Ctx) (i : nat) :
-  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
-  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
-  | [::] => match i with | O => id | j.+1 => id end
-  | _ :: _ => match i with
-               | O => fst
-               | j.+1 => fun H => acc j H.2
-               end
-  end.
-
-Inductive eval : forall (g : Ctx) (t : Ty), exp t -> (typei R (TList (map snd g)) -> typei R t) -> Prop :=
-| EVReal g c : @eval g _ (Real c) (fun=> c)
-| EVPlus g (e1 e2 : exp TReal) (v1 v2 : _ -> _) : 
-    @eval g TReal e1 v1 -> 
-    @eval g TReal e2 v2 -> 
-    @eval g TReal (Plus e1 e2) (fun x => v1 x + v2 x)%R
-(* | EVVar (g : Ctx) (x : string) i : 
-    i = seq.index x (map fst g) -> eval (Var x erefl) (@acc (map snd g) i) *)
-(* | EVLetin (g : Ctx) (t : Ty) (x : string) e1 e2 (v1 v2 : _ -> _) :
-    @eval g TReal e1 v1 ->
-    @eval ((x, TReal) :: g) TReal e2 v2 ->
-    @eval g TReal (Letin x e1 e2) (v2 \o v1) *)
-.
-
-(* Goal @eval [::] _ [{1%R}:r] (fun=> 1%R).
-Proof. exact/EVReal. Qed.
-Goal @eval [::] _ [{1%R}:r + {2%R}:r] (fun=> 3%R).
-Proof. exact/EVPlus/EVReal/EVReal. Qed.
-Goal @eval [:: ("x", TReal)] _ [% {"x"}] (@varof [:: TReal] 0).
-Proof. exact/EVVar. Qed.
-Goal @eval [::] _ [Let x <~ {1%R}:r In %{"x"} + {2%R}:r] (fun=> 3).
-Proof. Abort. *)
-
 End lang_intrinsic_ty.
 End lang_intrinsic_ty.
 
@@ -306,7 +285,8 @@ Section exp.
 Inductive exp : Ctx -> Ty -> Type :=
 | Real g : R -> exp g TReal
 | Plus g : exp g TReal -> exp g TReal -> exp g TReal
-| Var G T (x : string) : 
+| Var G T (x : string) :
+    (* (x, T) \in G ->  *)
     T = nth TUnit (map snd G) (seq.index x (map fst G)) -> 
     exp G T
 | Letin g t u (x : string) : exp g t -> exp ((x, t) :: g) u -> exp g u.
@@ -338,10 +318,13 @@ Local Open Scope easylang_scope.
 Example e0 := [{1%:R}:r] : exp [::] _.
 Example e1 := (Letin "x" (Real 1%R) (Var "x" erefl)) : exp [::] _.
 Example e1' := [Let x <~ {1%:R}:r In %{"x"}] : exp [::] TReal.
-Example e2 := Letin "x" (Real 1%R) (Letin "y" (Var "x" erefl) (Var "x" erefl)) : exp [::] _.
-Example e3 := Letin "x" (Real 1%R) (Letin "y" (Real 2%R) (@Plus [:: ("y", TReal); ("x", TReal)] (Var "x" erefl) (Var "y" erefl))) : exp [::] _.
-Example e2' := Letin "x" [{1%:R}:r] (Letin "y" [%{"x"}] [%{"y"}]) : exp [::] _.
-Example e2'' := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::] _.
+Example e4 := Letin "x" (Real 1%R) (Letin "y" (Var "x" erefl) (Var "x" erefl)) : exp [::] _.
+Example e2_ := Letin "x" (Real 1%R) (Letin "y" (Real 2%R) (@Plus [:: ("y", TReal); ("x", TReal)] (Var "x" erefl) (Var "y" erefl))) : exp [::] _.
+
+Example e5 := Letin "x" (Real 1%R) (Letin "y" (Real 2%R) (Plus (Real 1) (Real 2))) : exp [::] _.
+
+Example e4' := Letin "x" [{1%:R}:r] (Letin "y" [%{"x"}] [%{"y"}]) : exp [::] _.
+Example e4'' := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::] _.
 (* Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In
                %{x} + %{y}] : exp [::] TReal. *)
@@ -356,34 +339,99 @@ Fixpoint acc (g : Ctx) (i : nat) :
                end
   end.
 
-(* Definition coucou (g : Ctx) (t t' : Ty) (e1 : exp g t) x (e2 :exp ((x, t)::g) t') (v1 : typei R (TList (map snd g)) -> typei R t)
-(v2 : typei R (TList (map snd ((x,t)::g))) -> typei R t')
-: typei R (TList (map snd (g))) -> typei R t'.
-move=> a.
-apply v2.
-split.
-apply: v1.
-exact: a.
-Show Proof.
-done.
-Show Proof.
-Abort. *)
+Reserved Notation "G # e '-e->' v" (at level 40).
 
 Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (ctxi R g -> typei R t) -> Prop :=
-| EVReal g c : @eval g _ (Real c) (fun=> c)
+| EVReal g c : g # Real c -e-> (fun=> c)
 | EVPlus g (e1 e2 : exp g TReal) v1 v2 : 
-    @eval g TReal e1 v1 -> 
-    @eval g TReal e2 v2 -> 
-    @eval g TReal (Plus e1 e2) (fun x => v1 x + v2 x)%R
+    g # e1 -e-> v1 -> 
+    g # e2 -e-> v2 -> 
+    g # Plus e1 e2 -e-> (fun x => v1 x + v2 x)%R
 | EVVar (g : Ctx) (x : string) : 
-    let i := seq.index x (map fst g) in eval (Var x erefl) (@acc g i)
+    let i := seq.index x (map fst g) in 
+    g # Var x erefl -e-> @acc g i
 | EVLetin (g : Ctx) (t t' : Ty) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
-    @eval g t e1 v1 ->
-    @eval ((x, t) :: g) t' e2 v2 ->
-    @eval g t' (Letin x e1 e2) (fun a => v2 (v1 a, a))
-.
+    g # e1 -e-> v1 ->
+    ((x, t) :: g) # e2 -e-> v2 ->
+    g # Letin x e1 e2 -e-> (fun a => v2 (v1 a, a))
+where "G # e '-e->' v" := (@eval G _ e v).
 
-Goal @eval [::] _ [{1%R}:r] (fun=> 1%R).
+Ltac inj_ex H := revert H;
+  match goal with
+  | |- existT ?P ?l (existT ?Q ?t (existT ?R ?u (existT ?T ?v ?v1))) =
+       existT ?P ?l (existT ?Q ?t (existT ?R ?u (existT ?T ?v ?v2))) -> _ =>
+    (intro H; do 4 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
+  | |- existT ?P ?l (existT ?Q ?t (existT ?R ?u ?v1)) =
+       existT ?P ?l (existT ?Q ?t (existT ?R ?u ?v2)) -> _ =>
+    (intro H; do 3 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
+  | |- existT ?P ?l (existT ?Q ?t ?v1) =
+       existT ?P ?l (existT ?Q ?t ?v2) -> _ =>
+    (intro H; do 2 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
+  | |- existT ?P ?l ?v1 =
+       existT ?P ?l ?v2 -> _ =>
+    (intro H; apply Classical_Prop.EqdepTheory.inj_pair2 in H)
+end.
+
+Scheme eval_ind' := Induction for eval Sort Prop.
+
+Lemma eval_uniq g t (e : exp g t) u v :
+  g # e -e-> u ->
+  g # e -e-> v ->
+  u = v.
+Proof.
+move=> hu.
+apply: (@eval_ind
+  (fun g t (e : exp g t) (u : ctxi R g -> typei R t) => forall v, g # e -e-> v -> u = v)); last exact: hu.
+all: (rewrite {g t e u v hu}).
+- move=> g c v.
+  inversion 1.
+  by inj_ex H3.
+- move=> g e1 e2 v1 v2 ev1 IH1 ev2 IH2 v.
+  inversion 1.
+  inj_ex H0; inj_ex H1; subst.
+  inj_ex H5; subst.
+  by rewrite (IH1 _ H3) (IH2 _ H4).
+- move=> g x i v.
+  inversion 1.
+  by inj_ex H6; subst.
+- move=> g t t' x0 e0 e1 v1 v2 ev1 IH1 ev2 IH2 v.
+  inversion 1.
+  inj_ex H5; subst.
+  inj_ex H6; subst.
+  inj_ex H7; subst.
+  by rewrite (IH1 _ H4) (IH2 _ H8).
+Qed.
+
+Lemma eval_total g t (e : exp g t) :
+  exists v, g # e -e-> v.
+Proof.
+elim: e.
+eexists; exact: EVReal.
+move=> {}g e1 [v1] IH1 e2 [v2] IH2.
+eexists; exact: (EVPlus IH1 IH2).
+move=> {}g {}t x e; subst t.
+eexists; exact: EVVar.
+move=> {}g {}t u x e1 [v1] IH1 e2 [v2] IH2.
+eexists; exact: (EVLetin IH1 IH2).
+Qed.
+
+Definition exec g t (e : exp g t) : ctxi R g -> typei R t.
+Proof.
+have /cid h := @eval_total g t e.
+exact: (proj1_sig h).
+Defined.
+
+Lemma eval_exec g t e : g # e -e-> @exec g t e.
+Proof. by rewrite /exec/= /sval; case: cid. Qed.
+
+Lemma exec_real g r : @exec g TReal (Real r) = (fun=> r).
+Proof.
+apply: eval_uniq.
+exact: eval_exec.
+apply: EVReal.
+Qed.
+
+Goal [::] # [{1%R}:r] -e-> (fun=> 1%R).
 Proof. exact/EVReal. Qed.
 Goal @eval [::] _ [{1%R}:r + {2%R}:r] (fun=> 3%R).
 Proof. exact/EVPlus/EVReal/EVReal. Qed.
@@ -392,54 +440,11 @@ Proof. exact/EVVar. Qed.
 Goal @eval [::] _ [Let x <~ {1%R}:r In %{"x"}] (fun=> 1%R).
 Proof. exact: (EVLetin (EVReal _ _) (EVVar _ _)). Qed.
 
-End lang_intrinsic_full.
-End lang_intrinsic_full.
-
-Module lang_syntax_simple.
-Section lang_syntax_simple.
-Variables (R : realType).
-
-Section exp.
-Inductive exp : Ctx -> Ty -> Type :=
-| Real g : R -> exp g TReal
-| Var (g : Ctx) t (x : string) : 
-    t = nth TUnit (map snd g) (seq.index x (map fst g)) ->
-    exp g t
-(* | App t u : exp g (TArrow t u) -> exp g t -> exp g u *)
-| Letin g t u x : exp g t -> exp ((x, t) :: g) u -> exp g u
-| Plus g : exp g TReal -> exp g TReal -> exp g TReal
-.
-End exp.
-
-Arguments Real {g}.
-Arguments Plus {g}.
-Arguments Var {g t}.
-Arguments Letin {g t u}.
-
-Declare Custom Entry exp.
-Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':r'" := (Real x%R) (in custom exp at level 1) 
-  : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2) 
-  : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1) 
-  : easylang_scope.
-Notation "'Let' x '<~' e 'In' f" := (Letin x e f)
-  (in custom exp at level 3,
-   x constr,
-   e custom exp at level 2,
-   f custom exp at level 3,
-   left associativity) : easylang_scope.
-Notation "{ x }" := x (in custom exp, x constr) : easylang_scope.
-Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
-
-Local Open Scope easylang_scope.
-
-Section example.
-
-Example e0 := [{1%R}:r + {2%R}:r] : exp [::] _.
-Example e1 := [Let x <~ {1%:R}:r In %{"x"}] : exp [::] _.
-Example e2 := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::] _.
+Goal exec (g := [::]) [Let x <~ {1%R}:r In %{"x"}] = (fun=> 1%R).
+Proof.
+apply: eval_uniq; first exact: eval_exec.
+exact: (EVLetin (EVReal _ _) (EVVar _ _)).
+Qed.
 
 Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In
@@ -483,54 +488,20 @@ Definition Var' (x : string) (t : Ty) (g : find x t) :=
 
 Notation "%1 x" := (@Var' x%string _ _) (in custom exp at level 1) : easylang_scope.
 
-Fixpoint acc (l : seq Ty) (i : nat) :
-  typei R (TList l) -> @typei R (nth TUnit l i) :=
-  match l return (typei R (TList l) -> typei R (nth TUnit l i)) with
-  | [::] => match i with | O => id | j.+1 => id end
-  | _ :: _ => match i with
-               | O => fst
-               | j.+1 => fun H => acc j H.2
-               end
-  end.
-
-Program Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (typei R (TList (map snd g)) -> typei R t) -> Prop :=
-| EVReal g c : @eval g _ (Real c) (fun=> c)
-| EVPlus g (e1 e2 : exp g TReal) v1 v2 : 
-    @eval g TReal e1 v1 -> 
-    @eval g TReal e2 v2 -> 
-    @eval g TReal (Plus e1 e2) (fun x => v1 x + v2 x)%R
-| EVVar (g : Ctx) (x : string) (i := seq.index x (map fst g)) : 
-    eval (Var x erefl) (@acc (map snd g) i)
-(* | EVVar' (g : Ctx) (x : string) : 
-    let i := seq.index x (map fst g) in eval [%1 x] (@acc (map snd g) i) *)
-| EVLetin (g : Ctx) (t t' : Ty) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
-    @eval g t e1 v1 ->
-    @eval ((x, t) :: g) t' e2 v2 ->
-    @eval g t' (Letin x e1 e2) (fun a => v2 (v1 a, a))
-.
-
-Example e2' := [Let x <~ {1%:R}:r In
-               Let y <~ {2%:R}:r In 
-               %{x}] : exp [::] _.
-Goal eval e2' (fun=> 1%R).
-Proof.
-apply: (EVLetin (EVReal _ 1%R) (EVLetin (EVReal _ 2%R) (EVVar _ "x"))).
-Qed.
-
-Example e3' := Letin "x" (Real 1%:R) 
+Example e2' := Letin "x" (Real 1%:R) 
               (Letin "y" (Real 2%:R) 
               (Plus (@Var [:: ("y", TReal); ("x", TReal)] TReal x erefl) (Var "y" erefl))) : exp [::] _.
 
-Lemma eval3' : @eval [::] TReal e3' (fun=> 3%R).
+Lemma eval3' : @eval [::] TReal e2' (fun=> 3%R).
 Proof.
 exact: (EVLetin (EVReal [::] 1%R) (EVLetin (EVReal [:: ("x", TReal)] 2%R) (EVPlus (EVVar [:: ("y", TReal); ("x", TReal)] "x") (EVVar [:: ("y", TReal); ("x", TReal)] "y")))).
 Qed.
 
-Example e3 := [Let x <~ {1%:R}:r In
+Example e2 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In 
                %1{x} + %1{y}] : exp [::] _.
 
-Lemma eval3 : @eval [::] TReal e3 (fun=> 3%R).
+Lemma eval2 : @eval [::] TReal e2 (fun=> 3%R).
 Proof.
 have:= (EVLetin (EVReal [::] 1%R) (EVLetin (EVReal [:: ("x", TReal)] 2%R) (EVPlus (EVVar [:: ("y", TReal); ("x", TReal)] "x") (EVVar [:: ("y", TReal); ("x", TReal)] "y")))).
 congr eval.
@@ -540,7 +511,5 @@ congr Var; exact: Prop_irrelevance.
 congr Var; exact: Prop_irrelevance.
 Qed.
 
-End example.
-
-End lang_syntax_simple.
-End lang_syntax_simple.
+End lang_intrinsic_full.
+End lang_intrinsic_full.
