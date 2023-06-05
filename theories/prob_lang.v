@@ -560,6 +560,9 @@ Arguments k10 {d T R}.
 Arguments ktt {d T}.
 Arguments kb {d T}.
 
+Declare Scope prob_lang_scope.
+Delimit Scope prob_lang_scope with P.
+
 Section type_syntax.
 Import Notations.
 Variables (R : realType).
@@ -569,51 +572,55 @@ Fixpoint iter_mprod (l : list {d & measurableType d})
   match l with
   | [::] => existT measurableType _ munit
   | h :: t => let t' := iter_mprod t in
-    existT _ _ [the measurableType (projT1 h, projT1 t').-prod of (projT2 h * projT2 t')%type]
+    existT _ _ [the measurableType (projT1 h, projT1 t').-prod of
+                (projT2 h * projT2 t')%type]
   end.
 
-Inductive stype :=
-| sunit : stype
-| sbool : stype
-| sreal : stype
-| spair : stype -> stype -> stype
-| sprob : stype -> stype
-| sconst : {d & measurableType d} -> stype.
+Inductive typ :=
+| Unit | Bool | Real
+| Pair : typ -> typ -> typ
+| Prob : typ -> typ
+| Const : {d & measurableType d} -> typ.
+
+Local Notation "( x , y , .. , z )" :=
+  (Pair .. (Pair x y) .. z) : prob_lang_scope.
 
 (* Canonical stype_eqType := Equality.Pack (@gen_eqMixin stype). *)
 
-Fixpoint typei (t : stype) : {d & measurableType d} :=
+Fixpoint typei (t : typ) : {d & measurableType d} :=
   match t with
-  | sunit => existT _ _ munit
-  | sbool => existT _ _ mbool
-  | sreal => existT _ _ (mR R)
-  | spair A B => existT _ _
+  | Unit => existT _ _ munit
+  | Bool => existT _ _ mbool
+  | Real => existT _ _ (mR R)
+  | (A, B)%P => existT _ _
       [the measurableType (projT1 (typei A), projT1 (typei B)).-prod%mdisp of
       (projT2 (typei A) * projT2 (typei B))%type]
-  | sprob A => existT _ _ (pprobability (projT2 (typei A)) R)
-  | sconst T => T
+  | Prob A => existT _ _ (pprobability (projT2 (typei A)) R)
+  | Const T => T
   end.
 
 Definition typei2 t := projT2 (typei t).
 
-Definition pairs_of_seq (l : seq stype) : {d & measurableType d} :=
+Definition pairs_of_seq (l : seq typ) : {d & measurableType d} :=
   iter_mprod (map typei l).
 
-Definition pairs_of_seq2 t := projT2 (pairs_of_seq t).
+Definition pairs_of_seq2 l : measurableType (projT1 (pairs_of_seq l)) :=
+  projT2 (pairs_of_seq l).
 
 End type_syntax.
-
 Arguments typei {R}.
 Arguments typei2 {R}.
 Arguments pairs_of_seq {R}.
 Arguments pairs_of_seq2 {R}.
 
+Notation "( x , y , .. , z )" := (Pair .. (Pair x y) .. z) : prob_lang_scope.
+
 Section acc.
 Context {R : realType}.
 
-Fixpoint acc (l : seq stype) (i : nat) :
-  pairs_of_seq2 l -> @typei2 R (nth sunit l i) :=
-  match l return (pairs_of_seq2 l -> typei2 (nth sunit l i)) with
+Fixpoint acc (l : seq typ) (i : nat) :
+  pairs_of_seq2 l -> @typei2 R (nth Unit l i) :=
+  match l return (pairs_of_seq2 l -> typei2 (nth Unit l i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -621,8 +628,10 @@ Fixpoint acc (l : seq stype) (i : nat) :
                end
   end.
 
-Lemma macc (l : seq stype) (i : nat) : measurable_fun setT (@acc l i).
-Proof. by elim: l i => //= h t ih [|j] //; exact: (measurableT_comp (ih _)). Qed.
+Lemma macc (l : seq typ) (i : nat) : measurable_fun setT (@acc l i).
+Proof.
+by elim: l i => //= h t ih [|j] //; exact: (measurableT_comp (ih _)).
+Qed.
 End acc.
 Arguments acc {R} l i.
 Arguments macc {R} l i.
@@ -716,7 +725,7 @@ Import Notations.
 Context d0 d1 d2 d3 (T0 : measurableType d0) (T1 : measurableType d1)
   (T2 : measurableType d2) (T3 : measurableType d3) (R : realType).
 
-Definition Of2 := [:: sconst (existT _ _ T0); sconst (existT _ _ T1)].
+Definition Of2 := [:: Const (existT _ _ T0); Const (existT _ _ T1)].
 
 Definition acc0of2 : [the measurableType _ of (T0 * T1)%type] -> T0 :=
   @acc R Of2 0 \o pairAr munit tt.
@@ -730,7 +739,7 @@ Definition acc1of2 : [the measurableType _ of (T0 * T1)%type] -> T1 :=
 Lemma macc1of2 : measurable_fun setT acc1of2.
 Proof. by apply: measurableT_comp; [exact: (macc Of2 1)|exact: mpairAr]. Qed.
 
-Definition Of3 := [:: sconst (existT _ _ T0); sconst (existT _ _ T1); sconst (existT _ d2 T2)].
+Definition Of3 := [:: Const (existT _ _ T0); Const (existT _ _ T1); Const (existT _ d2 T2)].
 
 Definition acc1of3 : [the measurableType _ of (T0 * T1 * T2)%type] -> T1 :=
   @acc R Of3 1 \o pairAAr.
@@ -762,7 +771,7 @@ Definition acc2of3' : [the measurableType _ of (T0 * (T1 * T2))%type] -> T2 :=
 Lemma macc2of3' : measurable_fun setT acc2of3'.
 Proof. by apply: measurableT_comp; [exact: (macc Of3 2)|exact: mpairAArAi]. Qed.
 
-Definition Of4 := [:: sconst (existT _ _ T0); sconst (existT _ _ T1); sconst (existT _ d2 T2); sconst (existT _ d3 T3)].
+Definition Of4 := [:: Const (existT _ _ T0); Const (existT _ _ T1); Const (existT _ d2 T2); Const (existT _ d3 T3)].
 
 Definition acc2of4' : [the measurableType _ of (T0 * (T1 * (T2 * T3)))%type] -> T2 :=
   @acc R Of4 2 \o pairAAArAAi.
@@ -1374,11 +1383,15 @@ Context d d1 d' (X : measurableType d) (Y : measurableType d1)
 Import Notations.
 
 Lemma letin'C12 z A : measurable A ->
-  @letin' _ _ _ _ _ _ R (ret (kr 1)) (letin' (ret (kb true)) (ret (measurable_fun_prod (@macc R [:: sbool; sreal] 1) (@macc R [:: sbool; sreal] 0)))) z A =
-  letin' (ret (kb true)) (letin' (ret (kr 1)) (ret (measurable_fun_prod (@macc R [:: sreal; sbool] 0) (@macc R [:: sreal; sbool] 1)))) z A.
+  @letin' _ _ _ _ _ _ R (ret (kr 1))
+    (letin' (ret (kb true))
+      (ret (measurable_fun_prod (@macc R [:: Bool; Real] 1) (@macc R [:: Bool; Real] 0)))) z A =
+  letin' (ret (kb true))
+    (letin' (ret (kr 1))
+      (ret (measurable_fun_prod (@macc R [:: Real; Bool] 0) (@macc R [:: Real; Bool] 1)))) z A.
 Proof.
 move=> mA.
-have : acc [:: sbool; sreal] 1 = acc [:: sbool; sreal] 1.
+have : acc [:: Bool; Real] 1 = acc [:: Bool; Real] 1.
 rewrite /acc /=.
 (* rewrite !letin'E. *)
 Admitted.
@@ -1414,7 +1427,10 @@ Let sfinU z : sfinite_measure (U' z). Proof. exact: sfinite_kernel_measure. Qed.
 HB.instance Definition _ z := @Measure_isSFinite_subdef.Build _ Y R
   (U' z) (sfinU z).
 
-Check (ret (measurable_fun_prod (macc (R := R) [:: sconst (existT _ _ Y); sconst (existT _ _ X); sconst (existT _ _ Z)] 1) (macc (R := R) [:: sconst (existT _ _ Y); sconst (existT _ _ X); sconst (existT _ _ Z)] 0))).
+Check (ret (measurable_fun_prod (macc (R := R)
+  [:: Const (existT _ _ Y); Const (existT _ _ X); Const (existT _ _ Z)] 1) (macc (R := R)
+  [:: Const (existT _ _ Y); Const (existT _ _ X); Const (existT _ _ Z)]
+  0))).
 
 Check (ret (kr 1)) : R.-sfker munit ~> mR R.
 
