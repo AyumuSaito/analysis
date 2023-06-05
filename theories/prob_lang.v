@@ -587,30 +587,33 @@ Local Notation "( x , y , .. , z )" :=
 
 (* Canonical stype_eqType := Equality.Pack (@gen_eqMixin stype). *)
 
-Fixpoint typei (t : typ) : {d & measurableType d} :=
+Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
   match t with
   | Unit => existT _ _ munit
   | Bool => existT _ _ mbool
   | Real => existT _ _ (mR R)
   | (A, B)%P => existT _ _
-      [the measurableType (projT1 (typei A), projT1 (typei B)).-prod%mdisp of
-      (projT2 (typei A) * projT2 (typei B))%type]
-  | Prob A => existT _ _ (pprobability (projT2 (typei A)) R)
+      [the measurableType (projT1 (measurable_of_typ A),
+                           projT1 (measurable_of_typ B)).-prod%mdisp of
+      (projT2 (measurable_of_typ A) *
+       projT2 (measurable_of_typ B))%type]
+  | Prob A => existT _ _ (pprobability (projT2 (measurable_of_typ A)) R)
   | Const T => T
   end.
 
-Definition typei2 t := projT2 (typei t).
+Definition typei2 t : measurableType (projT1 (measurable_of_typ t)) :=
+  projT2 (measurable_of_typ t).
 
-Definition pairs_of_seq (l : seq typ) : {d & measurableType d} :=
-  iter_mprod (map typei l).
+Definition measurable_of_seq (l : seq typ) : {d & measurableType d} :=
+  iter_mprod (map measurable_of_typ l).
 
-Definition pairs_of_seq2 l : measurableType (projT1 (pairs_of_seq l)) :=
-  projT2 (pairs_of_seq l).
+Definition pairs_of_seq2 l : measurableType (projT1 (measurable_of_seq l)) :=
+  projT2 (measurable_of_seq l).
 
 End type_syntax.
-Arguments typei {R}.
+Arguments measurable_of_typ {R}.
 Arguments typei2 {R}.
-Arguments pairs_of_seq {R}.
+Arguments measurable_of_seq {R}.
 Arguments pairs_of_seq2 {R}.
 
 Notation "( x , y , .. , z )" := (Pair .. (Pair x y) .. z) : prob_lang_scope.

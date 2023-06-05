@@ -38,7 +38,7 @@ Section context.
 Variables (R : realType).
 Definition context := seq (string * typ).
 
-Definition ctxi (l : context) := @pairs_of_seq R (map snd l).
+Definition ctxi (l : context) := @measurable_of_seq R (map snd l).
 Definition ctxi2 (l : context) := projT2 (ctxi l).
 
 End context.
