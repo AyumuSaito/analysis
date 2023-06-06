@@ -45,11 +45,15 @@ End context.
 Arguments measurable_of_ctx {R}.
 Arguments mctx {R}.
 
+Definition insert (T : eqType) (l : seq T) (x : T) (n : nat) :=
+  (take n l ++ x :: drop n l)%SEQ.
+
 Section expr.
 Variables (R : realType).
 
+Local Open Scope seq_scope.
 Inductive expD : ctx -> typ -> Type :=
-| expWD l t x : expD l t -> x.1 \notin map fst l -> expD (x :: l) t
+| expWD l1 l2 t x : expD (l1 ++ l2) t -> x.1 \notin map fst (l1 ++ l2) -> expD (l1 ++ x :: l2) t
 | exp_unit l : expD l Unit
 | exp_bool l : bool -> expD l Bool
 | exp_real l : R -> expD l Real
@@ -61,7 +65,7 @@ Inductive expD : ctx -> typ -> Type :=
 | exp_poisson l : nat -> expD l Real -> expD l Real
 | exp_norm l t : expP l t -> expD l (Prob t)
 with expP : ctx -> typ -> Type :=
-| expWP l t x : expP l t -> x.1 \notin map fst l -> expP (x :: l) t
+| expWP l1 l2 t x : expP (l1 ++ l2) t -> x.1 \notin map fst (l1 ++ l2) -> expP (l1 ++ x :: l2) t
 | exp_if l t : expD l Bool -> expP l t -> expP l t -> expP l t
 | exp_letin l t1 t2 (x : string) :
   expP l t1 -> expP ((x, t1) :: l) t2 -> expP l t2
@@ -73,7 +77,7 @@ End expr.
 
 Arguments expD {R}.
 Arguments expP {R}.
-Arguments expWD {R l t x}.
+Arguments expWD {R l1 l2 t x}.
 Arguments exp_unit {R l}.
 Arguments exp_bool {R l}.
 Arguments exp_real {R l}.
@@ -82,7 +86,7 @@ Arguments exp_var {R l} _ {t}.
 Arguments exp_bernoulli {R l}.
 Arguments exp_poisson {R l}.
 Arguments exp_norm {R l _}.
-Arguments expWP {R l t x}.
+Arguments expWP {R l1 l2 t x}.
 Arguments exp_if {R l t}.
 Arguments exp_letin {R l _ _}.
 (* Arguments exp_sample {R l t}. *)
@@ -98,7 +102,7 @@ Notation "'Ret' x" := (@exp_return _ _ _ x) (in custom expr at level 2)
   : lang_scope.
 Notation "% x" := (@exp_var _ _ x _ erefl) (in custom expr at level 1)
   : lang_scope.
-Notation "e \U x" := (@expWP _ _ _ (x, _) e erefl)
+Notation "e \U x" := (@expWP _ [::] _ _ (x, _) e erefl)
   (in custom expr at level 1) : lang_scope.
 Notation "( x , y )" := (exp_pair x y) (in custom expr at level 1) : lang_scope.
 Notation "'Let' x '<~' e 'In' f" := (exp_letin x e f)
@@ -120,55 +124,6 @@ Definition dval (R : realType) (l : ctx) (t : typ) :=
 Definition pval (R : realType) (l : ctx) (t : typ) :=
   R.-sfker @mctx R l ~> @mtyp R t.
 
-Section weaken2.
-Variables (R : realType).
-
-Definition weaken2 x y (l : ctx) t (f : dval R (x :: l) t)
-    : dval R (x :: y :: l) t :=
-  fun z => let: (a, (b, c)) := z in f ((a, c) : mctx (x :: l)).
-
-Lemma mweaken2 x y (l : ctx) t (f : dval R (x :: l) t)
-  (mf : measurable_fun setT f) : measurable_fun setT (@weaken2 x y l t f).
-Proof. Admitted.
-
-Definition kweaken2 (x : string * typ) y l t (k : pval R (x :: l) t)
-    : mctx (x :: y :: l) -> {measure set mtyp t -> \bar R} :=
-  fun z => let: (a, (b, c)) := z in k ((a, c) : mctx (x :: l)).
-
-Section kernel_weaken2.
-Context (x y : string * typ) l t (k : pval R (x :: l) t).
-
-Let mk U : measurable U -> measurable_fun setT ((@kweaken2 x y l t k) ^~ U).
-Proof. Admitted.
-
-HB.instance Definition _ := isKernel.Build _ _ _ _ _ (@kweaken2 x y l t k) mk.
-End kernel_weaken2.
-
-Section sfkernel2.
-Context (x y : string * typ) l t (k : pval R (x :: l) t).
-
-Let sk : exists2 s : (R.-ker @mctx R (x :: y :: l) ~> @mtyp R t)^nat,
-  forall n, measure_fam_uub (s n) &
-  forall x0 U, measurable U -> (@kweaken2 x y l t k) x0 U = kseries s x0 U .
-Proof. Admitted.
-
-HB.instance Definition _ :=
-  Kernel_isSFinite_subdef.Build _ _ _ _ _ (@kweaken2 x y l t k) sk.
-
-End sfkernel2.
-
-Section fkernel_weaken2.
-Context (x y : string * typ) l t (k : R.-fker @mctx R (x :: l) ~> @mtyp R t).
-
-Let uub : measure_fam_uub (@kweaken2 x y l t k).
-Proof. Admitted.
-
-HB.instance Definition _ := @Kernel_isFinite.Build _ _ _ _ _
-  (@kweaken2 x y l t k) uub.
-End fkernel_weaken2.
-
-End weaken2.
-
 Section kweaken.
 Variables (R : realType).
 
@@ -179,7 +134,7 @@ Lemma mweaken x (l : ctx) t (f : dval R l t)
   (mf : measurable_fun setT f) : measurable_fun setT (@weaken x l t f).
 Proof. exact: (measurableT_comp mf). Qed.
 
-Definition kweaken (x : string * typ) l t (k : pval R l t)
+Definition kweaken (x : string * typ) l t (k : R.-sfker (@mctx R l) ~> @mtyp R t)
   : mctx (x :: l) -> {measure set mtyp t -> \bar R} := k \o snd.
 
 Section kernel_weaken.
@@ -232,6 +187,154 @@ End fkernel_weaken.
 
 End kweaken.
 
+Section kweaken2.
+Variables (R : realType).
+Local Open Scope seq_scope.
+
+Definition weaken3 : forall (l1 l2 : ctx) x (f : @mctx R (l1 ++ x :: l2)), @mctx R (l1 ++ l2).
+fix H 1.
+intros l1 l2 x f.
+destruct l1 as [|h1 l1].
+  destruct f as [f1 f2].
+  exact: f2.
+destruct f as [f1 f2].
+split.
+  exact: f1.
+apply: H.
+exact: f2.
+Show Proof.
+Abort.
+
+Fixpoint weaken3 (l1 l2 : ctx) x (f : @mctx R (l1 ++ x :: l2)) : @mctx R (l1 ++ l2) :=
+  match l1 as l return (mctx (l ++ x :: l2) -> mctx (l ++ l2)) with
+  | [::] => fun f0 : mctx ([::] ++ x :: l2) => let (a, b) := f0 in (fun=> id) a b
+  | a :: l => uncurry (fun a b => (a, @weaken3 l l2 x b))
+  end f.
+
+Definition weaken2 : forall (l1 l2 : ctx) x t (f : dval R (l1 ++ l2) t), dval R (l1 ++ x :: l2) t.
+intros l1 l2 x t f z.
+apply f.
+exact: weaken3 z.
+Defined.
+
+Lemma mweaken3_helper (g : string * typ) (l1 : seq (string * typ))
+  (ih : forall l2 x, measurable_fun setT (@weaken3 l1 l2 x))
+  (l2 : ctx) (x : string * typ) :
+  measurable_fun (T:=mctx (g :: l1 ++ x :: l2))
+    setT (uncurry (fun a b => (a, @weaken3 l1 l2 x b))).
+Proof.
+apply/prod_measurable_funP; split.
+  rewrite [X in measurable_fun _ X](_ : _ = fst)//.
+  apply/funext => z /=.
+  rewrite /uncurry.
+  by destruct z.
+rewrite [X in measurable_fun _ X](_ : _ = @weaken3 l1 l2 x \o snd)//; last first.
+  apply/funext => z/=.
+  rewrite /uncurry.
+  by destruct z.
+exact: measurableT_comp.
+Qed.
+
+Lemma mweaken3 (l1 l2 : ctx) x :
+  measurable_fun (T:=mctx (l1 ++ x :: l2)) setT (@weaken3 l1 l2 x).
+Proof.
+elim: l1 l2 x => [l2 x|g l1 ih l2 x].
+  exact: measurable_snd.
+exact: mweaken3_helper.
+Qed.
+
+Lemma mweaken2 (l1 l2 : ctx) x t (f : dval R (l1 ++ l2) t)
+  (mf : measurable_fun setT f) : measurable_fun setT (@weaken2 l1 l2 x t f).
+Proof.
+apply: measurableT_comp.
+  exact: mf.
+exact: mweaken3.
+Qed.
+
+(*Definition weaken2 : forall (l1 l2 : ctx) x t (f : dval R (l1 ++ l2) t), dval R (l1 ++ x :: l2) t.
+fix H 1.
+intros l1 l2 x t f.
+destruct l1 as [|h1 l1].
+  exact (f \o snd).
+intros [u1 u2].
+refine (H _ _ _ _ _ u2).
+intros H1.
+refine (f _).
+exact (u1, H1).
+Abort.
+
+Fixpoint weaken2 (l1 l2 : ctx) x t (f : dval R (l1 ++ l2) t) : dval R (l1 ++ x :: l2) t :=
+  match l1 as l return (dval R (l ++ l2) t -> dval R (l ++ x :: l2) t) with
+   | [::] => fun f0 : dval R ([::] ++ l2) t => f0 \o snd
+   | a :: l => fun f0 : dval R ((a :: l) ++ l2) t =>
+  uncurry (fun u1 => @weaken2 l l2 x t ((fun H1 => f0 (u1, H1))))
+   end f.
+
+Lemma mweaken2 (l1 l2 : ctx) x t (f : dval R (l1 ++ l2) t)
+  (mf : measurable_fun setT f) : measurable_fun setT (@weaken2 l1 l2 x t f).
+Proof.
+elim: l1 l2 x t f mf => /= [l2 x t f mf|[a1 a2] l1 ih l2 [x1 x2] t f mf].
+  exact: measurableT_comp.
+
+Admitted.*)
+
+Definition kweaken2 l1 l2 (x : string * typ) t (k : R.-sfker (@mctx R (l1 ++ l2)) ~> @mtyp R t)
+  : @mctx R (l1 ++ x :: l2) -> {measure set @mtyp R t -> \bar R} :=
+fun z => k (@weaken3 l1 l2 x z).
+
+Section kernel_weaken2.
+Context l1 l2 (x : string * typ) t (k : pval R (l1 ++ l2) t).
+
+Let mk U : measurable U -> measurable_fun setT ((@kweaken2 l1 l2 x t k) ^~ U).
+Proof.
+move=> mU.
+rewrite (_ : kweaken2 _ ^~ U = (k ^~U \o (@weaken3 l1 l2 x)))//.
+apply: measurableT_comp => //.
+  exact: measurable_kernel.
+exact: mweaken3.
+Qed.
+
+HB.instance Definition _ := isKernel.Build _ _ _ _ _ (@kweaken2 l1 l2 x t k) mk.
+End kernel_weaken2.
+
+Section sfkernel.
+Context l1 l2 (x : string * typ) t (k : pval R (l1 ++ l2) t).
+
+Let sk : exists2 s : (R.-ker @mctx R (l1 ++ x :: l2) ~> @mtyp R t)^nat,
+  forall n, measure_fam_uub (s n) &
+  forall x0 U, measurable U -> (@kweaken2 l1 l2 x t k) x0 U = kseries s x0 U .
+Proof.
+have [s hs] := sfinite_kernel k.
+exists (fun n => [the _.-ker _ ~> _ of @kweaken2 l1 l2 x t (s n)]).
+  move=> n.
+  have [M hM] := measure_uub (s n).
+  exists M => x0.
+  exact: hM.
+move=> x0 U mU.
+by rewrite /kweaken2/= hs.
+Qed.
+
+HB.instance Definition _ :=
+  Kernel_isSFinite_subdef.Build _ _ _ _ _ (@kweaken2 l1 l2 x t k) sk.
+
+End sfkernel.
+
+Section fkernel_weaken.
+Context l1 l2 (x : string * typ) t (k : R.-fker @mctx R (l1 ++ l2) ~> @mtyp R t).
+
+Let uub : measure_fam_uub (@kweaken2 l1 l2 x t k).
+Proof.
+have [M hM] := measure_uub k.
+exists M => x0.
+exact: hM.
+Qed.
+
+HB.instance Definition _ := @Kernel_isFinite.Build _ _ _ _ _
+  (@kweaken2 l1 l2 x t k) uub.
+End fkernel_weaken.
+
+End kweaken2.
+
 Lemma eq_probability R d (Y : measurableType d) (m1 m2 : probability Y R) :
   (m1 = m2 :> (set Y -> \bar R)) -> m1 = m2.
 Proof.
@@ -270,7 +373,7 @@ Fixpoint free_varsD l t (e : @expD R l t) : seq string :=
   | exp_real _ _            => [::]
   | exp_bernoulli _ _ _     => [::]
   | exp_norm _ _ e          => free_varsP e
-  | expWD _ _ x e _ => rem x.1 (free_varsD e)
+  | expWD _ _ _ x e _ => rem x.1 (free_varsD e)
   end
 with free_varsP T l (e : expP T l) : seq _ :=
   match e with
@@ -280,7 +383,7 @@ with free_varsP T l (e : expP T l) : seq _ :=
 (*  | exp_sample_bern _ _ _   => [::]*)
   | exp_score _ e           => free_varsD e
   | exp_return _ _ e        => free_varsD e
-  | expWP _ _ x e _ => free_varsP e (*NB: why different from expWD case?*)
+  | expWP _ _ _ x e _ => rem x.1 (free_varsP e)
   end.
 
 Definition mtyps l := projT2 (@measurable_of_seq R l).
@@ -311,7 +414,7 @@ elim: l i => //= h t ih [|j].
 apply: (measurableT_comp (ih _)).
 exact: measurable_fun_snd.
 Qed.
-
+Local Open Scope seq_scope.
 Inductive evalD : forall l t (e : @expD R l t)
   (f : mval R (map snd l) t), measurable_fun setT f -> Prop :=
 | EV_unit l :
@@ -348,9 +451,9 @@ Inductive evalD : forall l t (e : @expD R l t)
   l # exp_norm e -D-> (normalize k point : _ -> pprobability _ _) ;
   measurable_fun_mnormalize k
 
-| EV_WeakD l t (e : expD l t) x (xl : x.1 \notin map fst l) f mf :
-  l # e -D-> f ; mf ->
-  (x :: l) # expWD e xl -D-> (@weaken R x l t f) ; (@mweaken R x l t f mf)
+| EV_WeakD l1 l2 t (e : expD (l1 ++ l2) t) x (xl : x.1 \notin map fst (l1 ++ l2)) f mf :
+  (l1 ++ l2) # e -D-> f ; mf ->
+  (l1 ++ x :: l2)%SEQ # expWD e xl -D-> (@weaken2 R l1 l2 x t f) ; (@mweaken2 R l1 l2 x t f mf)
 
 where "l # e -D-> v ; mv" := (@evalD l _ e v mv)
 
@@ -391,9 +494,9 @@ with evalP : forall l t, expP l t ->
   ((x, t1) :: l)%SEQ # e2 -P-> k2 ->
   l # [Let x <~ e1 In e2] -P-> letin' k1 k2
 
-| EV_WeakP l t (e : expP l t) x (xl : x.1 \notin map fst l) k :
-  l # e -P-> k ->
-  (x :: l) # expWP e xl -P-> [the R.-sfker _ ~> _ of @kweaken R x l t k]
+| EV_WeakP l1 l2 t (e : expP (l1 ++ l2) t) x (xl : x.1 \notin map fst (l1 ++ l2)) k :
+  (l1 ++ l2) # e -P-> k ->
+  (l1 ++ x :: l2) # expWP e xl -P-> [the R.-sfker _ ~> _ of @kweaken2 R l1 l2 x t k]
 where "l # e -P-> v" := (@evalP l _ e v).
 
 Example ex1 := (exp_sample (exp_bernoulli _ p27)) : @expP R [::] _.
@@ -495,12 +598,14 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H2; subst e0.
   inj_ex H4; subst v.
   by rewrite (IH _ H3).
-- move=> l t e0 x xl f mf ev IH {}v {}mv.
-  simple inversion 1 => //; subst t0.
-  case: H1 => ? ?; subst x0 l0.
-  inj_ex H3; case: H3 => H3; inj_ex H3; subst e0.
-  inj_ex H4; subst v.
-  by move=> /IH <-.
+- move=> l1 l2 t e0 x xl f mf ev IH {}v {}mv.
+  inversion 1.
+  subst t0 l0 l3 x0.
+  inj_ex H9.
+  inj_ex H11.
+  inj_ex H7.
+  subst e0.
+  by rewrite (IH _ _ H3).
 - move=> l t e0 p mp ev IH k.
   simple inversion 1 => //; subst.
   inj_ex H4; subst.
@@ -536,10 +641,11 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H6; subst e5.
   inj_ex H5; subst e4.
   by rewrite (IH1 _ H4) (IH2 _ H8).
-- move=> l t e0 x xl k1 ev IH {}k.
-  inversion 1; subst l0 t0 x0.
-  inj_ex H4; subst e0.
-  inj_ex H5; subst k.
+- move=> l1 l2 t e0 x xl k1 ev IH {}k.
+  inversion 1; subst x0 t0 l0 l3.
+  inj_ex H9.
+  inj_ex H7; subst e0.
+  rewrite /=.
   by rewrite (IH _ H3).
 Qed.
 
@@ -594,14 +700,12 @@ all: rewrite {l t e u v hu}.
   inj_ex H4; subst v.
   inj_ex H5; subst mv.
   by rewrite (IH _ H3).
-- move=> l t e x xl f mf ev IH {}v {}mv.
-  simple inversion 1 => //; subst t0.
-  case: H1 => ? ?; subst x0 l0.
-  inj_ex H3; case: H3 => H3.
-  inj_ex H3; subst e0.
-  inj_ex H4; subst v.
-  inj_ex H5; subst mv.
-  by move/IH => <-.
+- move=> l1 l2 t e x xl f mf ev IH {}v {}mv.
+  inversion 1; subst x0 l0 l3 t0.
+  inj_ex H7; subst e1.
+  inj_ex H9.
+  inj_ex H11.
+  by rewrite (IH _ _ H3).
 - move=> l t e p mp ep IH v.
   inversion 1; subst l0 t0.
   inj_ex H7; subst v.
@@ -635,10 +739,11 @@ all: rewrite {l t e u v hu}.
   inj_ex H5; subst e4.
   inj_ex H6; subst e5.
   by rewrite (IH1 _ H4) (IH2 _ H8).
-- move=> l t e x xl k1 ev IH {}k.
-  inversion 1; subst x0 l0 t0.
-  inj_ex H4; subst e0.
-  inj_ex H5; subst k.
+- move=> l1 l2 t e x xl k1 ev IH {}k.
+  inversion 1; subst x0 t0 l0 l3.
+  inj_ex H9.
+  inj_ex H7; subst e1.
+  rewrite /=.
   by rewrite (IH _ H3).
 Qed.
 
@@ -649,8 +754,8 @@ apply: (@expD_mut_ind R
   (fun l t (e : expD l t) => exists f (mf : measurable_fun setT f), evalD e mf)
   (fun l t (e : expP l t) => exists k, evalP e k)).
 all: rewrite {l t e}.
-- move=> l st x e [f [mf fmf]] xl.
-  by exists (weaken f), (mweaken mf); exact/EV_WeakD.
+- move=> l1 l2 st x e [f [mf fmf]] xl.
+  by exists (weaken2 f), (mweaken2 mf); exact/EV_WeakD.
 - by do 2 eexists; exact: EV_unit.
 - by do 2 eexists; exact: EV_bool.
 - by do 2 eexists; exact: EV_real.
@@ -663,8 +768,8 @@ all: rewrite {l t e}.
   exact: EV_poisson.
 - move=> l t e [k H].
   by exists (normalize k point), (measurable_fun_mnormalize k); exact: EV_norm.
-- move=> l st x e [k H1] xl.
-  by exists [the _.-sfker _ ~> _ of kweaken k]; exact: EV_WeakP.
+- move=> l1 l2 st x e [k H1] xl.
+  by exists [the _.-sfker _ ~> _ of kweaken2 k]; exact: EV_WeakP.
 - move=> l t e1 [f [mf H1]] e2 [k2 H2] e3 [k3 H3].
   by exists (ite mf k2 k3); exact: EV_ifP.
 - move=> l t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
@@ -689,8 +794,8 @@ apply: (@expP_mut_ind R
   (fun l t (e : expD l t) => exists f (mf : measurable_fun _ f), evalD e mf)
   (fun l t (e : expP l t) => exists k, evalP e k)).
 all: rewrite {l t e}.
-- move=> l t x e [f [mf H]] xl.
-  by exists (weaken f), (mweaken mf); exact: EV_WeakD.
+- move=> l1 l2 t x e [f [mf H]] xl.
+  by exists (weaken2 f), (mweaken2 mf); exact: EV_WeakD.
 - by do 2 eexists; exact: EV_unit.
 - by do 2 eexists; exact: EV_bool.
 - by do 2 eexists; exact: EV_real.
@@ -703,8 +808,8 @@ all: rewrite {l t e}.
   exact: EV_poisson.
 - move=> l t e []k H.
   by exists (normalize k point), (measurable_fun_mnormalize k); exact: EV_norm.
-- move=> l s x e [k H1] xl.
-  by exists [the _.-sfker _ ~> _ of kweaken k]; exact: EV_WeakP.
+- move=> l1 l2 s x e [k H1] xl.
+  by exists [the _.-sfker _ ~> _ of kweaken2 k]; exact: EV_WeakP.
 - move=> l t e1 [f [mf H1]] e2 [k2 H2] e3 [k3 H3].
   by exists (ite mf k2 k3); exact: EV_ifP.
 - move=> l t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
@@ -807,8 +912,8 @@ congr existT.
 exact/Prop_irrelevance.
 Qed.
 
-Lemma execP_WP_kweaken x l t (e : expP l t) (xl : x.1 \notin map fst l) :
-  execP (@expWP R l t _ e xl) = [the _.-sfker _ ~> _ of kweaken (execP e)].
+Lemma execP_WP_kweaken l1 l2 x t (e : expP (l1 ++ l2)%SEQ t) (xl : x.1 \notin map fst (l1 ++ l2)) :
+  execP (@expWP R l1 l2 t _ e xl) = [the _.-sfker _ ~> _ of kweaken2 (execP e)].
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 by apply: EV_WeakP; exact: evalP_execP.
@@ -1044,24 +1149,26 @@ Lemma LetInC l t1 t2 (e1 : @expP R l t1) (e2 : expP l t2)
   (xl : "x" \notin map fst l) (yl : "y" \notin map fst l) :
   forall U, measurable U ->
   execP [Let "x" <~ e1 In
-        Let "y" <~ {@expWP _ _ _ ("x", t1) e2 xl} In
+        Let "y" <~ {@expWP _ [::] _ _ ("x", t1) e2 xl} In
         Ret (%{"x"}, %{"y"})] ^~ U =
   execP [Let "y" <~ e2 In
-        Let "x" <~ {@expWP _ _ _ ("y", t2) e1 yl} In
+        Let "x" <~ {@expWP _ [::] _ _ ("y", t2) e1 yl} In
         Ret (%{"x"}, %{"y"})] ^~ U.
         (* :> (mtyp (slist (map snd l)) -> \bar R). *)
 Proof.
 move=> U mU; apply/funext => x.
 rewrite 4!execP_letin.
-rewrite 2!execP_WP_kweaken.
+rewrite (@execP_WP_kweaken _ [::] l).
+rewrite (@execP_WP_kweaken _ [::] l).
 rewrite 2!execP_ret/=.
 rewrite 2!execD_pair/=.
 rewrite !(execD_var _ _ "x")/= !(execD_var _ _ "y")/=.
 have -> : @macc_typ _ [:: t2, t1 & [seq i.2 | i <- l]] 0 = @macc0of3' _ _ _ _ _ _ by [].
 have -> : @macc_typ _ [:: t2, t1 & [seq i.2 | i <- l]] 1 = @macc1of3' _ _ _ _ _ _ by [].
-rewrite (letin'C _ _ (execP e2) [the R.-sfker _ ~> _ of @kweaken _  ("y", t2) _ _ (execP e1)]); [ |by [] | by [] |by []].
+rewrite (letin'C _ _ (execP e2) [the R.-sfker _ ~> _ of @kweaken2 _ [::] _ ("y", t2) _ (execP e1)]); [ |by [] | by [] |by []].
 have -> : @macc_typ _ [:: t1, t2 & [seq i.2 | i <- l]] 0 = @macc0of3' _ _ _ _ _ _ by [].
-by have -> : @macc_typ _ [:: t1, t2 & [seq i.2 | i <- l]] 1 = @macc1of3' _ _ _ _ _ _ by [].
+have -> : @macc_typ _ [:: t1, t2 & [seq i.2 | i <- l]] 1 = @macc1of3' _ _ _ _ _ _ by [].
+reflexivity.
 Qed.
 
 Lemma LetInC_test (l := [:: ("a", Unit); ("b", Bool)]) t1 t2
@@ -1114,34 +1221,28 @@ rewrite (execD_var _ _ "x")/= (execD_var _ _ "y")/=.
 (* TODO: Use LetInC *)
 Abort.
 
-Lemma LetInA l t1 t2 t3 (e1 : @expP R l t1) (e2 : expP [:: ("y", t1) & l] t2)
-  (e3 : expP l t3) (xl : "x" \notin map fst l) (yl : "y" \notin map fst l) :
+Lemma LetInA l t1 t2 t3
+  (e1 : @expP R l t1)
+  (e2 : expP [:: ("y", t1) & l] t2)
+  (e3 : expP [:: ("x", t2) & l] t3)
+  (xl : "x" \notin map fst l)
+  (yl : "y" \notin map fst [:: ("x", t2) & l]) :
   forall U, measurable U ->
   execP [Let "y" <~ e1 In
          Let "x" <~ e2 In
-         {@expWP _ _ _ ("x", t2) (@expWP _ _ _ ("y", t1) e3 yl) xl}] ^~ U =
+         {(@expWP _ [:: ("x", t2)] l _ ("y", t1) e3 yl)}] ^~ U =
   execP [Let "x" <~ Let "y" <~ e1 In e2 In
-         {@expWP _ _ _ ("x", t2) e3 xl}] ^~ U.
+         e3] ^~ U.
 Proof.
 move=> U mU; apply/funext=> x.
-rewrite !execP_letin !execP_WP_kweaken.
-exact: letin'A.
+rewrite !execP_letin.
+rewrite (@execP_WP_kweaken _ [:: ("x", t2)]).
+apply: letin'A => //.
+move=> y z.
+rewrite /=.
+rewrite /kweaken2 /weaken3 /=.
+by destruct z.
 Qed.
-
-(*Lemma LetInA_test t1 t2 (l := [:: ("a", Unit) ; ("b", Bool)]) t3
-    (e1 : @expP R l t1)
-    (e2 : expP [:: ("y", t1) & l] t2)
-    (e3 : expP [:: ("x", t2) & l] t3) :
-  forall U, measurable U ->
-  execP [Let "y" <~ e1 In
-         Let "x" <~ e2 In
-         e3 ] ^~ U =
-  execP [Let "x" <~ Let "y" <~ e1 In e2 In
-         e3 ] ^~ U.
-Proof.
-move=> U mU.
-exact: LetInA.
-Qed.*)
 
 Example LetInA12 : forall U, measurable U ->
   @execP R [::] _ [Let "y" <~ Ret {1}:r In

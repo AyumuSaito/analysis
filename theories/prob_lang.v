@@ -584,7 +584,7 @@ Inductive typ :=
 Local Notation "( x , y , .. , z )" :=
   (Pair .. (Pair x y) .. z) : prob_lang_scope.
 
-(* Canonical stype_eqType := Equality.Pack (@gen_eqMixin stype). *)
+Canonical stype_eqType := Equality.Pack (@gen_eqMixin typ).
 
 Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
   match t with
