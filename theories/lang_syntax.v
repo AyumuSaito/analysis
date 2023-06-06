@@ -283,8 +283,37 @@ with free_varsP T l (e : expP T l) : seq _ :=
   | expWP _ _ x e _ => free_varsP e (*NB: why different from expWD case?*)
   end.
 
+Definition mtyps l := projT2 (@measurable_of_seq R l).
+
+Definition mval (R : realType) (l : seq typ) (t : typ) :=
+  @mtyps l -> @mtyp R t.
+
+Definition acc_typ : forall (l : seq typ) (i : nat),
+  projT2 (@measurable_of_seq R l) ->
+  projT2 (@measurable_of_typ R (nth Unit l i)).
+fix H 1.
+intros l i x.
+destruct l as [|l].
+  destruct i as [|i].
+    exact tt.
+  exact tt.
+destruct i as [|i].
+  exact (fst x).
+rewrite /=.
+apply H.
+exact: (snd x).
+Defined.
+
+Lemma macc_typ (l : seq typ) (i : nat) : measurable_fun setT (@acc_typ l i).
+Proof.
+elim: l i => //= h t ih [|j].
+  exact: measurable_fst.
+apply: (measurableT_comp (ih _)).
+exact: measurable_fun_snd.
+Qed.
+
 Inductive evalD : forall l t (e : @expD R l t)
-  (f : dval R l t), measurable_fun setT f -> Prop :=
+  (f : mval R (map snd l) t), measurable_fun setT f -> Prop :=
 | EV_unit l :
   l # exp_unit -D-> cst tt ; ktt
 
@@ -302,7 +331,8 @@ Inductive evalD : forall l t (e : @expD R l t)
 
 | EV_var (l : ctx) (x : string) :
   let i := seq.index x (map fst l) in
-  l # [% x] -D-> acc (map snd l) i ; macc (map snd l) i
+  l # [% x] -D-> @acc_typ (map snd l) i ;
+                 (@macc_typ (map snd l) i)
 
 | EV_bernoulli l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   l # exp_bernoulli r r1 -D->
@@ -843,9 +873,9 @@ have h : projT1 lhs = projT1 rhs.
 exact: eq_sigT_hprop.
 Qed.
 
-Lemma execD_var l (x : string) :
+Lemma execD_var (l : ctx) (x : string) :
   let i := seq.index x (map fst l) in
-  @execD l _ [% {x} ] = existT _ (acc (map snd l) i) (@macc R (map snd l) i).
+  @execD l _ [% {x} ] = existT _ (@acc_typ R (map snd l) i) (@macc_typ R (map snd l) i).
 Proof.
 rewrite /execD /=.
 case: cid => f ?.
@@ -932,10 +962,10 @@ Definition sample_bern : R.-sfker munit ~> mbool :=
   sample_cst [the probability _ _ of bernoulli p27].
 Definition ite_3_10 :
   R.-sfker [the measurableType _ of (mbool * munit)%type] ~> (mR R) :=
-  ite (macc0of2 R) (ret k3) (ret k10).
+  ite (@macc0of2 _ _ _ _) (ret k3) (ret k10).
 Definition score_poi :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
-  score (measurableT_comp (mpoisson 4) (macc0of2 R)).
+  score (measurableT_comp (mpoisson 4) (@macc0of2 _ _ _ _)).
 
 Example kstaton_bus_exp : expP [::] Bool :=
   [Let "x" <~ {exp_sample (@exp_bernoulli R [::] (2 / 7%:R)%:nng p27)} In
@@ -946,7 +976,7 @@ Example kstaton_bus_exp : expP [::] Bool :=
 Local Definition kstaton_bus'' :=
   letin' sample_bern
     (letin' ite_3_10
-      (letin' score_poi (ret (macc2of4' R)))).
+      (letin' score_poi (ret (@macc2of4' _ _ _ _ _ _ _ _)))).
 
 Example eval_staton_bus :
   [::] # kstaton_bus_exp -P-> kstaton_bus''.
@@ -985,16 +1015,16 @@ rewrite !execP_if !execP_ret !execD_real.
 have -> : @execD R _ _ (exp_var "x" (left_pf "x" Bool [::])) = execD [% {"x"}].
 congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /= /ite_3_10.
-have -> : (@macc R [:: Bool] 0 = macc0of2 R) by [].
+have -> : (@macc_typ R [:: Bool] 0 = @macc0of2 _ _ _ _) by [].
 congr letin'.
 rewrite execP_score execD_poisson /=.
 have -> : (@execD R _ _ (exp_var "r" (left_pf "r" Real [:: ("x", Bool)])) = execD [% {"r"}]).
 congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /=.
-have ->/= : (@macc R [:: Real; Bool] 0 = macc0of2 R) by [].
+have ->/= : (@macc_typ R [:: Real; Bool] 0 = @macc0of2 _ _ _ _) by [].
 congr letin'.
 rewrite (execD_var _ _ "x") /=.
-by have -> : (macc [:: Unit; Real; Bool] 2 = macc2of4' (T0:=munit) (T1:=mR R) (T2:=mbool) (T3:=munit) R).
+by have -> : (@macc_typ _ [:: Unit; Real; Bool] 2 = @macc2of4' _ _ _ _ _ _ _ _).
 Qed.
 
 End staton_bus.
@@ -1003,7 +1033,7 @@ Section letinC.
 Local Open Scope lang_scope.
 Variable R : realType.
 
-Lemma ex_var_ret l : @execP R l _ [Let "x" <~ Ret {1}:r In Ret %{"x"}] = letin' (ret (kr 1)) (ret (macc0of2 R)).
+Lemma ex_var_ret l : @execP R l _ [Let "x" <~ Ret {1}:r In Ret %{"x"}] = letin' (ret (kr 1)) (ret (@macc0of2 _ _ _ _)).
 Proof.
 rewrite execP_letin; congr letin'.
 by rewrite execP_ret execD_real.
@@ -1027,11 +1057,11 @@ rewrite 2!execP_WP_kweaken.
 rewrite 2!execP_ret/=.
 rewrite 2!execD_pair/=.
 rewrite !(execD_var _ _ "x")/= !(execD_var _ _ "y")/=.
-have -> : macc [:: t2, t1 & [seq i.2 | i <- l]] 0 = macc0of3' R by [].
-have -> : macc [:: t2, t1 & [seq i.2 | i <- l]] 1 = macc1of3' R by [].
+have -> : @macc_typ _ [:: t2, t1 & [seq i.2 | i <- l]] 0 = @macc0of3' _ _ _ _ _ _ by [].
+have -> : @macc_typ _ [:: t2, t1 & [seq i.2 | i <- l]] 1 = @macc1of3' _ _ _ _ _ _ by [].
 rewrite (letin'C _ _ (execP e2) [the R.-sfker _ ~> _ of @kweaken _  ("y", t2) _ _ (execP e1)]); [ |by [] | by [] |by []].
-have -> : macc [:: t1, t2 & [seq i.2 | i <- l]] 0 = macc0of3' R by [].
-by have -> : macc [:: t1, t2 & [seq i.2 | i <- l]] 1 = macc1of3' R by [].
+have -> : @macc_typ _ [:: t1, t2 & [seq i.2 | i <- l]] 0 = @macc0of3' _ _ _ _ _ _ by [].
+by have -> : @macc_typ _ [:: t1, t2 & [seq i.2 | i <- l]] 1 = @macc1of3' _ _ _ _ _ _ by [].
 Qed.
 
 Lemma LetInC_test (l := [:: ("a", Unit); ("b", Bool)]) t1 t2
