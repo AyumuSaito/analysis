@@ -560,12 +560,8 @@ Arguments k10 {d T R}.
 Arguments ktt {d T}.
 Arguments kb {d T}.
 
-Declare Scope prob_lang_scope.
-Delimit Scope prob_lang_scope with P.
-
-Section type_syntax.
+Section iter_mprod.
 Import Notations.
-Variables (R : realType).
 
 Fixpoint iter_mprod (l : list {d & measurableType d})
     : {d & measurableType d} :=
@@ -576,62 +572,28 @@ Fixpoint iter_mprod (l : list {d & measurableType d})
                 (projT2 h * projT2 t')%type]
   end.
 
-Inductive typ :=
-| Unit | Bool | Real
-| Pair : typ -> typ -> typ
-| Prob : typ -> typ.
-
-Local Notation "( x , y , .. , z )" :=
-  (Pair .. (Pair x y) .. z) : prob_lang_scope.
-
-Canonical stype_eqType := Equality.Pack (@gen_eqMixin typ).
-
-Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
-  match t with
-  | Unit => existT _ _ munit
-  | Bool => existT _ _ mbool
-  | Real => existT _ _ (mR R)
-  | (A, B)%P => existT _ _
-      [the measurableType (projT1 (measurable_of_typ A),
-                           projT1 (measurable_of_typ B)).-prod%mdisp of
-      (projT2 (measurable_of_typ A) *
-       projT2 (measurable_of_typ B))%type]
-  | Prob A => existT _ _ (pprobability (projT2 (measurable_of_typ A)) R)
-  end.
-
-Definition mtyp t : measurableType (projT1 (measurable_of_typ t)) :=
-  projT2 (measurable_of_typ t).
-
-Definition measurable_of_seq (l : seq typ) : {d & measurableType d} :=
-  iter_mprod (map measurable_of_typ l).
-
-Definition pairs_of_seq2 l : measurableType (projT1 (measurable_of_seq l)) :=
-  projT2 (measurable_of_seq l).
-
-End type_syntax.
-Arguments measurable_of_typ {R}.
-Arguments mtyp {R}.
-Arguments measurable_of_seq {R}.
-Arguments pairs_of_seq2 {R}.
-
-Notation "( x , y , .. , z )" := (Pair .. (Pair x y) .. z) : prob_lang_scope.
+End iter_mprod.
 
 Section acc.
+Import Notations.
 Context {R : realType}.
 
-Fixpoint acc (l : seq {d & measurableType d}) (i : nat) :
-  projT2 (iter_mprod l) -> projT2 (nth (existT _ _ Notations.munit) l i) :=
-  match l return projT2 (iter_mprod l) -> projT2 (nth (existT _ _ Notations.munit) l i) with
-  | [::] => match i with | O => id | j.+1 => id end
-  | _ :: _ => match i with
+Fixpoint acc (l : seq {d & measurableType d}) n :
+  projT2 (iter_mprod l) -> projT2 (nth (existT _ _ munit) l n) :=
+  match l return
+     projT2 (iter_mprod l) -> projT2 (nth (existT _ _ munit) l n)
+  with
+  | [::] => match n with | O => id | m.+1 => id end
+  | _ :: _ => match n with
                | O => fst
-               | j.+1 => fun H => acc j H.2
+               | m.+1 => fun H => acc m H.2
                end
   end.
 
-Lemma macc (l : seq {d & measurableType d}) (i : nat) : measurable_fun setT (@acc l i).
+Lemma macc (l : seq {d & measurableType d}) n :
+  measurable_fun setT (@acc l n).
 Proof.
-by elim: l i => //= h t ih [|j] //; exact: (measurableT_comp (ih _)).
+by elim: l n => //= h t ih [|m] //; exact: (measurableT_comp (ih _)).
 Qed.
 End acc.
 Arguments acc : clear implicits.
@@ -694,21 +656,21 @@ Lemma mpairAr d (T : measurableType d) t : measurable_fun setT (pairAr T t).
 Proof. exact: measurableT_comp. Qed.
 
 Definition pairAAr : ([the measurableType _ of T0 * T1 * T2] ->
-                      [the measurableType _ of T0 * (T1 * (T2 * munit))])%type :=
+    [the measurableType _ of T0 * (T1 * (T2 * munit))])%type :=
   pairA \o pairA \o rpair munit tt.
 
 Lemma mpairAAr : measurable_fun setT pairAAr.
 Proof. by do 2 apply: measurableT_comp => //. Qed.
 
 Definition pairAArAi : ([the measurableType _ of T0 * (T1 * T2)] ->
-                        [the measurableType _ of T0 * (T1 * (T2 * munit))])%type :=
+    [the measurableType _ of T0 * (T1 * (T2 * munit))])%type :=
   pairAAr \o pairAi.
 
 Lemma mpairAArAi : measurable_fun setT pairAArAi.
 Proof. by apply: measurableT_comp => //=; exact: mpairAAr. Qed.
 
 Definition pairAAArAAi : ([the measurableType _ of T3 * (T0 * (T1 * T2))] ->
-                     [the measurableType _ of T3 * (T0 * (T1 * (T2 * munit)))])%type :=
+    [the measurableType _ of T3 * (T0 * (T1 * (T2 * munit)))])%type :=
   pairA \o pairA \o pairA \o rpair munit tt \o pairAi \o pairAi.
 
 Lemma mpairAAARAAAi : measurable_fun setT pairAAArAAi.
@@ -722,7 +684,6 @@ Arguments pairAAArAAi {d0 d1 d2 d3 T0 T1 T2 T3}.
 
 Section accessor_functions.
 Import Notations.
-(* Context (x0 x1 x2 x3 : string). *)
 Context d0 d1 d2 d3 (T0 : measurableType d0) (T1 : measurableType d1)
   (T2 : measurableType d2) (T3 : measurableType d3) (R : realType).
 
@@ -781,6 +742,14 @@ Lemma macc2of4' : measurable_fun setT acc2of4'.
 Proof. by apply: measurableT_comp; [exact: (macc Of4 2)|exact: mpairAAARAAAi]. Qed.
 
 End accessor_functions.
+Arguments macc0of2 {d0 d1 _ _}.
+Arguments macc1of2 {d0 d1 _ _}.
+Arguments macc0of3' {d0 d1 d2 _ _ _}.
+Arguments macc1of3 {d0 d1 d2 _ _ _}.
+Arguments macc1of3' {d0 d1 d2 _ _ _}.
+Arguments macc2of3 {d0 d1 d2 _ _ _}.
+Arguments macc2of3' {d0 d1 d2 _ _ _}.
+Arguments macc2of4' {d0 d1 d2 d3 _ _ _ _}.
 
 Section insn1_lemmas.
 Import Notations.
@@ -804,14 +773,6 @@ Lemma scoreE d' (T' : measurableType d') (x : T * T') (U : set T') (f : R -> R)
 Proof.
 by rewrite /score/= /mscale/= ger0_norm//= f0.
 Qed.
-
-(* Lemma scoreE d' (T' : measurableType d') (x : T * T') (U : set T') (f : R -> R)
-    (r : R) (r0 : (0 <= r)%R)
-    (f0 : (forall r, 0 <= r -> 0 <= f r)%R) (mf : measurable_fun setT f) :
-  score (measurable_funT_comp mf var2of2)
-    (x, r) (curry (snd \o fst) x @^-1` U) =
-  (f r)%:E * \d_x.2 U.
-Proof. by rewrite /score/= /mscale/= ger0_norm// f0. Qed. *)
 
 Lemma score_score (f : R -> R) (g : R * unit -> R)
     (mf : measurable_fun setT f)
@@ -842,7 +803,8 @@ End insn1_lemmas.
 Section letin_ite.
 Context d d2 d3 (T : measurableType d) (T2 : measurableType d2)
   (Z : measurableType d3) (R : realType).
-Variables  (k1 k2 : R.-sfker T ~> Z) (u : R.-sfker [the measurableType _ of (T * Z)%type] ~> T2)
+Variables (k1 k2 : R.-sfker T ~> Z)
+  (u : R.-sfker [the measurableType _ of (T * Z)%type] ~> T2)
   (f : T -> bool) (mf : measurable_fun setT f)
   (t : T) (U : set T2).
 
@@ -932,10 +894,10 @@ HB.instance Definition _ z := @Measure_isSFinite_subdef.Build _ Y R
 Lemma letinC z A : measurable A ->
   letin t
   (letin u'
-  (ret (measurable_fun_prod (@macc1of3 _ _ _ _ _ _) (@macc2of3 _ _ _ _ _ _)))) z A =
+  (ret (measurable_fun_prod macc1of3 macc2of3))) z A =
   letin u
   (letin t'
-  (ret (measurable_fun_prod (@macc2of3 _ _ _ _ _ _) (@macc1of3 _ _ _ _ _ _)))) z A.
+  (ret (measurable_fun_prod macc2of3 macc1of3))) z A.
 Proof.
 move=> mA.
 rewrite !letinE.
@@ -1007,7 +969,8 @@ Qed.
 
 Lemma mpoisson k : measurable_fun setT (poisson k).
 Proof.
-by apply: measurable_funM => /=; [exact: measurable_funM|exact: measurableT_comp].
+by apply: measurable_funM => /=;
+  [exact: measurable_funM|exact: measurableT_comp].
 Qed.
 
 Definition poisson3 := poisson 4 3%:R. (* 0.168 *)
@@ -1054,7 +1017,7 @@ Context d (T : measurableType d) (R : realType).
 Definition sample_and_return : R.-sfker T ~> _ :=
   letin
     (sample_cst [the probability _ _ of bernoulli p27]) (* T -> B *)
-    (ret (@macc1of2 _ _ _ _)) (* T * B -> B *).
+    (ret macc1of2) (* T * B -> B *).
 
 Lemma sample_and_returnE t U : sample_and_return t U =
   (2 / 7%:R)%:E * \d_true U + (5%:R / 7%:R)%:E * \d_false U.
@@ -1076,7 +1039,7 @@ Context d (T : measurableType d) (R : realType).
 Definition sample_and_branch : R.-sfker T ~> mR R :=
   letin
     (sample_cst [the probability _ _ of bernoulli p27]) (* T -> B *)
-    (ite (@macc1of2 _ _ _ _) (ret k3) (ret k10)).
+    (ite macc1of2 (ret k3) (ret k10)).
 
 Lemma sample_and_branchE t U : sample_and_branch t U =
   (2 / 7%:R)%:E * \d_(3%:R : R) U +
@@ -1110,7 +1073,7 @@ Qed.
 Definition bernoulli_and : R.-sfker T ~> mbool :=
     (letin (sample_cst [the probability _ _ of bernoulli p12])
      (letin (sample_cst [the probability _ _ of bernoulli p12])
-        (ret (measurable_fun_mand (@macc1of3 _ _ _ _ _ _) (@macc2of3 _ _ _ _ _ _))))).
+        (ret (measurable_fun_mand macc1of3 macc2of3)))).
 
 Lemma bernoulli_andE t U :
   bernoulli_and t U =
@@ -1134,9 +1097,9 @@ Hypothesis mh : measurable_fun setT h.
 Definition kstaton_bus : R.-sfker T ~> mbool :=
   letin (sample_cst [the probability _ _ of bernoulli p27])
   (letin
-    (letin (ite (@macc1of2 _ _ _ _) (ret k3) (ret k10))
-      (score (measurableT_comp mh (@macc2of3 _ _ _ _ _ _))))
-    (ret (@macc1of3 _ _ _ _ _ _))).
+    (letin (ite macc1of2 (ret k3) (ret k10))
+      (score (measurableT_comp mh macc2of3)))
+    (ret macc1of3)).
 
 Definition staton_bus := normalize kstaton_bus.
 
@@ -1304,8 +1267,6 @@ HB.instance Definition _ :=
 
 End mswap_sfinite_kernel.
 
-(* Module KSWAP_FINITE_KERNEL. *)
-
 Section kswap_finite_kernel_finite.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType)
@@ -1322,9 +1283,6 @@ HB.instance Definition _ :=
   Kernel_isFinite.Build _ _ _ Z R (mkswap k) mkswap_finite.
 
 End kswap_finite_kernel_finite.
-(* End KSWAP_FINITE_KERNEL. *)
-
-(* Module MSWAP_SFINITE_KERNEL. *)
 
 Reserved Notation "f .; g" (at level 60, right associativity,
   format "f  .; '/ '  g").
@@ -1438,10 +1396,10 @@ Check (ret (kr 1)) : R.-sfker munit ~> mR R.
 Lemma letin'C z A : measurable A ->
   letin' t
   (letin' u'
-  (ret (measurable_fun_prod (@macc1of3' _ _ _ _ _ _) (@macc0of3' _ _ _ _ _ _)))) z A =
+  (ret (measurable_fun_prod macc1of3' macc0of3'))) z A =
   letin' u
   (letin' t'
-  (ret (measurable_fun_prod (@macc0of3' _ _ _ _ _ _) (@macc1of3' _ _ _ _ _ _)))) z A.
+  (ret (measurable_fun_prod macc0of3' macc1of3'))) z A.
 Proof.
 move=> mA.
 rewrite !letin'E.
