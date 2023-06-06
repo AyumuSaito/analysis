@@ -3,7 +3,7 @@ From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval finmap.
 From mathcomp.classical Require Import mathcomp_extra boolp classical_sets.
 From mathcomp.classical Require Import functions cardinality fsbigop.
 Require Import signed reals ereal topology normedtype sequences esum measure.
-Require Import lebesgue_measure numfun lebesgue_integral kernel.
+Require Import lebesgue_measure numfun lebesgue_integral kernel inj_ex.
 
 (**************************************************************)
 (*        Various types of the definition of syntax           *)
@@ -355,22 +355,6 @@ Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (ctxi R g -> typei R t) -
     ((x, t) :: g) # e2 -e-> v2 ->
     g # Letin x e1 e2 -e-> (fun a => v2 (v1 a, a))
 where "G # e '-e->' v" := (@eval G _ e v).
-
-Ltac inj_ex H := revert H;
-  match goal with
-  | |- existT ?P ?l (existT ?Q ?t (existT ?R ?u (existT ?T ?v ?v1))) =
-       existT ?P ?l (existT ?Q ?t (existT ?R ?u (existT ?T ?v ?v2))) -> _ =>
-    (intro H; do 4 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
-  | |- existT ?P ?l (existT ?Q ?t (existT ?R ?u ?v1)) =
-       existT ?P ?l (existT ?Q ?t (existT ?R ?u ?v2)) -> _ =>
-    (intro H; do 3 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
-  | |- existT ?P ?l (existT ?Q ?t ?v1) =
-       existT ?P ?l (existT ?Q ?t ?v2) -> _ =>
-    (intro H; do 2 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
-  | |- existT ?P ?l ?v1 =
-       existT ?P ?l ?v2 -> _ =>
-    (intro H; apply Classical_Prop.EqdepTheory.inj_pair2 in H)
-end.
 
 Scheme eval_ind' := Induction for eval Sort Prop.
 
