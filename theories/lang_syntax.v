@@ -20,11 +20,15 @@ Require Import inj_ex.
 (*                        spaces.                                             *)
 (*            expD l t == syntax of deterministic terms of type t in context l*)
 (*            expP l t == syntax of probabilistic terms                       *)
-(*   l # e -D-> f ; mf == the evaluation of the deterministic expression e    *)
-(*                        in the context l leads to the measurable function f *)
-(*                        (mf is the proof that v is measurable)              *)
-(*        l # e -P-> k == the evaluation of the probabilistic function f in   *)
-(*                        the context l leads to the s-finite kernel k        *)
+(*          dval R l t == "deterministic value", i.e.,                        *)
+(*                        function from mctx l to mtyp t                      *)
+(*          pval R l t == "probabilistic value", i.e.,                        *)
+(*                        s-finite kernel, from mctx l to mtyp t              *)
+(*       e -D-> f ; mf == the evaluation of the deterministic expression e    *)
+(*                        leads to the deterministic value f                  *)
+(*                        (mf is the proof that f is measurable)              *)
+(*            e -P-> k == the evaluation of the probabilistic function f      *)
+(*                        leads to the probabilistic value k                  *)
 (*             execD e == a dependent pair of a function corresponding to the *)
 (*                        evaluation of e and a proof that this function is   *)
 (*                        measurable                                          *)
@@ -39,6 +43,11 @@ Unset Printing Implicit Defensive.
 
 Import Order.TTheory GRing.Theory Num.Def Num.Theory.
 Import numFieldTopology.Exports.
+
+Reserved Notation "f .; g" (at level 60, right associativity,
+  format "f  .; '/ '  g").
+Reserved Notation "e -D-> f ; mf" (at level 40).
+Reserved Notation "e -P-> k" (at level 40).
 
 (* TODO: move *)
 Lemma eq_probability R d (Y : measurableType d) (m1 m2 : probability Y R) :
@@ -70,13 +79,220 @@ Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 
+(* TODO: document *)
+Section mswap.
+Context d d' d3 (X : measurableType d) (Y : measurableType d')
+  (Z : measurableType d3) (R : realType).
+Variable k : R.-ker [the measurableType _ of (Y * X)%type] ~> Z.
+
+Definition mswap xy U := k (swap xy) U.
+
+Let mswap0 xy : mswap xy set0 = 0.
+Proof. done. Qed.
+
+Let mswap_ge0 x U : 0 <= mswap x U.
+Proof. done. Qed.
+
+Let mswap_sigma_additive x : semi_sigma_additive (mswap x).
+Proof. exact: measure_semi_sigma_additive. Qed.
+
+HB.instance Definition _ x := isMeasure.Build _ R _
+  (mswap x) (mswap0 x) (mswap_ge0 x) (@mswap_sigma_additive x).
+
+Definition mkswap : _ -> {measure set Z -> \bar R} :=
+  fun x => [the measure _ _ of mswap x].
+
+Let measurable_fun_kswap U :
+  measurable U -> measurable_fun setT (mkswap ^~ U).
+Proof.
+move=> mU.
+rewrite [X in measurable_fun _ X](_ : _ = ((fun xy => k xy U) \o (@swap _ _)))//.
+apply measurableT_comp => //=.
+  exact/measurable_kernel.
+exact: measurable_swap.
+Qed.
+
+HB.instance Definition _ :=
+  isKernel.Build _ _ [the measurableType _ of (X * Y)%type] Z R mkswap measurable_fun_kswap.
+
+End mswap.
+
+Section mswap_sfinite_kernel.
+Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
+          (Z : measurableType d3) (R : realType).
+Variable k : R.-sfker [the measurableType _ of (Y * X)%type] ~> Z.
+
+Let mkswap_sfinite :
+  exists2 k_ : (R.-ker [the measurableType _ of (X * Y)%type] ~> Z)^nat,
+  forall n, measure_fam_uub (k_ n) &
+  forall x U, measurable U -> mkswap k x U = kseries k_ x U.
+Proof.
+have [k_ /= kE] := sfinite_kernel k.
+exists (fun n => [the R.-ker _ ~> _ of mkswap (k_  n)]).
+  move=> n.
+  have /measure_fam_uubP[M hM] := measure_uub (k_ n).
+  by exists M%:num => x/=; exact: hM.
+move=> xy U mU.
+by rewrite /mswap/= kE.
+Qed.
+
+HB.instance Definition _ :=
+  Kernel_isSFinite_subdef.Build _ _ _ Z R (mkswap k) mkswap_sfinite.
+
+End mswap_sfinite_kernel.
+
+Section kswap_finite_kernel_finite.
+Context d d' d3 (X : measurableType d) (Y : measurableType d')
+  (Z : measurableType d3) (R : realType)
+  (k : R.-fker [the measurableType _ of (Y * X)%type] ~> Z).
+
+Let mkswap_finite : measure_fam_uub (mkswap k).
+Proof.
+have /measure_fam_uubP[r hr] := measure_uub k.
+apply/measure_fam_uubP; exists (PosNum [gt0 of r%:num%R]) => x /=.
+exact: hr.
+Qed.
+
+HB.instance Definition _ :=
+  Kernel_isFinite.Build _ _ _ Z R (mkswap k) mkswap_finite.
+
+End kswap_finite_kernel_finite.
+
+Notation "l .; k" := (mkcomp l [the _.-ker _ ~> _ of mkswap k]) : ereal_scope.
+
+(* TODO: document *)
+Section letin'.
+Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
+          (Z : measurableType d3) (R : realType).
+
+Definition letin' (l : R.-sfker X ~> Y)
+    (k : R.-sfker [the measurableType (d', d).-prod of (Y * X)%type] ~> Z) :=
+  locked [the R.-sfker X ~> Z of l .; k].
+
+Lemma letin'E (l : R.-sfker X ~> Y)
+    (k : R.-sfker [the measurableType (d', d).-prod of (Y * X)%type] ~> Z) x U :
+  letin' l k x U = \int[l x]_y k (y, x) U.
+Proof. by rewrite /letin'; unlock. Qed.
+
+End letin'.
+
+Section letin'C.
+Import Notations.
+Context d d1 d' (X : measurableType d) (Y : measurableType d1)
+  (Z : measurableType d') (R : realType).
+
+Lemma letin'C12 z A : measurable A ->
+  @letin' _ _ _ _ _ _ R (ret (kr 1))
+    (letin' (ret (kb true))
+      (ret (measurable_fun_prod (macc [:: existT _ _ mbool; existT _ _ (mR R)] 1) (macc [:: existT _ _ mbool; existT _ _ (mR R)] 0)))) z A =
+  letin' (ret (kb true))
+    (letin' (ret (kr 1))
+      (ret (measurable_fun_prod (macc [:: existT _ _ (mR R); existT _ _ mbool] 0) (macc [:: existT _ _ (mR R); existT _ _ mbool] 1)))) z A.
+Proof.
+move=> mA.
+have : acc [:: existT _ _ mbool; existT _ _ (mR R)] 1 = acc [:: existT _ _ mbool; existT _ _ (mR R)] 1.
+rewrite /acc /=.
+(* rewrite !letin'E. *)
+Admitted.
+
+Variables (t : R.-sfker Z ~> X)
+          (u' : R.-sfker [the measurableType _ of (X * Z)%type] ~> Y)
+          (u : R.-sfker Z ~> Y)
+          (t' : R.-sfker [the measurableType _ of (Y * Z)%type] ~> X)
+          (tt' : forall y, t =1 fun z => t' (y, z))
+          (uu' : forall x, u =1 fun z => u' (x, z)).
+
+Definition T' z : set X -> \bar R := t z.
+Let T0 z : (T' z) set0 = 0. Proof. by []. Qed.
+Let T_ge0 z x : 0 <= (T' z) x. Proof. by []. Qed.
+Let T_semi_sigma_additive z : semi_sigma_additive (T' z).
+Proof. exact: measure_semi_sigma_additive. Qed.
+HB.instance Definition _ z := @isMeasure.Build _ R X (T' z) (T0 z) (T_ge0 z)
+  (@T_semi_sigma_additive z).
+
+Let sfinT z : sfinite_measure (T' z). Proof. exact: sfinite_kernel_measure. Qed.
+HB.instance Definition _ z := @Measure_isSFinite_subdef.Build _ X R
+  (T' z) (sfinT z).
+
+Definition U' z : set Y -> \bar R := u z.
+Let U0 z : (U' z) set0 = 0. Proof. by []. Qed.
+Let U_ge0 z x : 0 <= (U' z) x. Proof. by []. Qed.
+Let U_semi_sigma_additive z : semi_sigma_additive (U' z).
+Proof. exact: measure_semi_sigma_additive. Qed.
+HB.instance Definition _ z := @isMeasure.Build _ R Y (U' z) (U0 z) (U_ge0 z)
+  (@U_semi_sigma_additive z).
+
+Let sfinU z : sfinite_measure (U' z). Proof. exact: sfinite_kernel_measure. Qed.
+HB.instance Definition _ z := @Measure_isSFinite_subdef.Build _ Y R
+  (U' z) (sfinU z).
+
+Check (ret (measurable_fun_prod (macc
+  [:: existT _ _ Y; existT _ _ X; existT _ _ Z] 1) (macc
+  [:: existT _ _ Y; existT _ _ X; existT _ _ Z]
+  0))).
+
+Check (ret (kr 1)) : R.-sfker munit ~> mR R.
+
+Lemma letin'C z A : measurable A ->
+  letin' t
+  (letin' u'
+  (ret (measurable_fun_prod macc1of3' macc0of3'))) z A =
+  letin' u
+  (letin' t'
+  (ret (measurable_fun_prod macc0of3' macc1of3'))) z A.
+Proof.
+move=> mA.
+rewrite !letin'E.
+under eq_integral.
+  move=> x _.
+  rewrite letin'E -uu'.
+  under eq_integral do rewrite retE /=.
+  over.
+rewrite (sfinite_Fubini
+  [the {sfinite_measure set X -> \bar R} of T' z]
+  [the {sfinite_measure set Y -> \bar R} of U' z]
+  (fun x => \d_(x.1, x.2) A ))//; last first.
+  apply/EFin_measurable_fun => /=; rewrite (_ : (fun x => _) = mindic R mA)//.
+  by apply/funext => -[].
+rewrite /=.
+apply: eq_integral => y _.
+by rewrite letin'E/= -tt'; apply: eq_integral => // x _; rewrite retE.
+Qed.
+
+End letin'C.
+Arguments letin'C {d d1 d' X Y Z R} _ _ _ _.
+
+Section letin'A.
+Context d d' d1 d2 d3 (X : measurableType d) (Y : measurableType d')
+  (T1 : measurableType d1) (T2 : measurableType d2) (T3 : measurableType d3)
+  (R : realType).
+Import Notations.
+Variables (t : R.-sfker X ~> T1)
+          (u : R.-sfker [the measurableType _ of (T1 * X)%type] ~> T2)
+          (v : R.-sfker [the measurableType _ of (T2 * X)%type] ~> Y)
+          (v' : R.-sfker [the measurableType _ of (T2 * (T1 * X))%type] ~> Y)
+          (vv' : forall y, v =1 fun xz => v' (xz.1, (y, xz.2))).
+
+Lemma letin'A x A : measurable A ->
+  letin' t (letin' u v') x A
+  =
+  (letin' (letin' t u) v) x A.
+Proof.
+move=> mA.
+rewrite !letin'E.
+under eq_integral do rewrite letin'E.
+rewrite /letin'; unlock.
+rewrite integral_kcomp; [|by []|].
+  apply: eq_integral => z _.
+  apply: eq_integral => y _.
+  by rewrite (vv' z).
+exact: measurableT_comp (@measurable_kernel _ _ _ _ _ v _ mA) _.
+Qed.
+
+End letin'A.
+
 Declare Scope lang_scope.
-
-Reserved Notation "l # e -D-> f ; mf" (at level 40).
-Reserved Notation "l # e -P-> k" (at level 40).
-
-Declare Scope prob_lang_scope.
-Delimit Scope prob_lang_scope with P.
+Delimit Scope lang_scope with P.
 
 Section syntax_of_types.
 Import Notations.
@@ -87,9 +303,6 @@ Inductive typ :=
 | Pair : typ -> typ -> typ
 | Prob : typ -> typ.
 
-Local Notation "( x , y , .. , z )" :=
-  (Pair .. (Pair x y) .. z) : prob_lang_scope.
-
 Canonical stype_eqType := Equality.Pack (@gen_eqMixin typ).
 
 Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
@@ -97,7 +310,7 @@ Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
   | Unit => existT _ _ munit
   | Bool => existT _ _ mbool
   | Real => existT _ _ (mR R)
-  | (A, B)%P => existT _ _
+  | Pair A B => existT _ _
       [the measurableType (projT1 (measurable_of_typ A),
                            projT1 (measurable_of_typ B)).-prod%mdisp of
       (projT2 (measurable_of_typ A) *
@@ -115,8 +328,6 @@ End syntax_of_types.
 Arguments measurable_of_typ {R}.
 Arguments mtyp {R}.
 Arguments measurable_of_seq {R}.
-
-Notation "( x , y , .. , z )" := (Pair .. (Pair x y) .. z) : prob_lang_scope.
 
 Definition string_eqMixin := @EqMixin string String.eqb eqb_spec.
 Canonical string_eqType := EqType string string_eqMixin.
@@ -139,7 +350,7 @@ Inductive expD : ctx -> typ -> Type :=
 | exp_unit l : expD l Unit
 | exp_bool l : bool -> expD l Bool
 | exp_real l : R -> expD l Real
-| exp_pair l t1 t2 : expD l t1 -> expD l t2 -> expD l (t1, t2)%P
+| exp_pair l t1 t2 : expD l t1 -> expD l t2 -> expD l (Pair t1 t2)
 | exp_var l x t : t = nth Unit (map snd l) (index x (map fst l)) ->
     expD l t
 | exp_bernoulli l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
@@ -201,8 +412,6 @@ Notation "'If' e1 'Then' e2 'Else' e3" := (exp_if e1 e2 e3)
 Notation "{ x }" := x (in custom expr, x constr) : lang_scope.
 Notation "x" := x (in custom expr at level 0, x ident) : lang_scope.
 
-Local Open Scope lang_scope.
-
 Section free_vars.
 Context {R : realType}.
 
@@ -237,7 +446,6 @@ Definition pval (R : realType) (l : ctx) (t : typ) :=
 
 Section weak.
 Context {R : realType}.
-Local Open Scope seq_scope.
 Implicit Types (l k : ctx) (x : string * typ).
 
 Fixpoint mctx_strong l k x (f : @mctx R (l ++ x :: k)) : @mctx R (l ++ k) :=
@@ -348,96 +556,90 @@ End accessor_functions.
 
 Section eval.
 Context {R : realType}.
+Implicit Type (l : ctx) (str : string).
+Local Open Scope lang_scope.
 
-Definition mtyps l := projT2 (@measurable_of_seq R l).
-
-Definition mval (R : realType) (l : seq typ) (t : typ) :=
-  @mtyps l -> @mtyp R t.
-
-Local Open Scope seq_scope.
-Inductive evalD : forall l t (e : @expD R l t)
-  (f : mval R (map snd l) t), measurable_fun setT f -> Prop :=
+Inductive evalD : forall l t, @expD R l t ->
+  forall f : dval R l t, measurable_fun setT f -> Prop :=
 | eval_unit l :
-  l # exp_unit -D-> cst tt ; ktt
+  @exp_unit _ l -D-> cst tt ; ktt
 
 | eval_bool l b :
-  l # exp_bool b -D-> cst b ; kb b
+  @exp_bool _ l b -D-> cst b ; kb b
 
 | eval_real l r :
-  l # [r :r] -D-> cst r ; kr r
+  ([r :r] : expD l _) -D-> cst r ; kr r
 
-| eval_pair l t1 t2 e1 f1 mf1 e2 f2 mf2 :
-  l # e1 -D-> f1 ; mf1 ->
-  l # e2 -D-> f2 ; mf2 ->
-  l # [(e1, e2)] -D-> fun x => (f1 x, f2 x) ;
-  @measurable_fun_prod _ _ _ (mctx l) (mtyp t1) (mtyp t2) f1 f2 mf1 mf2
+| eval_pair l t1 (e1 : expD l t1) f1 mf1 t2 (e2 : expD l t2) f2 mf2 :
+  e1 -D-> f1 ; mf1 ->
+  e2 -D-> f2 ; mf2 ->
+  [(e1, e2)] -D-> fun x => (f1 x, f2 x) ;
+  measurable_fun_prod mf1 mf2
 
-| eval_var (l : ctx) (x : string) :
-  let i := index x (map fst l) in
-  l # [% x] -D-> @acc_typ R (map snd l) i ;
-                 (@macc_typ R (map snd l) i)
+| eval_var l str : let i := index str (map fst l) in
+  ([% str] : expD l _) -D-> @acc_typ R (map snd l) i ;
+                            @macc_typ R (map snd l) i
 
 | eval_bernoulli l (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-  l # exp_bernoulli r r1 -D->
-  cst [the probability _ _ of bernoulli r1] ; measurable_cst _
+  @exp_bernoulli _ l _ r1  -D->
+  cst (bernoulli r1) ; measurable_cst _
 
-| eval_poisson l k e f mf :
-  l # e -D-> f ; mf ->
-  l # exp_poisson k e -D-> poisson k \o f ;
+| eval_poisson l k (e : expD l _) f mf :
+  e -D-> f ; mf ->
+  exp_poisson k e -D-> poisson k \o f ;
   measurableT_comp (mpoisson k) mf
 
 | eval_normalize l t (e : expP l t) k :
-  l # e -P-> k ->
-  l # exp_normalize e -D-> (normalize k point : _ -> pprobability _ _) ;
+  e -P-> k ->
+  exp_normalize e -D-> (normalize k point : _ -> pprobability _ _) ;
   measurable_fun_mnormalize k
 
 | evalD_weak l k t (e : expD (l ++ k) t) x
     (xl : x.1 \notin map fst (l ++ k)) f mf :
-  (l ++ k) # e -D-> f ; mf ->
-  (l ++ x :: k) # expD_weak e xl -D-> @weak R l k x t f ; @mweak R l k x t f mf
+  e -D-> f ; mf ->
+  expD_weak e xl -D-> @weak R l k x t f ; @mweak R l k x t f mf
 
-where "l # e -D-> v ; mv" := (@evalD l _ e v mv)
+where "e -D-> v ; mv" := (@evalD _ _ e v mv)
 
-with evalP : forall l t, expP l t ->
-  pval R l t -> Prop :=
+with evalP : forall l t, @expP R l t -> pval R l t -> Prop :=
 
-| eval_ifP l T e1 f1 mf e2 k2 e3 k3 :
-  l # e1 -D-> f1 ; mf ->
-  l # e2 -P-> k2 ->
-  l # e3 -P-> k3 ->
-  l # [If e1 Then e2 Else e3] : expP l T -P-> ite mf k2 k3
+| eval_ifP l t (e1 : expD l Bool) f1 mf (e2 : expP l t) k2 (e3 : expP l t) k3 :
+  e1 -D-> f1 ; mf ->
+  e2 -P-> k2 ->
+  e3 -P-> k3 ->
+  [If e1 Then e2 Else e3] -P-> ite mf k2 k3
 
 | eval_letin l t1 t2 str (e1 : expP l t1) (e2 : expP ((str, t1) :: l) t2)
   (k1 : @pval R l t1)
   (k2 : @pval R ((str, t1) :: l) t2) :
-  l # e1 -P-> k1 ->
-  ((str, t1) :: l) # e2 -P-> k2 ->
-  l # [Let str <~ e1 In e2] -P-> letin' k1 k2
+  e1 -P-> k1 ->
+  e2 -P-> k2 ->
+  [Let str <~ e1 In e2] -P-> letin' k1 k2
 
-| eval_sample l t (e : expD l (Prob t)) (p : mctx l -> pprobability (mtyp t) R)
-  mp :
-  l # e -D-> p ; mp ->
-  l # @exp_sample R l _ e -P-> sample p mp
+| eval_sample l t (e : expD l (Prob t))
+  (p : mctx l -> pprobability (mtyp t) R) mp :
+  e -D-> p ; mp ->
+  @exp_sample R l _ e -P-> sample p mp
 
-| eval_score l e (f : mctx l -> R)
-  (mf : measurable_fun _ f) :
-  l # e : expD l Real -D-> f ; mf ->
-  l # exp_score e -P-> [the R.-sfker _ ~> _ of kscore mf]
+| eval_score l (e : expD l Real)
+  (f : mctx l -> R) (mf : measurable_fun _ f) :
+  e -D-> f ; mf ->
+  exp_score e -P-> [the R.-sfker _ ~> _ of kscore mf]
 
-| eval_return l T e (f : _ -> _) (mf : measurable_fun _ f) :
-  l # e -D-> f ; mf ->
-  l # [Ret e] : expP l T -P-> ret mf
+| eval_return l t (e : expD l t) (f : _ -> _) (mf : measurable_fun _ f) :
+  e -D-> f ; mf ->
+  [Ret e] -P-> ret mf
 
 | evalP_weak l k t (e : expP (l ++ k) t) x
     (xl : x.1 \notin map fst (l ++ k)) f :
-  (l ++ k) # e -P-> f ->
-  (l ++ x :: k) # expP_weak e xl -P-> [the R.-sfker _ ~> _ of @kweak R l k x t f]
-where "l # e -P-> v" := (@evalP l _ e v).
+  e -P-> f ->
+  expP_weak e xl -P-> @kweak R l k x t f
+where "e -P-> v" := (@evalP _ _ e v).
 
 End eval.
 
-Notation "l # e -D-> v ; mv" := (@evalD _ l _ e v mv) : lang_scope.
-Notation "l # e -P-> v" := (@evalP _ l _ e v) : lang_scope.
+Notation "e -D-> v ; mv" := (@evalD _ _ _ e v mv) : lang_scope.
+Notation "e -P-> v" := (@evalP _ _ _ e v) : lang_scope.
 
 Scheme evalD_mut_ind := Induction for evalD Sort Prop
 with evalP_mut_ind := Induction for evalP Sort Prop.
@@ -448,11 +650,12 @@ with expP_mut_ind := Induction for expP Sort Prop.
 (* properties of the evaluation relation *)
 Section eval_prop.
 Variables (R : realType).
+Local Open Scope lang_scope.
 
 Lemma evalD_uniq l t
   (e : @expD R l t) (u v : dval R l t)
   (mu : measurable_fun setT u) (mv : measurable_fun setT v) :
-  l # e -D-> u ; mu -> l # e -D-> v ; mv -> u = v.
+  e -D-> u ; mu -> e -D-> v ; mv -> u = v.
 Proof.
 move=> hu.
 apply: (@evalD_mut_ind R
@@ -481,9 +684,9 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex He2; subst e3.
   inj_ex H5; subst v.
   by move=> /IH1 <- /IH2 <-.
-- move=> l x n {}v {}mv.
-  inversion 1; subst l0 x0.
-  inj_ex H6.
+- move=> l str n {}v {}mv.
+  inversion 1; subst l0.
+  inj_ex H6; rewrite -H6.
   by inj_ex H7.
 - move=> l r r1 {}v {}mv.
   inversion 1; subst l0 r0.
@@ -506,7 +709,7 @@ all: (rewrite {l t e u v mu mv hu}).
   inj_ex H7; subst e0.
   by rewrite (IH _ _ H3).
 - move=> l t e0 f1 mf1 e2 k2 e3 k3 ev1 IH1 ev2 IH2 ev3 IH3 k.
-  inversion 1; subst l0 T.
+  inversion 1; subst l0 t0.
   inj_ex H0; subst e0.
   inj_ex H1; subst e4.
   inj_ex H5; subst k.
@@ -535,7 +738,7 @@ all: (rewrite {l t e u v mu mv hu}).
   move/IH => ?; subst f0.
   by have -> : mf = mf0 by exact: Prop_irrelevance.
 - move=> l t e0 f mf ev IH k.
-  inversion 1; subst l0 T.
+  inversion 1; subst l0 t0.
   inj_ex H5; subst e1.
   inj_ex H7; subst k.
   have ? := IH _ _ H3; subst f1.
@@ -604,7 +807,7 @@ all: rewrite {l t e u v hu}.
   clear H11.
   by rewrite (IH _ _ H3).
 - move=> l t e f mf e1 k1 e2 k2 ev IH ev1 IH1 ev2 IH2 k.
-  inversion 1; subst l0 T.
+  inversion 1; subst l0 t0.
   inj_ex H0; subst e0.
   inj_ex H1; subst e3.
   inj_ex H5; subst k.
@@ -631,7 +834,7 @@ all: rewrite {l t e u v hu}.
   move=> /IH ?; subst f0.
   by have -> : mf = mf0 by exact: Prop_irrelevance.
 - move=> l t e f mf ev IH k.
-  inversion 1; subst T l0.
+  inversion 1; subst l0 t0.
   inj_ex H7; subst k.
   inj_ex H5; subst e1.
   have ? := IH _ _ H3; subst f1.
@@ -720,6 +923,7 @@ End eval_prop.
 
 (* execution functions *)
 Section exec.
+Local Open Scope lang_scope.
 Context {R : realType}.
 
 Definition execD l t (e : @expD R l t) :
@@ -728,13 +932,13 @@ Definition execD l t (e : @expD R l t) :
   existT _ _ (projT1 (cid H)).
 
 Lemma evalD_execD l t e : let: x := @execD l t e in
-  l # e -D-> projT1 x ; projT2 x.
+  e -D-> projT1 x ; projT2 x.
  by rewrite /execD /=; case: cid => f [mf ?] /=; case: cid. Qed.
 
 Definition execP l t (e : @expP R l t) : R.-sfker @mctx R l ~> @mtyp R t :=
   proj1_sig (cid (evalP_full e)).
 
-Lemma evalP_execP l t (e : expP l t) : l # e -P-> execP e.
+Lemma evalP_execP l t (e : expP l t) : e -P-> execP e.
 Proof. by rewrite /execP; case: cid. Qed.
 
 Definition execP_ret_real (l : ctx) (r : R) :
@@ -793,7 +997,7 @@ Proof.
 rewrite /execD /=.
 case: cid => f ?.
 case: cid => mf ev1.
-have IHev : (l # e -D-> projT1 (execD e); projT2 (execD e)).
+have IHev : e -D-> projT1 (execD e); projT2 (execD e).
   exact: evalD_execD.
 have ev2 := eval_poisson k IHev.
 have ? := evalD_uniq ev1 ev2; subst f.
@@ -1018,6 +1222,7 @@ Definition exp_var' (x : string) (t : typ) (g : find x t) :=
 
 Local Notation "%1 x" := (@exp_var' x%string _ _) (in custom expr at level 1).
 
+Local Open Scope lang_scope.
 Example e3 := [Let "x" <~ Ret {1%:R}:r In
                Let "y" <~ Ret %1{"x"} In
                Let "z" <~ Ret %1{"y"} In Ret %1{"z"}] : expP [::] _.
@@ -1063,7 +1268,7 @@ Local Definition kstaton_bus'' :=
     (letin' ite_3_10
       (letin' score_poi (ret macc2of4'))).
 
-Lemma eval_staton_bus : [::] # kstaton_bus_exp -P-> kstaton_bus''.
+Lemma eval_staton_bus : kstaton_bus_exp -P-> kstaton_bus''.
 Proof.
 apply: eval_letin.
   by apply: eval_sample; exact: eval_bernoulli.
