@@ -411,9 +411,9 @@ Notation "{ x }" := x
   (in custom expr, x constr) : lang_scope.
 Notation "x" := x
   (in custom expr at level 0, x ident) : lang_scope.
-Notation "'Sample' e" := (exp_sample e) 
+Notation "'Sample' e" := (exp_sample e)
   (in custom expr at level 2) : lang_scope.
-Notation "'Score' e" := (exp_score e) 
+Notation "'Score' e" := (exp_score e)
   (in custom expr at level 2) : lang_scope.
 
 Section free_vars.
@@ -469,10 +469,10 @@ apply/prod_measurable_funP; split.
 - rewrite [X in measurable_fun _ X](_ : _ = fst)//.
   by apply/funext => -[].
 - rewrite [X in measurable_fun _ X](_ : _ = @mctx_strong g h x0 \o snd).
-    admit.
-    (* apply: measurableT_comp. *)
+    apply: measurableT_comp; last exact: measurable_fun_snd.
+    exact: ih.
   by apply/funext => -[].
-Admitted.
+Qed.
 
 Lemma mweak g h x t (f : dval R (g ++ h) t) :
   measurable_fun setT f -> measurable_fun setT (@weak g h x t f).
