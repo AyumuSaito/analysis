@@ -33,31 +33,18 @@ Declare Scope easylang_scope.
 Section type.
 Variables (R : realType).
 
-Inductive Ty := TReal | TUnit.
+Inductive typ := TReal | TUnit.
 
-Definition eqbTy (t1 t2 : Ty) :=
-  match t1, t2 with
-  | TReal, TReal => true
-  | TUnit, TUnit => true
-  | _, _ => false
-  end.
+Canonical typ_eqType := Equality.Pack (@gen_eqMixin typ).
 
-Lemma eqbTy_spec (t1 t2 : Ty) : reflect (t1 = t2) (eqbTy t1 t2).
-Proof.
-destruct t1, t2; constructor. all: easy.
-Qed.
-
-Definition Ty_eqMixin := @EqMixin Ty eqbTy eqbTy_spec.
-Canonical Ty_eqType := EqType Ty Ty_eqMixin.
-
-Fixpoint prod_meas (l : list Type)
-    : Type :=
+(* TODO: naming? *)
+Fixpoint prod_meas (l : list Type) : Type :=
   match l with
   | [::] => unit
   | h :: t => let t' := prod_meas t in (h * t')%type
   end.
 
-Fixpoint typei (t : Ty) : Type :=
+Definition Type_of_typ (t : typ) : Type :=
   match t with
   | TReal => R
   | TUnit => unit
@@ -65,9 +52,9 @@ Fixpoint typei (t : Ty) : Type :=
   | TList l => prod_meas (map typei l) *)
   end.
 
-Definition Ctx := seq (string * Ty)%type.
+Definition ctx := seq (string * typ)%type.
 
-Definition ctxi (G : Ctx) := prod_meas (map (typei \o snd) G).
+Definition ctxi (g : ctx) := prod_meas (map (Type_of_typ \o snd) g).
 
 Goal ctxi [:: ("x", TReal); ("y", TReal)] = (R * (R * unit))%type.
 Proof. by []. Qed.
@@ -114,9 +101,9 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In
                %{x} + %{y}].
 
-Fixpoint acc (g : Ctx) (i : nat) :
-  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
-  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
+Fixpoint acc (g : ctx) (i : nat) :
+  ctxi R g -> @Type_of_typ R (nth TUnit (map snd g) i) :=
+  match g return (ctxi R g -> Type_of_typ R (nth TUnit (map snd g) i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -124,8 +111,7 @@ Fixpoint acc (g : Ctx) (i : nat) :
                end
   end.
 
-
-Inductive eval : forall (g : Ctx) (t : Ty), exp -> (ctxi R g -> typei R t) -> Prop :=
+Inductive eval : forall (g : ctx) (t : typ), exp -> (ctxi R g -> Type_of_typ R t) -> Prop :=
 | eval_real g c : @eval g TReal (Real c) (fun=> c)
 | eval_plus g e1 e2 (v1 v2 : R) :
     @eval g TReal e1 (fun=> v1) ->
@@ -149,7 +135,7 @@ Section lang_intrinsic_ty.
 Variables (R : realType).
 
 Section exp.
-Inductive exp : Ty -> Type :=
+Inductive exp : typ -> Type :=
 | Real : R -> exp TReal
 | Plus : exp TReal -> exp TReal -> exp TReal
 | Var G T (x : string) :
@@ -192,7 +178,7 @@ Section lang_intrinsic_sc.
 Variables (R : realType).
 
 Section exp.
-Inductive exp : Ctx -> Type :=
+Inductive exp : ctx -> Type :=
 | Real g : R -> exp g
 | Plus g : exp g -> exp g -> exp g
 | Var G T (x : string) :
@@ -230,9 +216,9 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                     Let y <~ {2%:R}:r In
                     %{x} + %{y}] : exp [::].
 
-Fixpoint acc (g : Ctx) (i : nat) :
-  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
-  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
+Fixpoint acc (g : ctx) (i : nat) :
+  ctxi R g -> @Type_of_typ R (nth TUnit (map snd g) i) :=
+  match g return (ctxi R g -> Type_of_typ R (nth TUnit (map snd g) i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -240,14 +226,13 @@ Fixpoint acc (g : Ctx) (i : nat) :
                end
   end.
 
-
-Inductive eval : forall (g : Ctx) (t : Ty), exp g -> (ctxi R g -> typei R t) -> Prop :=
+Inductive eval : forall (g : ctx) (t : typ), exp g -> (ctxi R g -> Type_of_typ R t) -> Prop :=
 | eval_real g c : @eval g TReal (Real c) (fun=> c)
 | eval_plus g (e1 e2 : exp g) (v1 v2 : R) :
     @eval g TReal e1 (fun=> v1) ->
     @eval g TReal e2 (fun=> v2) ->
     @eval g TReal (Plus e1 e2) (fun=> (v1 + v2)%R)
-| eval_var (g : Ctx) (x : string) i :
+| eval_var (g : ctx) (x : string) i :
     i = seq.index x (map fst g) -> eval (Var x erefl) (@acc g i)
 (* | EVLetin :  *)
 .
@@ -268,7 +253,7 @@ Section lang_intrinsic_full.
 Variables (R : realType).
 
 Section exp.
-Inductive exp : Ctx -> Ty -> Type :=
+Inductive exp : ctx -> typ -> Type :=
 | Real g : R -> exp g TReal
 | Plus g : exp g TReal -> exp g TReal -> exp g TReal
 | Var G T (x : string) :
@@ -315,9 +300,9 @@ Example e4'' := [Let "x" <~ {1%:R}:r In Let "y" <~ %{"x"} In %{"y"}] : exp [::] 
                Let y <~ {2%:R}:r In
                %{x} + %{y}] : exp [::] TReal. *)
 
-Fixpoint acc (g : Ctx) (i : nat) :
-  ctxi R g -> @typei R (nth TUnit (map snd g) i) :=
-  match g return (ctxi R g -> typei R (nth TUnit (map snd g) i)) with
+Fixpoint acc (g : ctx) (i : nat) :
+  ctxi R g -> @Type_of_typ R (nth TUnit (map snd g) i) :=
+  match g return (ctxi R g -> Type_of_typ R (nth TUnit (map snd g) i)) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -327,16 +312,16 @@ Fixpoint acc (g : Ctx) (i : nat) :
 
 Reserved Notation "G # e '-e->' v" (at level 40).
 
-Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (ctxi R g -> typei R t) -> Prop :=
+Inductive eval : forall (g : ctx) t, exp g t -> (ctxi R g -> Type_of_typ R t) -> Prop :=
 | eval_real g c : g # Real c -e-> (fun=> c)
 | eval_plus g (e1 e2 : exp g TReal) v1 v2 :
     g # e1 -e-> v1 ->
     g # e2 -e-> v2 ->
     g # Plus e1 e2 -e-> (fun x => v1 x + v2 x)%R
-| eval_var (g : Ctx) (x : string) :
+| eval_var (g : ctx) (x : string) :
     let i := seq.index x (map fst g) in
     g # Var x erefl -e-> @acc g i
-| eval_letin (g : Ctx) (t t' : Ty) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
+| eval_letin (g : ctx) (t t' : typ) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
     g # e1 -e-> v1 ->
     ((x, t) :: g) # e2 -e-> v2 ->
     g # Letin x e1 e2 -e-> (fun a => v2 (v1 a, a))
@@ -351,7 +336,7 @@ Lemma eval_uniq g t (e : exp g t) u v :
 Proof.
 move=> hu.
 apply: (@eval_ind
-  (fun g t (e : exp g t) (u : ctxi R g -> typei R t) => forall v, g # e -e-> v -> u = v)); last exact: hu.
+  (fun g t (e : exp g t) (u : ctxi R g -> Type_of_typ R t) => forall v, g # e -e-> v -> u = v)); last exact: hu.
 all: (rewrite {g t e u v hu}).
 - move=> g c v.
   inversion 1.
@@ -384,7 +369,7 @@ move=> {}g {}t u x e1 [v1] IH1 e2 [v2] IH2.
 eexists; exact: (eval_letin IH1 IH2).
 Qed.
 
-Definition exec g t (e : exp g t) : ctxi R g -> typei R t.
+Definition exec g t (e : exp g t) : ctxi R g -> Type_of_typ R t.
 Proof.
 have /cid h := @eval_total g t e.
 exact: (proj1_sig h).
@@ -419,26 +404,26 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In
                %{x} + %{y}] : exp [::] TReal.
 
-Structure tagged_context := Tag {untag : Ctx}.
+Structure tagged_context := Tag {untag : ctx}.
 
 Definition recurse_tag h := Tag h.
 Canonical found_tag h := recurse_tag h.
 
-Structure find (s : string) (t : Ty) := Find {
+Structure find (s : string) (t : typ) := Find {
   context_of : tagged_context ;
   ctxt_prf : t = nth TUnit (map snd (untag context_of))
                            (seq.index s (map fst (untag context_of)))}.
 
-Lemma left_pf (s : string) (t : Ty) (l : Ctx) :
+Lemma left_pf (s : string) (t : typ) (l : ctx) :
   t = nth TUnit (map snd ((s, t) :: l)) (seq.index s (map fst ((s, t) :: l))).
 Proof.
 by rewrite /= !eqxx/=.
 Qed.
 
-Canonical found_struct s t (l : Ctx) : find s t :=
+Canonical found_struct s t (l : ctx) : find s t :=
   Eval hnf in @Find s t (found_tag ((s, t) :: l)) (@left_pf s t l).
 
-Lemma right_pf (s : string) (t : Ty) (l : Ctx) u t' :
+Lemma right_pf (s : string) (t : typ) (l : ctx) u t' :
   s != u ->
   t' = nth TUnit (map snd l) (seq.index u (map fst l)) ->
   t' = nth TUnit (map snd ((s, t) :: l)) (seq.index u (map fst ((s, t) :: l))).
@@ -452,10 +437,10 @@ Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u
   Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (context_of l)))
   (@right_pf s t (untag (context_of l)) u t' su (ctxt_prf l)).
 
-Definition Var' (x : string) (t : Ty) (g : find x t) :=
+Definition Var' (x : string) (t : typ) (g : find x t) :=
   @Var (untag (context_of g)) t x (ctxt_prf g).
 
-Notation "%1 x" := (@Var' x%string _ _) (in custom exp at level 1) : easylang_scope.
+Notation "# x" := (@Var' x%string _ _) (in custom exp at level 1) : easylang_scope.
 
 Example e2' := Letin "x" (Real 1%:R)
               (Letin "y" (Real 2%:R)
@@ -471,7 +456,7 @@ Qed.
 
 Example e2 := [Let "x" <~ {1%:R}:r In
                Let "y" <~ {2%:R}:r In
-               %1{"x"} + %1{"y"}] : exp [::] _.
+               #{"x"} + #{"y"}] : exp [::] _.
 
 Lemma eval2 : @eval [::] TReal e2 (fun=> 3%R).
 Proof.
