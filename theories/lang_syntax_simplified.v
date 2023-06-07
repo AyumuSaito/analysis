@@ -37,24 +37,21 @@ Inductive typ := TReal | TUnit.
 
 Canonical typ_eqType := Equality.Pack (@gen_eqMixin typ).
 
-(* TODO: naming? *)
-Fixpoint prod_meas (l : list Type) : Type :=
+Fixpoint iter_pair (l : list Type) : Type :=
   match l with
   | [::] => unit
-  | h :: t => let t' := prod_meas t in (h * t')%type
+  | h :: t => let t' := iter_pair t in (h * t')%type
   end.
 
 Definition Type_of_typ (t : typ) : Type :=
   match t with
   | TReal => R
   | TUnit => unit
-  (* | TArrow t u => typei t -> typei u
-  | TList l => prod_meas (map typei l) *)
   end.
 
 Definition ctx := seq (string * typ)%type.
 
-Definition ctxi (g : ctx) := prod_meas (map (Type_of_typ \o snd) g).
+Definition ctxi (g : ctx) := iter_pair (map (Type_of_typ \o snd) g).
 
 Goal ctxi [:: ("x", TReal); ("y", TReal)] = (R * (R * unit))%type.
 Proof. by []. Qed.
@@ -68,13 +65,13 @@ Variables (R : realType).
 Section exp.
 Inductive exp : Type :=
 | Real : R -> exp
-| Var G T (x : string) :
-  T = nth TReal (map snd G) (seq.index x (map fst G)) -> exp
-| Letin (x : string) : exp -> exp -> exp
+| Var g T (str : string) :
+  T = nth TReal (map snd g) (seq.index str (map fst g)) -> exp
+| Letin (str : string) : exp -> exp -> exp
 | Plus : exp -> exp -> exp.
 End exp.
 
-Arguments Var {G T}.
+Arguments Var {g T}.
 Declare Custom Entry exp.
 
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
@@ -138,12 +135,12 @@ Section exp.
 Inductive exp : typ -> Type :=
 | Real : R -> exp TReal
 | Plus : exp TReal -> exp TReal -> exp TReal
-| Var G T (x : string) :
-  T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp T
+| Var g T (str : string) :
+  T = nth TUnit (map snd g) (seq.index str (map fst g)) -> exp T
 | Letin t u : string -> exp t -> exp u -> exp u.
 End exp.
+Arguments Var {g T}.
 
-Arguments Var {G T}.
 Declare Custom Entry exp.
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
 Notation "x ':r'" := (Real x) (in custom exp at level 1)
@@ -181,15 +178,14 @@ Section exp.
 Inductive exp : ctx -> Type :=
 | Real g : R -> exp g
 | Plus g : exp g -> exp g -> exp g
-| Var G T (x : string) :
-  T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp G
-| Letin g t (x : string) : exp g -> exp ((x, t) :: g) -> exp g
-.
+| Var g T (str : string) :
+  T = nth TUnit (map snd g) (seq.index str (map fst g)) -> exp g
+| Letin g t (x : string) : exp g -> exp ((x, t) :: g) -> exp g.
 End exp.
-
-Arguments Var {G T}.
+Arguments Var {g T}.
 Arguments Real {g}.
 Arguments Letin {g t}.
+
 Declare Custom Entry exp.
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
 Notation "x ':r'" := (Real x) (in custom exp at level 1)
@@ -256,16 +252,16 @@ Section exp.
 Inductive exp : ctx -> typ -> Type :=
 | Real g : R -> exp g TReal
 | Plus g : exp g TReal -> exp g TReal -> exp g TReal
-| Var G T (x : string) :
+| Var g T (str : string) :
     (* (x, T) \in G ->  *)
-    T = nth TUnit (map snd G) (seq.index x (map fst G)) ->
-    exp G T
+    T = nth TUnit (map snd g) (seq.index str (map fst g)) ->
+    exp g T
 | Letin g t u (x : string) : exp g t -> exp ((x, t) :: g) u -> exp g u.
 End exp.
 
 Arguments Real {g}.
 Arguments Plus {g}.
-Arguments Var {G T}.
+Arguments Var {g T}.
 Arguments Letin {g t u}.
 
 Declare Custom Entry exp.
@@ -310,33 +306,31 @@ Fixpoint acc (g : ctx) (i : nat) :
                end
   end.
 
-Reserved Notation "G # e '-e->' v" (at level 40).
+Reserved Notation "e '-e->' v" (at level 40).
 
-Inductive eval : forall (g : ctx) t, exp g t -> (ctxi R g -> Type_of_typ R t) -> Prop :=
-| eval_real g c : g # Real c -e-> (fun=> c)
+Inductive eval : forall g t, exp g t -> (ctxi R g -> Type_of_typ R t) -> Prop :=
+| eval_real g c : (Real c : exp g _) -e-> (fun=> c)
 | eval_plus g (e1 e2 : exp g TReal) v1 v2 :
-    g # e1 -e-> v1 ->
-    g # e2 -e-> v2 ->
-    g # Plus e1 e2 -e-> (fun x => v1 x + v2 x)%R
-| eval_var (g : ctx) (x : string) :
-    let i := seq.index x (map fst g) in
-    g # Var x erefl -e-> @acc g i
-| eval_letin (g : ctx) (t t' : typ) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
-    g # e1 -e-> v1 ->
-    ((x, t) :: g) # e2 -e-> v2 ->
-    g # Letin x e1 e2 -e-> (fun a => v2 (v1 a, a))
-where "G # e '-e->' v" := (@eval G _ e v).
+    e1 -e-> v1 ->
+    e2 -e-> v2 ->
+    Plus e1 e2 -e-> (fun x => v1 x + v2 x)%R
+| eval_var g str :
+    let i := seq.index str (map fst g) in
+    Var str erefl -e-> @acc g i
+| eval_letin g t t' str (e1 : exp g t) (e2 : exp ((str, t) :: g)  t') v1 v2 :
+    e1 -e-> v1 ->
+    e2 -e-> v2 ->
+    Letin str e1 e2 -e-> (fun a => v2 (v1 a, a))
+where "e '-e->' v" := (@eval _ _ e v).
 
 Scheme eval_ind' := Induction for eval Sort Prop.
 
 Lemma eval_uniq g t (e : exp g t) u v :
-  g # e -e-> u ->
-  g # e -e-> v ->
-  u = v.
+  e -e-> u -> e -e-> v -> u = v.
 Proof.
 move=> hu.
 apply: (@eval_ind
-  (fun g t (e : exp g t) (u : ctxi R g -> Type_of_typ R t) => forall v, g # e -e-> v -> u = v)); last exact: hu.
+  (fun g t (e : exp g t) (u : ctxi R g -> Type_of_typ R t) => forall v, e -e-> v -> u = v)); last exact: hu.
 all: (rewrite {g t e u v hu}).
 - move=> g c v.
   inversion 1.
@@ -357,7 +351,7 @@ all: (rewrite {g t e u v hu}).
   by rewrite (IH1 _ H4) (IH2 _ H8).
 Qed.
 
-Lemma eval_total g t (e : exp g t) : exists v, g # e -e-> v.
+Lemma eval_total g t (e : exp g t) : exists v, e -e-> v.
 Proof.
 elim: e.
 eexists; exact: eval_real.
@@ -375,7 +369,7 @@ have /cid h := @eval_total g t e.
 exact: (proj1_sig h).
 Defined.
 
-Lemma eval_exec g t e : g # e -e-> @exec g t e.
+Lemma eval_exec g t e : e -e-> @exec g t e.
 Proof. by rewrite /exec/= /sval; case: cid. Qed.
 
 Lemma exec_real g r : @exec g TReal (Real r) = (fun=> r).
@@ -385,7 +379,7 @@ exact: eval_exec.
 apply: eval_real.
 Qed.
 
-Goal [::] # [{1%R}:r] -e-> (fun=> 1%R).
+Goal ([{1%R}:r] : exp [::] _) -e-> (fun=> 1%R).
 Proof. exact/eval_real. Qed.
 Goal @eval [::] _ [{1%R}:r + {2%R}:r] (fun=> 3%R).
 Proof. exact/eval_plus/eval_real/eval_real. Qed.
@@ -404,15 +398,15 @@ Fail Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In
                %{x} + %{y}] : exp [::] TReal.
 
-Structure tagged_context := Tag {untag : ctx}.
+Structure tagged_ctx := Tag {untag : ctx}.
 
 Definition recurse_tag h := Tag h.
 Canonical found_tag h := recurse_tag h.
 
 Structure find (s : string) (t : typ) := Find {
-  context_of : tagged_context ;
-  ctxt_prf : t = nth TUnit (map snd (untag context_of))
-                           (seq.index s (map fst (untag context_of)))}.
+  ctx_of : tagged_ctx ;
+  ctx_prf : t = nth TUnit (map snd (untag ctx_of))
+                          (seq.index s (map fst (untag ctx_of)))}.
 
 Lemma left_pf (s : string) (t : typ) (l : ctx) :
   t = nth TUnit (map snd ((s, t) :: l)) (seq.index s (map fst ((s, t) :: l))).
@@ -434,11 +428,11 @@ by rewrite (negbTE su).
 Qed.
 
 Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u t' :=
-  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (context_of l)))
-  (@right_pf s t (untag (context_of l)) u t' su (ctxt_prf l)).
+  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (ctx_of l)))
+  (@right_pf s t (untag (ctx_of l)) u t' su (ctx_prf l)).
 
 Definition Var' (x : string) (t : typ) (g : find x t) :=
-  @Var (untag (context_of g)) t x (ctxt_prf g).
+  @Var (untag (ctx_of g)) t x (ctx_prf g).
 
 Notation "# x" := (@Var' x%string _ _) (in custom exp at level 1) : easylang_scope.
 
