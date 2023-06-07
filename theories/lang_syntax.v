@@ -1,11 +1,11 @@
-Require Import String ZArith.
+Require Import String.
 From HB Require Import structures.
-From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval finmap.
+From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval.
 From mathcomp.classical Require Import mathcomp_extra boolp classical_sets.
 From mathcomp.classical Require Import functions cardinality fsbigop.
 Require Import signed reals ereal topology normedtype sequences esum measure.
 Require Import lebesgue_measure numfun lebesgue_integral kernel prob_lang.
-Require Import inj_ex.
+Require Import lang_syntax_util.
 
 (******************************************************************************)
 (*       Syntax and Evaluation for a probabilistic programming language       *)
@@ -329,9 +329,6 @@ Arguments measurable_of_typ {R}.
 Arguments mtyp {R}.
 Arguments measurable_of_seq {R}.
 
-Definition string_eqMixin := @EqMixin string String.eqb eqb_spec.
-Canonical string_eqType := EqType string string_eqMixin.
-
 Section context.
 Variables (R : realType).
 Definition ctx := seq (string * typ).
@@ -343,7 +340,7 @@ Definition mctx (l : ctx)
 End context.
 Arguments mctx {R}.
 
-Section syntrax_of_expression.
+Section syntax_of_expressions.
 Context {R : realType}.
 
 Inductive expD : ctx -> typ -> Type :=
@@ -369,7 +366,7 @@ with expP : ctx -> typ -> Type :=
 | expP_weak l k t x : expP (l ++ k) t -> x.1 \notin map fst (l ++ k) ->
     expP (l ++ x :: k) t.
 
-End syntrax_of_expression.
+End syntax_of_expressions.
 
 Arguments expD {R}.
 Arguments exp_unit {R l}.

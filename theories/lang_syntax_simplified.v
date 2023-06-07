@@ -1,21 +1,23 @@
+Require Import String.
 From HB Require Import structures.
-From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval finmap.
+From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval.
 From mathcomp.classical Require Import mathcomp_extra boolp classical_sets.
 From mathcomp.classical Require Import functions cardinality fsbigop.
 Require Import signed reals ereal topology normedtype sequences esum measure.
-Require Import lebesgue_measure numfun lebesgue_integral kernel inj_ex.
+Require Import lebesgue_measure numfun lebesgue_integral kernel.
+Require Import lang_syntax_util.
 
-(**************************************************************)
-(*        Various types of the definition of syntax           *)
-(* lang_extrinsic : non-intrinsic definition of expression    *)
-(* lang_intrinsic_ty : intrinsically-typed syntax             *)
-(* lang_intrinsic_sc : intrinsically-scoped syntax            *)
-(* lang_intrinsic_tysc : intrinsically-typed/scoped syntax    *)
-(*                                                            *)
-(**************************************************************)
+(******************************************************************************)
+(*                 Various types of the definition of syntax                  *)
+(*                                                                            *)
+(* lang_extrinsic : non-intrinsic definition of expression                    *)
+(* lang_intrinsic_ty : intrinsically-typed syntax                             *)
+(* lang_intrinsic_sc : intrinsically-scoped syntax                            *)
+(* lang_intrinsic_tysc : intrinsically-typed/scoped syntax                    *)
+(*                                                                            *)
+(******************************************************************************)
 
 Set Implicit Arguments.
-Implicit Types V : Set.
 Unset Strict Implicit.
 Set Printing Implicit Defensive.
 
@@ -26,22 +28,7 @@ Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 
-Require Import String ZArith.
-Local Open Scope string.
-
-Import Notations.
-
 Declare Scope easylang_scope.
-
-Section string_eq.
-
-Definition string_eqMixin := @EqMixin string eqb eqb_spec.
-Canonical string_eqType := EqType string string_eqMixin.
-
-Definition x := "x".
-Definition y := "y".
-
-End string_eq.
 
 Section type.
 Variables (R : realType).
@@ -94,7 +81,7 @@ Variables (R : realType).
 Section exp.
 Inductive exp : Type :=
 | Real : R -> exp
-| Var G T (x : string) : 
+| Var G T (x : string) :
   T = nth TReal (map snd G) (seq.index x (map fst G)) -> exp
 | Letin (x : string) : exp -> exp -> exp
 | Plus : exp -> exp -> exp.
@@ -104,11 +91,11 @@ Arguments Var {G T}.
 Declare Custom Entry exp.
 
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':r'" := (Real x) (in custom exp at level 1) 
+Notation "x ':r'" := (Real x) (in custom exp at level 1)
   : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2) 
+Notation "x + y" := (Plus x y) (in custom exp at level 2)
   : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1)
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -120,11 +107,11 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 
 Local Open Scope easylang_scope.
 
-Example e1' := @Letin "x" (Real 1) (@Var [:: ("x", TReal)] TReal x erefl).
+Example e1' := @Letin "x" (Real 1) (@Var [:: ("x", TReal)] TReal "x" erefl).
 Fail Example e1 := [Let x <~ {1%:R}:r In %{"x"}].
 Fail Example e2 := [Let "x" <~ {1%:R}:r In Let "y" <~ %{"x"} In %{"y"}].
 Fail Example e3 := [Let x <~ {1%:R}:r In
-               Let y <~ {2%:R}:r In 
+               Let y <~ {2%:R}:r In
                %{x} + %{y}].
 
 Fixpoint acc (g : Ctx) (i : nat) :
@@ -139,12 +126,12 @@ Fixpoint acc (g : Ctx) (i : nat) :
 
 
 Inductive eval : forall (g : Ctx) (t : Ty), exp -> (ctxi R g -> typei R t) -> Prop :=
-| EVReal g c : @eval g TReal (Real c) (fun=> c)
-| EVPlus g e1 e2 (v1 v2 : R) : 
-    @eval g TReal e1 (fun=> v1) -> 
-    @eval g TReal e2 (fun=> v2) -> 
+| eval_real g c : @eval g TReal (Real c) (fun=> c)
+| eval_plus g e1 e2 (v1 v2 : R) :
+    @eval g TReal e1 (fun=> v1) ->
+    @eval g TReal e2 (fun=> v2) ->
     @eval g TReal (Plus e1 e2) (fun=> (v1 + v2)%R)
-(* | EVVar (g : Ctx) (t : Ty) (x : string) : 
+(* | EVVar (g : Ctx) (t : Ty) (x : string) :
   let i := seq.index x (map fst g) in @eval g t (Var x) (@acc (map snd g) i) *)
 (* | EVLetin (g : Ctx) (t : Ty) (x : string) e1 e2 v1 (v2 : R -> R) :
     @eval g TReal e1 (fun=> v1) ->
@@ -167,18 +154,17 @@ Inductive exp : Ty -> Type :=
 | Plus : exp TReal -> exp TReal -> exp TReal
 | Var G T (x : string) :
   T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp T
-| Letin t u : string -> exp t -> exp u -> exp u
-.
+| Letin t u : string -> exp t -> exp u -> exp u.
 End exp.
 
 Arguments Var {G T}.
 Declare Custom Entry exp.
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':r'" := (Real x) (in custom exp at level 1) 
+Notation "x ':r'" := (Real x) (in custom exp at level 1)
   : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2) 
+Notation "x + y" := (Plus x y) (in custom exp at level 2)
   : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1)
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -195,7 +181,7 @@ Fail Example e1 := [Let x <~ {1%:R}:r In %{"x"}] : exp TReal.
 Fail Example e2' := (Letin x [{1%:R}:r] (@Letin TReal _ y [%{"x"}] [%{"y"}])) : exp TReal.
 Fail Example e2 := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp TReal.
 Fail Example e3 := [Let x <~ {1%:R}:r In
-               Let y <~ {2%:R}:r In 
+               Let y <~ {2%:R}:r In
                %{x} + %{y}] : exp _.
 
 End lang_intrinsic_ty.
@@ -209,7 +195,7 @@ Section exp.
 Inductive exp : Ctx -> Type :=
 | Real g : R -> exp g
 | Plus g : exp g -> exp g -> exp g
-| Var G T (x : string) : 
+| Var G T (x : string) :
   T = nth TUnit (map snd G) (seq.index x (map fst G)) -> exp G
 | Letin g t (x : string) : exp g -> exp ((x, t) :: g) -> exp g
 .
@@ -220,11 +206,11 @@ Arguments Real {g}.
 Arguments Letin {g t}.
 Declare Custom Entry exp.
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':r'" := (Real x) (in custom exp at level 1) 
+Notation "x ':r'" := (Real x) (in custom exp at level 1)
   : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2) 
+Notation "x + y" := (Plus x y) (in custom exp at level 2)
   : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1)
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -256,23 +242,23 @@ Fixpoint acc (g : Ctx) (i : nat) :
 
 
 Inductive eval : forall (g : Ctx) (t : Ty), exp g -> (ctxi R g -> typei R t) -> Prop :=
-| EVReal g c : @eval g TReal (Real c) (fun=> c)
-| EVPlus g (e1 e2 : exp g) (v1 v2 : R) : 
-    @eval g TReal e1 (fun=> v1) -> 
-    @eval g TReal e2 (fun=> v2) -> 
+| eval_real g c : @eval g TReal (Real c) (fun=> c)
+| eval_plus g (e1 e2 : exp g) (v1 v2 : R) :
+    @eval g TReal e1 (fun=> v1) ->
+    @eval g TReal e2 (fun=> v2) ->
     @eval g TReal (Plus e1 e2) (fun=> (v1 + v2)%R)
-| EVVar (g : Ctx) (x : string) i : 
+| eval_var (g : Ctx) (x : string) i :
     i = seq.index x (map fst g) -> eval (Var x erefl) (@acc g i)
 (* | EVLetin :  *)
 .
 
 Goal @eval [::] TReal [{1%R}:r] (fun=> 1%R).
-Proof. exact/EVReal. Qed.
+Proof. exact/eval_real. Qed.
 Goal @eval [::] TReal [{1%R}:r + {2%R}:r] (fun=> 3%R).
-Proof. exact/EVPlus/EVReal/EVReal. Qed.
+Proof. exact/eval_plus/eval_real/eval_real. Qed.
 Goal @eval [:: ("x", TReal)] _ [% {"x"}] (@acc [:: ("x", TReal)] 0).
-Proof. exact/EVVar. Qed.
-Check [Let x <~ {1%R}:r In %{"x"} + {2%R}:r].
+Proof. exact: eval_var. Qed.
+Check [Let "x" <~ {1%R}:r In %{"x"} + {2%R}:r].
 
 End lang_intrinsic_sc.
 End lang_intrinsic_sc.
@@ -287,7 +273,7 @@ Inductive exp : Ctx -> Ty -> Type :=
 | Plus g : exp g TReal -> exp g TReal -> exp g TReal
 | Var G T (x : string) :
     (* (x, T) \in G ->  *)
-    T = nth TUnit (map snd G) (seq.index x (map fst G)) -> 
+    T = nth TUnit (map snd G) (seq.index x (map fst G)) ->
     exp G T
 | Letin g t u (x : string) : exp g t -> exp ((x, t) :: g) u -> exp g u.
 End exp.
@@ -299,11 +285,11 @@ Arguments Letin {g t u}.
 
 Declare Custom Entry exp.
 Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':r'" := (Real x) (in custom exp at level 1) 
+Notation "x ':r'" := (Real x) (in custom exp at level 1)
   : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2) 
+Notation "x + y" := (Plus x y) (in custom exp at level 2)
   : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1) 
+Notation "% x" := (Var x erefl) (in custom exp at level 1)
   : easylang_scope.
 Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
    x constr,
@@ -317,14 +303,14 @@ Local Open Scope easylang_scope.
 
 Example e0 := [{1%:R}:r] : exp [::] _.
 Example e1 := (Letin "x" (Real 1%R) (Var "x" erefl)) : exp [::] _.
-Example e1' := [Let x <~ {1%:R}:r In %{"x"}] : exp [::] TReal.
+Example e1' := [Let "x" <~ {1%:R}:r In %{"x"}] : exp [::] TReal.
 Example e4 := Letin "x" (Real 1%R) (Letin "y" (Var "x" erefl) (Var "x" erefl)) : exp [::] _.
 Example e2_ := Letin "x" (Real 1%R) (Letin "y" (Real 2%R) (@Plus [:: ("y", TReal); ("x", TReal)] (Var "x" erefl) (Var "y" erefl))) : exp [::] _.
 
 Example e5 := Letin "x" (Real 1%R) (Letin "y" (Real 2%R) (Plus (Real 1) (Real 2))) : exp [::] _.
 
 Example e4' := Letin "x" [{1%:R}:r] (Letin "y" [%{"x"}] [%{"y"}]) : exp [::] _.
-Example e4'' := [Let x <~ {1%:R}:r In Let y <~ %{"x"} In %{"y"}] : exp [::] _.
+Example e4'' := [Let "x" <~ {1%:R}:r In Let "y" <~ %{"x"} In %{"y"}] : exp [::] _.
 (* Example e3 := [Let x <~ {1%:R}:r In
                Let y <~ {2%:R}:r In
                %{x} + %{y}] : exp [::] TReal. *)
@@ -342,15 +328,15 @@ Fixpoint acc (g : Ctx) (i : nat) :
 Reserved Notation "G # e '-e->' v" (at level 40).
 
 Inductive eval : forall (g : Ctx) (t : Ty), exp g t -> (ctxi R g -> typei R t) -> Prop :=
-| EVReal g c : g # Real c -e-> (fun=> c)
-| EVPlus g (e1 e2 : exp g TReal) v1 v2 : 
-    g # e1 -e-> v1 -> 
-    g # e2 -e-> v2 -> 
+| eval_real g c : g # Real c -e-> (fun=> c)
+| eval_plus g (e1 e2 : exp g TReal) v1 v2 :
+    g # e1 -e-> v1 ->
+    g # e2 -e-> v2 ->
     g # Plus e1 e2 -e-> (fun x => v1 x + v2 x)%R
-| EVVar (g : Ctx) (x : string) : 
-    let i := seq.index x (map fst g) in 
+| eval_var (g : Ctx) (x : string) :
+    let i := seq.index x (map fst g) in
     g # Var x erefl -e-> @acc g i
-| EVLetin (g : Ctx) (t t' : Ty) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
+| eval_letin (g : Ctx) (t t' : Ty) (x : string) (e1 : exp g t) (e2 : exp _ t') v1 v2 :
     g # e1 -e-> v1 ->
     ((x, t) :: g) # e2 -e-> v2 ->
     g # Letin x e1 e2 -e-> (fun a => v2 (v1 a, a))
@@ -386,17 +372,16 @@ all: (rewrite {g t e u v hu}).
   by rewrite (IH1 _ H4) (IH2 _ H8).
 Qed.
 
-Lemma eval_total g t (e : exp g t) :
-  exists v, g # e -e-> v.
+Lemma eval_total g t (e : exp g t) : exists v, g # e -e-> v.
 Proof.
 elim: e.
-eexists; exact: EVReal.
+eexists; exact: eval_real.
 move=> {}g e1 [v1] IH1 e2 [v2] IH2.
-eexists; exact: (EVPlus IH1 IH2).
+eexists; exact: (eval_plus IH1 IH2).
 move=> {}g {}t x e; subst t.
-eexists; exact: EVVar.
+eexists; exact: eval_var.
 move=> {}g {}t u x e1 [v1] IH1 e2 [v2] IH2.
-eexists; exact: (EVLetin IH1 IH2).
+eexists; exact: (eval_letin IH1 IH2).
 Qed.
 
 Definition exec g t (e : exp g t) : ctxi R g -> typei R t.
@@ -412,22 +397,22 @@ Lemma exec_real g r : @exec g TReal (Real r) = (fun=> r).
 Proof.
 apply: eval_uniq.
 exact: eval_exec.
-apply: EVReal.
+apply: eval_real.
 Qed.
 
 Goal [::] # [{1%R}:r] -e-> (fun=> 1%R).
-Proof. exact/EVReal. Qed.
+Proof. exact/eval_real. Qed.
 Goal @eval [::] _ [{1%R}:r + {2%R}:r] (fun=> 3%R).
-Proof. exact/EVPlus/EVReal/EVReal. Qed.
+Proof. exact/eval_plus/eval_real/eval_real. Qed.
 Goal @eval [:: ("x", TReal)] _ [% {"x"}] (@acc [:: ("x", TReal)] 0).
-Proof. exact/EVVar. Qed.
-Goal @eval [::] _ [Let x <~ {1%R}:r In %{"x"}] (fun=> 1%R).
-Proof. exact: (EVLetin (EVReal _ _) (EVVar _ _)). Qed.
+Proof. exact: eval_var. Qed.
+Goal @eval [::] _ [Let "x" <~ {1%R}:r In %{"x"}] (fun=> 1%R).
+Proof. exact: (eval_letin (eval_real _ _) (eval_var _ _)). Qed.
 
-Goal exec (g := [::]) [Let x <~ {1%R}:r In %{"x"}] = (fun=> 1%R).
+Goal exec (g := [::]) [Let "x" <~ {1%R}:r In %{"x"}] = (fun=> 1%R).
 Proof.
 apply: eval_uniq; first exact: eval_exec.
-exact: (EVLetin (EVReal _ _) (EVVar _ _)).
+exact: (eval_letin (eval_real _ _) (eval_var _ _)).
 Qed.
 
 Fail Example e3 := [Let x <~ {1%:R}:r In
@@ -472,22 +457,28 @@ Definition Var' (x : string) (t : Ty) (g : find x t) :=
 
 Notation "%1 x" := (@Var' x%string _ _) (in custom exp at level 1) : easylang_scope.
 
-Example e2' := Letin "x" (Real 1%:R) 
-              (Letin "y" (Real 2%:R) 
-              (Plus (@Var [:: ("y", TReal); ("x", TReal)] TReal x erefl) (Var "y" erefl))) : exp [::] _.
+Example e2' := Letin "x" (Real 1%:R)
+              (Letin "y" (Real 2%:R)
+              (Plus (@Var [:: ("y", TReal); ("x", TReal)] TReal "x" erefl) (Var "y" erefl))) : exp [::] _.
 
 Lemma eval3' : @eval [::] TReal e2' (fun=> 3%R).
 Proof.
-exact: (EVLetin (EVReal [::] 1%R) (EVLetin (EVReal [:: ("x", TReal)] 2%R) (EVPlus (EVVar [:: ("y", TReal); ("x", TReal)] "x") (EVVar [:: ("y", TReal); ("x", TReal)] "y")))).
+exact: (eval_letin (eval_real [::] 1%R)
+         (eval_letin (eval_real [:: ("x", TReal)] 2%R)
+           (eval_plus (eval_var [:: ("y", TReal); ("x", TReal)] "x")
+                      (eval_var [:: ("y", TReal); ("x", TReal)] "y")))).
 Qed.
 
-Example e2 := [Let x <~ {1%:R}:r In
-               Let y <~ {2%:R}:r In 
-               %1{x} + %1{y}] : exp [::] _.
+Example e2 := [Let "x" <~ {1%:R}:r In
+               Let "y" <~ {2%:R}:r In
+               %1{"x"} + %1{"y"}] : exp [::] _.
 
 Lemma eval2 : @eval [::] TReal e2 (fun=> 3%R).
 Proof.
-have:= (EVLetin (EVReal [::] 1%R) (EVLetin (EVReal [:: ("x", TReal)] 2%R) (EVPlus (EVVar [:: ("y", TReal); ("x", TReal)] "x") (EVVar [:: ("y", TReal); ("x", TReal)] "y")))).
+have:= eval_letin (eval_real [::] 1%R)
+         (eval_letin (eval_real [:: ("x", TReal)] 2%R)
+           (eval_plus (eval_var [:: ("y", TReal); ("x", TReal)] "x")
+                      (eval_var [:: ("y", TReal); ("x", TReal)] "y"))).
 congr eval.
 do 2 congr Letin.
 congr Plus.
