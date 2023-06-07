@@ -389,26 +389,28 @@ Arguments expP_weak {R g h t x}.
 
 Declare Custom Entry expr.
 Notation "[ e ]" := e (e custom expr at level 5) : lang_scope.
-Notation "x ':r'" := (@exp_real _ _ x%R) (in custom expr at level 1)
-  : lang_scope.
-Notation "'Ret' x" := (@exp_return _ _ _ x) (in custom expr at level 2)
-  : lang_scope.
-Notation "% x" := (@exp_var _ _ x _ erefl) (in custom expr at level 1)
-: lang_scope.
-Notation "e \U x" := (@expP_weak _ [::] _ _ (x, _) e erefl)
+Notation "x ':R'" := (@exp_real _ _ x%R)
   (in custom expr at level 1) : lang_scope.
-Notation "( x , y )" := (exp_pair x y) (in custom expr at level 1) : lang_scope.
-Notation "'Let' x '<~' e 'In' f" := (exp_letin x e f)
+Notation "'return' x" := (@exp_return _ _ _ x)
+  (in custom expr at level 2) : lang_scope.
+Notation "% x" := (@exp_var _ _ x _ erefl)
+  (in custom expr at level 1) : lang_scope.
+Notation "e :+ x" := (@expP_weak _ [::] _ _ (x, _) e erefl)
+  (in custom expr at level 1) : lang_scope.
+Notation "( x , y )" := (exp_pair x y)
+  (in custom expr at level 1) : lang_scope.
+Notation "'let' x ':=' e 'in' f" := (exp_letin x e f)
   (in custom expr at level 3,
    x constr,
-   (* e custom expr at level 2, *)
    f custom expr at level 3,
    left associativity) : lang_scope.
 (*Notation "( x )" := x (in custom expr, x at level 50).*)
-Notation "'If' e1 'Then' e2 'Else' e3" := (exp_if e1 e2 e3)
+Notation "'if' e1 'then' e2 'else' e3" := (exp_if e1 e2 e3)
   (in custom expr at level 1) : lang_scope.
-Notation "{ x }" := x (in custom expr, x constr) : lang_scope.
-Notation "x" := x (in custom expr at level 0, x ident) : lang_scope.
+Notation "{ x }" := x
+  (in custom expr, x constr) : lang_scope.
+Notation "x" := x
+  (in custom expr at level 0, x ident) : lang_scope.
 
 Section free_vars.
 Context {R : realType}.
@@ -556,7 +558,7 @@ Context {R : realType}.
 Implicit Type (g : ctx) (str : string).
 Local Open Scope lang_scope.
 
-Inductive evalD : forall g t, @expD R g t ->
+Inductive evalD : forall g t, expD g t ->
   forall f : dval R g t, measurable_fun setT f -> Prop :=
 | eval_unit g :
   @exp_unit _ g -D-> cst tt ; ktt
@@ -565,7 +567,7 @@ Inductive evalD : forall g t, @expD R g t ->
   @exp_bool _ g b -D-> cst b ; kb b
 
 | eval_real g r :
-  ([r :r] : expD g _) -D-> cst r ; kr r
+  ([r :R] : expD g _) -D-> cst r ; kr r
 
 | eval_pair g t1 (e1 : expD g t1) f1 mf1 t2 (e2 : expD g t2) f2 mf2 :
   e1 -D-> f1 ; mf1 ->
@@ -598,20 +600,20 @@ Inductive evalD : forall g t, @expD R g t ->
 
 where "e -D-> v ; mv" := (@evalD _ _ e v mv)
 
-with evalP : forall g t, @expP R g t -> pval R g t -> Prop :=
+with evalP : forall g t, expP g t -> pval R g t -> Prop :=
 
 | eval_ifP g t (e1 : expD g Bool) f1 mf (e2 : expP g t) k2 (e3 : expP g t) k3 :
   e1 -D-> f1 ; mf ->
   e2 -P-> k2 ->
   e3 -P-> k3 ->
-  [If e1 Then e2 Else e3] -P-> ite mf k2 k3
+  [if e1 then e2 else e3] -P-> ite mf k2 k3
 
 | eval_letin g t1 t2 str (e1 : expP g t1) (e2 : expP ((str, t1) :: g) t2)
   (k1 : @pval R g t1)
   (k2 : @pval R ((str, t1) :: g) t2) :
   e1 -P-> k1 ->
   e2 -P-> k2 ->
-  [Let str <~ e1 In e2] -P-> letin' k1 k2
+  [let str := e1 in e2] -P-> letin' k1 k2
 
 | eval_sample g t (e : expD g (Prob t))
   (p : mctx g -> pprobability (mtyp t) R) mp :
@@ -625,7 +627,7 @@ with evalP : forall g t, @expP R g t -> pval R g t -> Prop :=
 
 | eval_return g t (e : expD g t) (f : _ -> _) (mf : measurable_fun _ f) :
   e -D-> f ; mf ->
-  [Ret e] -P-> ret mf
+  [return e] -P-> ret mf
 
 | evalP_weak g h t (e : expP (g ++ h) t) x
     (Hx : x.1 \notin map fst (g ++ h)) f :
@@ -649,9 +651,8 @@ Section eval_prop.
 Variables (R : realType).
 Local Open Scope lang_scope.
 
-Lemma evalD_uniq g t
-  (e : @expD R g t) (u v : dval R g t)
-  (mu : measurable_fun setT u) (mv : measurable_fun setT v) :
+Lemma evalD_uniq g t (e : expD g t) (u v : dval R g t)
+    (mu : measurable_fun setT u) (mv : measurable_fun setT v) :
   e -D-> u ; mu -> e -D-> v ; mv -> u = v.
 Proof.
 move=> hu.
@@ -917,7 +918,7 @@ Local Open Scope lang_scope.
 Context {R : realType}.
 Implicit Type g : ctx.
 
-Definition execD g t (e : @expD R g t) :
+Definition execD g t (e : expD g t) :
     {f : dval R g t & measurable_fun setT f} :=
   let: exist _ H := cid (evalD_full e) in
   existT _ _ (projT1 (cid H)).
@@ -926,7 +927,7 @@ Lemma evalD_execD g t e :
   let: x := @execD g t e in e -D-> projT1 x ; projT2 x.
  by rewrite /execD /=; case: cid => f [mf ?] /=; case: cid. Qed.
 
-Definition execP g t (e : @expP R g t) : pval R g t :=
+Definition execP g t (e : expP g t) : pval R g t :=
   proj1_sig (cid (evalP_full e)).
 
 Lemma evalP_execP g t (e : expP g t) : e -P-> execP e.
@@ -935,7 +936,7 @@ Proof. by rewrite /execP; case: cid. Qed.
 Definition execP_ret_real g (r : R) : pval R g Real :=
   execP (exp_return (exp_real r)).
 
-Lemma execD_real g r : @execD g _ [r :r] = existT _ (cst r) (kr r).
+Lemma execD_real g r : @execD g _ [r :R] = existT _ (cst r) (kr r).
 Proof.
 rewrite /execD /=.
 case: cid => f ?.
@@ -945,7 +946,7 @@ have ? := evalD_uniq ev1 ev2; subst f.
 by congr existT; exact: Prop_irrelevance.
 Qed.
 
-Lemma execD_pair g t1 t2 (e1 : @expD R g t1) (e2 : @expD R g t2) :
+Lemma execD_pair g t1 t2 (e1 : expD g t1) (e2 : expD g t2) :
   let f1 := projT1 (execD e1) in
   let f2 := projT1 (execD e2) in
   let mf1 := projT2 (execD e1) in
@@ -992,7 +993,7 @@ by congr existT; exact: Prop_irrelevance.
 Qed.
 
 Lemma execP_if g st e1 e2 e3 :
-  @execP g st [If e1 Then e2 Else e3] =
+  @execP g st [if e1 then e2 else e3] =
   ite (projT2 (execD e1)) (execP e2) (execP e3).
 Proof.
 apply/evalP_uniq; first exact/evalP_execP.
@@ -1000,7 +1001,7 @@ by apply/eval_ifP; [exact: evalD_execD|exact: evalP_execP|exact: evalP_execP].
 Qed.
 
 Lemma execP_letin g x t1 t2 (e1 : expP g t1) (e2 : expP ((x, t1) :: g) t2) :
-  execP [Let x <~ e1 In e2] = letin' (execP e1) (execP e2) :> (R.-sfker _ ~> _).
+  execP [let x := e1 in e2] = letin' (execP e1) (execP e2) :> (R.-sfker _ ~> _).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 by apply: eval_letin; exact/evalP_execP.
@@ -1013,14 +1014,14 @@ apply: evalP_uniq; first exact/evalP_execP.
 by apply: eval_sample => /=; exact: eval_bernoulli.
 Qed.
 
-Lemma execP_score g (e : @expD R g Real) :
+Lemma execP_score g (e : expD g Real) :
   execP (exp_score e) = score (projT2 (execD e)).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 exact/eval_score/evalD_execD.
 Qed.
 
-Lemma execP_ret g t (e : @expD R g t) : execP [Ret e] = ret (projT2 (execD e)).
+Lemma execP_ret g t (e : expD g t) : execP [return e] = ret (projT2 (execD e)).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 by apply: eval_return; exact/evalD_execD.
@@ -1041,7 +1042,7 @@ Local Open Scope lang_scope.
 Variable R : realType.
 
 Lemma ex_var_ret g :
-  @execP R g _ [Let "x" <~ Ret {1}:r In Ret %{"x"}] =
+  @execP R g _ [let "x" := return {1}:R in return %{"x"}] =
   letin' (ret (kr 1)) (ret (@macc0of2 _ _ _ _)).
 Proof.
 rewrite execP_letin; congr letin'.
@@ -1053,12 +1054,12 @@ Qed.
 Lemma letinC g t1 t2 (e1 : @expP R g t1) (e2 : expP g t2)
   (xl : "x" \notin map fst g) (yl : "y" \notin map fst g) :
   forall U, measurable U ->
-  execP [Let "x" <~ e1 In
-        Let "y" <~ {@expP_weak _ [::] _ _ ("x", t1) e2 xl} In
-        Ret (%{"x"}, %{"y"})] ^~ U =
-  execP [Let "y" <~ e2 In
-        Let "x" <~ {@expP_weak _ [::] _ _ ("y", t2) e1 yl} In
-        Ret (%{"x"}, %{"y"})] ^~ U.
+  execP [let "x" := e1 in
+         let "y" := {@expP_weak _ [::] _ _ ("x", t1) e2 xl} in
+         return (%{"x"}, %{"y"})] ^~ U =
+  execP [let "y" := e2 in
+         let "x" := {@expP_weak _ [::] _ _ ("y", t2) e1 yl} in
+         return (%{"x"}, %{"y"})] ^~ U.
 Proof.
 move=> U mU; apply/funext => x.
 rewrite 4!execP_letin.
@@ -1081,24 +1082,24 @@ Lemma letinC_list (g := [:: ("a", Unit); ("b", Bool)]) t1 t2
     (e1 : @expP R g t1)
     (e2 : expP g t2) :
   forall U, measurable U ->
-  execP [Let "x" <~ e1 In
-         Let "y" <~ e2 \U {"x"} In
-         Ret (%{"x"}, %{"y"})] ^~ U =
-  execP [Let "y" <~ e2 In
-         Let "x" <~ e1 \U {"y"} In
-         Ret (%{"x"}, %{"y"})] ^~ U.
+  execP [let "x" := e1 in
+         let "y" := e2 :+ {"x"} in
+         return (%{"x"}, %{"y"})] ^~ U =
+  execP [let "y" := e2 in
+         let "x" := e1 :+ {"y"} in
+         return (%{"x"}, %{"y"})] ^~ U.
 Proof.
 move=> U mU.
 exact: letinC.
 Qed.
 
 Lemma letinC12 : forall U, measurable U ->
-  @execP R [::] _ [Let "x" <~ Ret {1}:r In
-         Let "y" <~ Ret {2}:r In
-         Ret (%{"x"}, %{"y"})] ^~ U =
-  execP [Let "y" <~ Ret {2}:r In
-         Let "x" <~ Ret {1}:r In
-         Ret (%{"x"}, %{"y"})] ^~ U.
+  @execP R [::] _ [let "x" := return {1}:R in
+                   let "y" := return {2}:R in
+                   return (%{"x"}, %{"y"})] ^~ U =
+  execP [let "y" := return {2}:R in
+         let "x" := return {1}:R in
+         return (%{"x"}, %{"y"})] ^~ U.
 Proof.
 move=> U mU.
 apply: funext => x.
@@ -1112,8 +1113,8 @@ Lemma execP_LetInL g t1 t2 x (e1 : @expP R g t1) (e1' : expP g t1)
    (e2 : expP ((x, t1) :: g) t2) :
   forall U, measurable U ->
   execP e1 = execP e1' ->
-  execP [Let x <~ e1 In e2] ^~ U =
-  execP [Let x <~ e1' In e2] ^~ U.
+  execP [let x := e1 in e2] ^~ U =
+  execP [let x := e1' in e2] ^~ U.
 Proof.
 by move=> U mU e1e1'; rewrite !execP_letin e1e1'.
 Qed.
@@ -1122,8 +1123,8 @@ Lemma execP_LetInR g t1 t2 x (e1 : @expP R g t1)
     (e2 : expP _ t2) (e2' : expP ((x, t1) :: g) t2) :
   forall U, measurable U ->
   execP e2 = execP e2' ->
-  execP [Let x <~ e1 In e2] ^~ U =
-  execP [Let x <~ e1 In e2'] ^~ U.
+  execP [let x := e1 in e2] ^~ U =
+  execP [let x := e1 in e2'] ^~ U.
 Proof.
 by move=> U mU e1e1'; rewrite !execP_letin e1e1'.
 Qed.
@@ -1134,22 +1135,21 @@ Section letinA.
 Local Open Scope lang_scope.
 Variable R : realType.
 
-Lemma letinA g t1 t2 t3
+Lemma letinA g (xg : "x" \notin map fst g) t1 t2 t3
   (e1 : @expP R g t1)
-  (e2 : expP [:: ("y", t1) & g] t2)
-  (e3 : expP [:: ("x", t2) & g] t3)
-  (xg : "x" \notin map fst g)
-  (yg : "y" \notin map fst [:: ("x", t2) & g]) :
+  (e2 : expP [:: ("x", t1) & g] t2)
+  (e3 : expP [:: ("y", t2) & g] t3) :
   forall U, measurable U ->
-  execP [Let "y" <~ e1 In
-         Let "x" <~ e2 In
-         {(@expP_weak _ [:: ("x", t2)] g _ ("y", t1) e3 yg)}] ^~ U =
-  execP [Let "x" <~ Let "y" <~ e1 In e2 In
+  execP [let "x" := e1 in
+         let "y" := e2 in
+         {@expP_weak _ [:: ("y", t2)] _ _ ("x", t1) e3 xg}] ^~ U =
+  execP [let "y" :=
+           let "x" := e1 in e2 in
          e3] ^~ U.
 Proof.
 move=> U mU; apply/funext=> x.
 rewrite !execP_letin.
-rewrite (@execP_weak _ [:: ("x", t2)]).
+rewrite (@execP_weak _ [:: ("y", t2)]).
 apply: letin'A => //.
 move=> y z.
 rewrite /=.
@@ -1158,16 +1158,17 @@ by destruct z.
 Qed.
 
 Lemma letinA12 : forall U, measurable U ->
-  @execP R [::] _ [Let "y" <~ Ret {1}:r In
-         Let "x" <~ Ret {2}:r In Ret %{"x"}] ^~ U =
-  @execP R [::] _ [Let "x" <~ Let "y" <~ Ret {1}:r In Ret {2}:r In
-         Ret %{"x"}] ^~ U.
+  @execP R [::] _ [let "y" := return {1}:R in
+                   let "x" := return {2}:R in
+                   return %{"x"}] ^~ U =
+  @execP R [::] _ [let "x" :=
+                   let "y" := return {1}:R in return {2}:R in
+                   return %{"x"}] ^~ U.
 Proof.
 move=> U mU.
 rewrite !execP_letin !execP_ret !execD_real !execD_var /=.
 apply: funext=> x.
 exact: letin'A.
-(* TODO: Use letinA *)
 Qed.
 
 End letinA.
@@ -1175,15 +1176,15 @@ End letinA.
 Section exp_var'.
 Context {R : realType}.
 
-Structure tagged_context := Tag {untag : ctx}.
+Structure tagged_ctx := Tag {untag : ctx}.
 
 Definition recurse_tag h := Tag h.
 Canonical found_tag h := recurse_tag h.
 
 Structure find (s : string) (t : typ) := Find {
-  context_of : tagged_context ;
-  ctxt_prf : t = nth Unit (map snd (untag context_of))
-                           (index s (map fst (untag context_of)))}.
+  ctx_of : tagged_ctx ;
+  ctx_prf : t = nth Unit (map snd (untag ctx_of))
+                         (index s (map fst (untag ctx_of)))}.
 
 Lemma left_pf (s : string) (t : typ) (l : ctx) :
   t = nth Unit (map snd ((s, t) :: l)) (index s (map fst ((s, t) :: l))).
@@ -1205,18 +1206,18 @@ by rewrite (negbTE su).
 Qed.
 
 Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u t' :=
-  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (context_of l)))
-  (@right_pf s t (untag (context_of l)) u t' su (ctxt_prf l)).
+  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (ctx_of l)))
+  (@right_pf s t (untag (ctx_of l)) u t' su (ctx_prf l)).
 
 Definition exp_var' (str : string) (t : typ) (g : find str t) :=
-  @exp_var R (untag (context_of g)) str t (ctxt_prf g).
+  @exp_var R (untag (ctx_of g)) str t (ctx_prf g).
 
 Local Notation "# str" := (@exp_var' str%string _ _) (in custom expr at level 1).
 
 Local Open Scope lang_scope.
-Example e3 := [Let "x" <~ Ret {1%:R}:r In
-               Let "y" <~ Ret #{"x"} In
-               Let "z" <~ Ret #{"y"} In Ret #{"z"}] : expP [::] _.
+Example e3 := [let "x" := return {1}:R in
+               let "y" := return #{"x"} in
+               let "z" := return #{"y"} in return #{"z"}] : expP [::] _.
 
 End exp_var'.
 
@@ -1229,13 +1230,13 @@ Context {R : realType}.
 Goal (ret (kr 3) : R.-sfker _ ~> (mR R)) tt [set: R] = 1%:E.
 Proof. rewrite /= diracE in_setT //. Qed.
 
-Local Notation "%1 x" := (@exp_var' R x%string _ _) (in custom expr at level 1).
+Local Notation "# x" := (@exp_var' R x%string _ _) (in custom expr at level 1).
 
 Example staton_bus_exp := exp_normalize (
-  [Let "x" <~ {exp_sample (@exp_bernoulli _ [::] (2 / 7%:R)%:nng p27)} In
-   Let "r" <~ If %1{"x"} Then Ret {3}:r Else Ret {10}:r In
-   Let "_" <~ {exp_score (exp_poisson 4 [%1{"r"}])} In
-   Ret %1{"x"}]).
+  [let "x" := {exp_sample (@exp_bernoulli _ [::] (2 / 7%:R)%:nng p27)} in
+   let "r" := if #{"x"} then return {3}:R else return {10}:R in
+   let "_" := {exp_score (exp_poisson 4 [#{"r"}])} in
+   return #{"x"}]).
 
 Definition sample_bern : R.-sfker munit ~> mbool :=
   sample_cst [the probability _ _ of bernoulli p27].
@@ -1249,10 +1250,10 @@ Definition score_poi :
   score (measurableT_comp (mpoisson 4) (@macc0of2 _ _ _ _)).
 
 Example kstaton_bus_exp : expP [::] Bool :=
-  [Let "x" <~ {exp_sample (@exp_bernoulli R [::] (2 / 7%:R)%:nng p27)} In
-   Let "r" <~ If %1{"x"} Then Ret {3}:r Else Ret {10}:r In
-   Let "_" <~ {exp_score (exp_poisson 4 [%1{"r"}])} In
-   Ret %{"x"}].
+  [let "x" := {exp_sample (@exp_bernoulli R [::] (2 / 7%:R)%:nng p27)} in
+   let "r" := if #{"x"} then return {3}:R else return {10}:R in
+   let "_" := {exp_score (exp_poisson 4 [#{"r"}])} in
+   return %{"x"}].
 
 Local Definition kstaton_bus'' :=
   letin' sample_bern
