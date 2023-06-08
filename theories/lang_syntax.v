@@ -469,7 +469,7 @@ apply/prod_measurable_funP; split.
 - rewrite [X in measurable_fun _ X](_ : _ = fst)//.
   by apply/funext => -[].
 - rewrite [X in measurable_fun _ X](_ : _ = @mctx_strong g h x0 \o snd).
-    apply: measurableT_comp; last exact: measurable_fun_snd.
+    apply: measurableT_comp; last exact: measurable_snd.
     exact: ih.
   by apply/funext => -[].
 Qed.
@@ -565,33 +565,26 @@ Local Open Scope lang_scope.
 
 Inductive evalD : forall g t, expD g t ->
   forall f : dval R g t, measurable_fun setT f -> Prop :=
-| eval_unit g :
-  @exp_unit _ g -D-> cst tt ; ktt
+| eval_unit g : @exp_unit _ g -D-> cst tt ; ktt
 
-| eval_bool g b :
-  @exp_bool _ g b -D-> cst b ; kb b
+| eval_bool g b : @exp_bool _ g b -D-> cst b ; kb b
 
-| eval_real g r :
-  ([r :R] : expD g _) -D-> cst r ; kr r
+| eval_real g r : ([r :R] : expD g _) -D-> cst r ; kr r
 
 | eval_pair g t1 (e1 : expD g t1) f1 mf1 t2 (e2 : expD g t2) f2 mf2 :
-  e1 -D-> f1 ; mf1 ->
-  e2 -D-> f2 ; mf2 ->
+  e1 -D-> f1 ; mf1 -> e2 -D-> f2 ; mf2 ->
   [(e1, e2)] -D-> fun x => (f1 x, f2 x) ;
   measurable_fun_prod mf1 mf2
 
 | eval_var g str : let i := index str (map fst g) in
-  ([% str] : expD g _) -D-> @acc_typ R (map snd g) i ;
-                            @macc_typ R (map snd g) i
+  ([% str] : expD g _) -D-> @acc_typ R (map snd g) i ; @macc_typ R (map snd g) i
 
 | eval_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-  @exp_bernoulli _ g _ r1 -D->
-  cst (bernoulli r1) ; measurable_cst _
+  @exp_bernoulli _ g _ r1 -D-> cst (bernoulli r1) ; measurable_cst _
 
 | eval_poisson g n (e : expD g _) f mf :
   e -D-> f ; mf ->
-  exp_poisson n e -D-> poisson n \o f ;
-                        measurableT_comp (mpoisson n) mf
+  exp_poisson n e -D-> poisson n \o f ; measurableT_comp (mpoisson n) mf
 
 | eval_normalize g t (e : expP g t) k :
   e -P-> k ->
@@ -608,36 +601,32 @@ where "e -D-> v ; mv" := (@evalD _ _ e v mv)
 with evalP : forall g t, expP g t -> pval R g t -> Prop :=
 
 | eval_ifP g t (e1 : expD g Bool) f1 mf (e2 : expP g t) k2 (e3 : expP g t) k3 :
-  e1 -D-> f1 ; mf ->
-  e2 -P-> k2 ->
-  e3 -P-> k3 ->
+  e1 -D-> f1 ; mf -> e2 -P-> k2 -> e3 -P-> k3 ->
   [if e1 then e2 else e3] -P-> ite mf k2 k3
 
 | eval_letin g t1 t2 str (e1 : expP g t1) (e2 : expP ((str, t1) :: g) t2)
-  (k1 : @pval R g t1)
-  (k2 : @pval R ((str, t1) :: g) t2) :
+  (k1 : @pval R g t1) (k2 : @pval R ((str, t1) :: g) t2) :
   e1 -P-> k1 ->
   e2 -P-> k2 ->
   [let str := e1 in e2] -P-> letin' k1 k2
 
 | eval_sample g t (e : expD g (Prob t))
-  (p : mctx g -> pprobability (mtyp t) R) mp :
+    (p : mctx g -> pprobability (mtyp t) R) mp :
   e -D-> p ; mp ->
   [Sample e] -P-> sample p mp
 
-| eval_score g (e : expD g Real)
-  (f : mctx g -> R) (mf : measurable_fun _ f) :
+| eval_score g (e : expD g Real) (f : mctx g -> R) (mf : measurable_fun _ f) :
   e -D-> f ; mf ->
   [Score e] -P-> kscore mf
 
 | eval_return g t (e : expD g t) (f : _ -> _) (mf : measurable_fun _ f) :
-  e -D-> f ; mf ->
-  [return e] -P-> ret mf
+  e -D-> f ; mf -> [return e] -P-> ret mf
 
 | evalP_weak g h t (e : expP (g ++ h) t) x
     (Hx : x.1 \notin map fst (g ++ h)) f :
   e -P-> f ->
   expP_weak e Hx -P-> @kweak R g h x t f
+
 where "e -P-> v" := (@evalP _ _ e v).
 
 End eval.
