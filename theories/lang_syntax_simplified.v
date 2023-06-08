@@ -64,6 +64,7 @@ Variables (R : realType).
 
 Section exp.
 Inductive exp : Type :=
+| TT : exp
 | Cst : R -> exp
 | Var g T (str : string) :
   T = nth Real (map snd g) (index str (map fst g)) -> exp
@@ -103,6 +104,7 @@ Variables (R : realType).
 
 Section exp.
 Inductive exp : typ -> Type :=
+| TT : exp Unit
 | Cst : R -> exp Real
 | Plus : exp Real -> exp Real -> exp Real
 | Var g T (str : string) :
@@ -123,6 +125,7 @@ Variables (R : realType).
 
 Section exp.
 Inductive exp : ctx -> Type :=
+| TT g : exp g
 | Cst g : R -> exp g
 | Plus g : exp g -> exp g -> exp g
 | Var g T (str : string) :
@@ -190,6 +193,7 @@ Variables (R : realType).
 
 Section exp.
 Inductive exp : ctx -> typ -> Type :=
+| TT g : exp g Unit
 | Cst g : R -> exp g Real
 | Plus g : exp g Real -> exp g Real -> exp g Real
 | Var g T (str : string) :
@@ -199,6 +203,7 @@ Inductive exp : ctx -> typ -> Type :=
 | Letin g t u (x : string) : exp g t -> exp ((x, t) :: g) u -> exp g u.
 End exp.
 
+Arguments TT {g}.
 Arguments Cst {g}.
 Arguments Plus {g}.
 Arguments Var {g T}.
@@ -287,6 +292,7 @@ Fixpoint acc (g : ctx) (i : nat) :
 Reserved Notation "e '-e->' v" (at level 40).
 
 Inductive eval : forall g t, exp g t -> (ctxi R g -> Type_of_typ R t) -> Prop :=
+| eval_tt g : (TT : exp g _) -e-> (fun=> tt)
 | eval_real g c : (Cst c : exp g _) -e-> (fun=> c)
 | eval_plus g (e1 e2 : exp g Real) v1 v2 :
     e1 -e-> v1 ->
@@ -310,6 +316,9 @@ move=> hu.
 apply: (@eval_ind
   (fun g t (e : exp g t) (u : ctxi R g -> Type_of_typ R t) => forall v, e -e-> v -> u = v)); last exact: hu.
 all: (rewrite {g t e u v hu}).
+- move=> g v.
+  inversion 1.
+  by inj_ex H3.
 - move=> g c v.
   inversion 1.
   by inj_ex H3.
@@ -332,6 +341,7 @@ Qed.
 Lemma eval_total g t (e : exp g t) : exists v, e -e-> v.
 Proof.
 elim: e.
+eexists; exact: eval_tt.
 eexists; exact: eval_real.
 move=> {}g e1 [v1] IH1 e2 [v2] IH2.
 eexists; exact: (eval_plus IH1 IH2).
