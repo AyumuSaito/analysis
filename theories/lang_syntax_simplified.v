@@ -91,31 +91,8 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 
 Local Open Scope easylang_scope.
 
-Example e1' := @Letin "x" (Cst 1) (@Var [:: ("x", Real)] Real "x" erefl).
-Fail Example e1 := [Let x <~ {1}:R In %{"x"}].
-Fail Example e2 := [Let "x" <~ {1}:R In Let "y" <~ %{"x"} In %{"y"}].
-Fail Example e3 := [Let x <~ {1}:R In
-               Let y <~ {2}:R In
-               %{x} + %{y}].
-
-Fixpoint acc (g : ctx) (i : nat) :
-  ctxi R g -> @Type_of_typ R (nth Unit (map snd g) i) :=
-  match g return (ctxi R g -> Type_of_typ R (nth Unit (map snd g) i)) with
-  | [::] => match i with | O => id | j.+1 => id end
-  | _ :: _ => match i with
-               | O => fst
-               | j.+1 => fun H => acc j H.2
-               end
-  end.
-
-Inductive eval : forall (g : ctx) (t : typ), exp -> (ctxi R g -> Type_of_typ R t) -> Prop :=
-| eval_real g c : @eval g Real (Cst c) (fun=> c)
-| eval_plus g e1 e2 (v1 v2 : R) :
-    @eval g Real e1 (fun=> v1) ->
-    @eval g Real e2 (fun=> v2) ->
-    @eval g Real (Plus e1 e2) (fun=> (v1 + v2)%R).
-
-Fail Compute eval [::] (Const 1) (fun=> 1%R).
+Fail Example letin_once := @Letin "x" (Cst 1) (Var "x" erefl).
+Example letin_once := @Letin "x" (Cst 1) (@Var [:: ("x", Real)] Real "x" erefl).
 
 End lang_extrinsic.
 End lang_extrinsic.
@@ -134,31 +111,8 @@ Inductive exp : typ -> Type :=
 End exp.
 Arguments Var {g T}.
 
-Declare Custom Entry exp.
-Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':R'" := (Cst x) (in custom exp at level 1)
-  : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2)
-  : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1)
-  : easylang_scope.
-Notation "'Let' x '<~' e1 'In' e2" := (Letin x e1 e2) (in custom exp at level 3,
-   x constr,
-   e1 custom exp at level 2,
-   e2 custom exp at level 3,
-   left associativity) : easylang_scope.
-Notation "{ x }" := x (in custom exp, x constr) : easylang_scope.
-Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
-
-Local Open Scope easylang_scope.
-
-Example e1 := (Letin "x" (Cst 1%R) (@Var [:: ("x", Real)] _ "x" erefl)).
-Fail Example e1 := [Let x <~ {1}:R In %{"x"}] : exp Real.
-Fail Example e2' := (Letin x [{1}:R] (@Letin Real _ y [%{"x"}] [%{"y"}])) : exp Real.
-Fail Example e2 := [Let x <~ {1}:R In Let y <~ %{"x"} In %{"y"}] : exp Real.
-Fail Example e3 := [Let x <~ {1}:R In
-               Let y <~ {2}:R In
-               %{x} + %{y}] : exp _.
+Fail Example letin_once := (Letin "x" (Cst 1%R) (Var "x" erefl)).
+Example letin_once := (Letin "x" (Cst 1%R) (@Var [:: ("x", Real)] _ "x" erefl)).
 
 End lang_intrinsic_ty.
 End lang_intrinsic_ty.
@@ -197,13 +151,8 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 
 Local Open Scope easylang_scope.
 
-Example e0 := [{1%R}:R] : exp [::].
-Example e1 := (Letin "x" (Cst 1) (@Var [:: ("x", Real)] _ "x" erefl)) : exp [::].
-Fail Example e1 := [Let x <~ {1}:R In %{"x"}] : exp [::].
-Fail Example e2 := [Let x <~ {1}:R In Let y <~ %{"x"} In %{"y"}] : exp [::].
-Fail Example e3 := [Let x <~ {1}:R In
-                    Let y <~ {2}:R In
-                    %{x} + %{y}] : exp [::].
+Fail Example letin_once := (Letin "x" (Cst 1) (Var "x" erefl)) : exp [::].
+Example letin_once := (Letin "x" (Cst 1) (@Var [:: ("x", Real)] _ "x" erefl)) : exp [::].
 
 Fixpoint acc (g : ctx) (i : nat) :
   ctxi R g -> @Type_of_typ R (nth Unit (map snd g) i) :=
@@ -235,8 +184,8 @@ Check [Let "x" <~ {1%R}:R In %{"x"} + {2}:R].
 End lang_intrinsic_sc.
 End lang_intrinsic_sc.
 
-Module lang_intrinsic_full.
-Section lang_intrinsic_full.
+Module lang_intrinsic_tysc.
+Section lang_intrinsic_tysc.
 Variables (R : realType).
 
 Section exp.
@@ -274,18 +223,56 @@ Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
 Local Open Scope easylang_scope.
 
 Example e0 := [{1%R}:R] : exp [::] _.
-Example e1 := (Letin "x" (Cst 1%R) (Var "x" erefl)) : exp [::] _.
-Example e1' := [Let "x" <~ {1%R}:R In %{"x"}] : exp [::] Real.
-Example e4 := Letin "x" (Cst 1%R) (Letin "y" (Var "x" erefl) (Var "x" erefl)) : exp [::] _.
-Example e2_ := Letin "x" (Cst 1%R) (Letin "y" (Cst 2%R) (@Plus [:: ("y", Real); ("x", Real)] (Var "x" erefl) (Var "y" erefl))) : exp [::] _.
+Example letin_once := (Letin "x" (Cst 1%R) (Var "x" erefl)) : exp [::] _.
+Example letin_twice := (Letin "x" (Cst 1%R) (Letin "y" (Cst 2%R) (Var "x" erefl))) : exp [::] _.
 
-Example e5 := Letin "x" (Cst 1%R) (Letin "y" (Cst 2%R) (Plus (Cst 1) (Cst 2))) : exp [::] _.
+Fail Example letin_plus := Letin "x" (Cst 1%R) (Letin "y" (Cst 2%R) (Plus (Var "x" erefl) (Var "y" erefl))) : exp [::] _.
+Example letin_plus' := Letin "x" (Cst 1%:R)
+                      (Letin "y" (Cst 2%:R)
+                      (Plus (@Var [:: ("y", Real); ("x", Real)] Real "x" erefl) (Var "y" erefl))) : exp [::] _.
 
-Example e4' := Letin "x" [{1%R}:R] (Letin "y" [%{"x"}] [%{"y"}]) : exp [::] _.
-Example e4'' := [Let "x" <~ {1%:R}:R In Let "y" <~ %{"x"} In %{"y"}] : exp [::] _.
-(* Example e3 := [Let x <~ {1%:R}:r In
-               Let y <~ {2%:R}:r In
-               %{x} + %{y}] : exp [::] Real. *)
+
+Structure tagged_ctx := Tag {untag : ctx}.
+
+Definition recurse_tag h := Tag h.
+Canonical found_tag h := recurse_tag h.
+
+Structure find (s : string) (t : typ) := Find {
+  ctx_of : tagged_ctx ;
+  ctx_prf : t = nth Unit (map snd (untag ctx_of))
+                         (index s (map fst (untag ctx_of)))}.
+
+Lemma left_pf (s : string) (t : typ) (l : ctx) :
+  t = nth Unit (map snd ((s, t) :: l)) (index s (map fst ((s, t) :: l))).
+Proof.
+by rewrite /= !eqxx/=.
+Qed.
+
+Canonical found_struct s t (l : ctx) : find s t :=
+  Eval hnf in @Find s t (found_tag ((s, t) :: l)) (@left_pf s t l).
+
+Lemma right_pf (s : string) (t : typ) (l : ctx) u t' :
+  s != u ->
+  t' = nth Unit (map snd l) (index u (map fst l)) ->
+  t' = nth Unit (map snd ((s, t) :: l)) (index u (map fst ((s, t) :: l))).
+Proof.
+move=> su ut'l /=.
+case: ifPn => //=.
+by rewrite (negbTE su).
+Qed.
+
+Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u t' :=
+  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (ctx_of l)))
+  (@right_pf s t (untag (ctx_of l)) u t' su (ctx_prf l)).
+
+Definition Var' (x : string) (t : typ) (g : find x t) :=
+  @Var (untag (ctx_of g)) t x (ctx_prf g).
+
+Notation "# x" := (@Var' x%string _ _) (in custom exp at level 1) : easylang_scope.
+
+Example letin_plus := Letin "x" (Cst 1%R) (Letin "y" (Cst 2%R) (Plus (@Var' "x" _ _) (@Var' "y" _ _))) : exp [::] _.
+
+Section eval.
 
 Fixpoint acc (g : ctx) (i : nat) :
   ctxi R g -> @Type_of_typ R (nth Unit (map snd g) i) :=
@@ -385,76 +372,7 @@ apply: eval_uniq; first exact: eval_exec.
 exact: (eval_letin (eval_real _ _) (eval_var _ _)).
 Qed.
 
-Fail Example e3 := [Let x <~ {1%:R}:R In
-               Let y <~ {2%:R}:R In
-               %{x} + %{y}] : exp [::] Real.
+End eval.
 
-Structure tagged_ctx := Tag {untag : ctx}.
-
-Definition recurse_tag h := Tag h.
-Canonical found_tag h := recurse_tag h.
-
-Structure find (s : string) (t : typ) := Find {
-  ctx_of : tagged_ctx ;
-  ctx_prf : t = nth Unit (map snd (untag ctx_of))
-                         (index s (map fst (untag ctx_of)))}.
-
-Lemma left_pf (s : string) (t : typ) (l : ctx) :
-  t = nth Unit (map snd ((s, t) :: l)) (index s (map fst ((s, t) :: l))).
-Proof.
-by rewrite /= !eqxx/=.
-Qed.
-
-Canonical found_struct s t (l : ctx) : find s t :=
-  Eval hnf in @Find s t (found_tag ((s, t) :: l)) (@left_pf s t l).
-
-Lemma right_pf (s : string) (t : typ) (l : ctx) u t' :
-  s != u ->
-  t' = nth Unit (map snd l) (index u (map fst l)) ->
-  t' = nth Unit (map snd ((s, t) :: l)) (index u (map fst ((s, t) :: l))).
-Proof.
-move=> su ut'l /=.
-case: ifPn => //=.
-by rewrite (negbTE su).
-Qed.
-
-Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u t' :=
-  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (ctx_of l)))
-  (@right_pf s t (untag (ctx_of l)) u t' su (ctx_prf l)).
-
-Definition Var' (x : string) (t : typ) (g : find x t) :=
-  @Var (untag (ctx_of g)) t x (ctx_prf g).
-
-Notation "# x" := (@Var' x%string _ _) (in custom exp at level 1) : easylang_scope.
-
-Example e2' := Letin "x" (Cst 1%:R)
-              (Letin "y" (Cst 2%:R)
-              (Plus (@Var [:: ("y", Real); ("x", Real)] Real "x" erefl) (Var "y" erefl))) : exp [::] _.
-
-Lemma eval3' : @eval [::] Real e2' (fun=> 3%R).
-Proof.
-exact: (eval_letin (eval_real [::] 1%R)
-         (eval_letin (eval_real [:: ("x", Real)] 2%R)
-           (eval_plus (eval_var [:: ("y", Real); ("x", Real)] "x")
-                      (eval_var [:: ("y", Real); ("x", Real)] "y")))).
-Qed.
-
-Example e2 := [Let "x" <~ {1%:R}:R In
-               Let "y" <~ {2%:R}:R In
-               #{"x"} + #{"y"}] : exp [::] _.
-
-Lemma eval2 : @eval [::] Real e2 (fun=> 3%R).
-Proof.
-have:= eval_letin (eval_real [::] 1%R)
-         (eval_letin (eval_real [:: ("x", Real)] 2%R)
-           (eval_plus (eval_var [:: ("y", Real); ("x", Real)] "x")
-                      (eval_var [:: ("y", Real); ("x", Real)] "y"))).
-congr eval.
-do 2 congr Letin.
-congr Plus.
-- by congr Var; exact: Prop_irrelevance.
-- by congr Var; exact: Prop_irrelevance.
-Qed.
-
-End lang_intrinsic_full.
-End lang_intrinsic_full.
+End lang_intrinsic_tysc.
+End lang_intrinsic_tysc.
