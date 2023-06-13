@@ -1191,39 +1191,6 @@ End letinA.
 Section exp_var'.
 Context {R : realType}.
 
-Structure tagged_ctx := Tag {untag : ctx}.
-
-Definition recurse_tag h := Tag h.
-Canonical found_tag h := recurse_tag h.
-
-Structure find (s : string) (t : typ) := Find {
-  ctx_of : tagged_ctx ;
-  ctx_prf : t = nth Unit (map snd (untag ctx_of))
-                         (index s (map fst (untag ctx_of)))}.
-
-Lemma left_pf (s : string) (t : typ) (l : ctx) :
-  t = nth Unit (map snd ((s, t) :: l)) (index s (map fst ((s, t) :: l))).
-Proof.
-by rewrite /= !eqxx/=.
-Qed.
-
-Canonical found_struct s t (l : ctx) : find s t :=
-  Eval hnf in @Find s t (found_tag ((s, t) :: l)) (@left_pf s t l).
-
-Lemma right_pf (s : string) (t : typ) (g : ctx) u t' :
-  s != u ->
-  t' = nth Unit (map snd g) (index u (map fst g)) ->
-  t' = nth Unit (map snd ((s, t) :: g)) (index u (map fst ((s, t) :: g))).
-Proof.
-move=> su t'g /=.
-case: ifPn => //=.
-by rewrite (negbTE su).
-Qed.
-
-Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u t' :=
-  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (ctx_of l)))
-  (@right_pf s t (untag (ctx_of l)) u t' su (ctx_prf l)).
-
 Definition exp_var' (str : string) (t : typ) (g : find str t) :=
   @exp_var R (untag (ctx_of g)) str t (ctx_prf g).
 
@@ -1279,14 +1246,14 @@ apply: eval_letin.
   apply/eval_ifP/eval_return/eval_real/eval_return/eval_real.
   rewrite/exp_var'/=.
   have /= := @eval_var R [:: ("x", Bool)] "x".
-  have <- : ([% {"x"}] = @exp_var R _ "x" _ (left_pf "x" Bool [::])).
+  have <- : ([% {"x"}] = @exp_var R _ "x" _ (ctx_prf_head "x" Bool [::])).
     congr exp_var; exact: Prop_irrelevance.
   by congr evalD; exact: Prop_irrelevance.
 apply: eval_letin.
   apply/eval_score/eval_poisson.
   rewrite /exp_var'/=.
   have /= := @eval_var R [:: ("r", Real); ("x", Bool)] "r".
-  have <- : ([% {"r"}] = @exp_var R _ "r" _ (left_pf "r" Real [:: ("x", Bool)])).
+  have <- : ([% {"r"}] = @exp_var R _ "r" _ (ctx_prf_head "r" Real [:: ("x", Bool)])).
     by congr exp_var; exact: Prop_irrelevance.
   by congr evalD; exact: Prop_irrelevance.
 apply/eval_return.
@@ -1301,13 +1268,13 @@ rewrite /kstaton_bus''.
 rewrite 3!execP_letin execP_sample_bern.
 congr letin'.
 rewrite !execP_if !execP_ret !execD_real.
-have -> : @execD R _ _ (exp_var "x" (left_pf "x" Bool [::])) = execD [% {"x"}].
+have -> : @execD R _ _ (exp_var "x" (ctx_prf_head "x" Bool [::])) = execD [% {"x"}].
   by congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /= /ite_3_10.
 have -> : @macc_typ R [:: Bool] 0 = @macc0of2 _ _ _ _ by [].
 congr letin'.
 rewrite execP_score execD_poisson /=.
-have -> : (@execD R _ _ (exp_var "r" (left_pf "r" Real [:: ("x", Bool)])) =
+have -> : (@execD R _ _ (exp_var "r" (ctx_prf_head "r" Real [:: ("x", Bool)])) =
           execD [% {"r"}]).
   by congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /=.
@@ -1363,7 +1330,7 @@ Definition lhs : pval R [::] _ := execP
 Lemma __ U : lhs tt U = bern13 U.
 Proof.
 rewrite /lhs execP_letin execP_sample_bern execP_if 2!execP_ret 2!execD_bool /=.
-have -> : @execD R _ _ (exp_var "x" (left_pf "x" Bool [::])) =
+have -> : @execD R _ _ (exp_var "x" (ctx_prf_head "x" Bool [::])) =
           execD [% {"x"}].
   by congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var/=.
@@ -1379,7 +1346,7 @@ Definition lhs1 : pval R [::] _ := execP
    return #{"x"}].
 
 Lemma execD_exp_var_left_pf :
-  @execD R _ _ (exp_var "x" (left_pf "x" Bool [::])) = execD [% {"x"}].
+  @execD R _ _ (exp_var "x" (ctx_prf_head "x" Bool [::])) = execD [% {"x"}].
 Proof. by congr execD; congr exp_var; exact: Prop_irrelevance. Qed.
 
 Lemma ex_bern13 U : lhs1 tt U = bern13 U.

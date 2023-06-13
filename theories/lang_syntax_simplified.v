@@ -236,40 +236,6 @@ Example letin_plus' := Letin "x" (Cst 1%:R)
                       (Letin "y" (Cst 2%:R)
                       (Plus (@Var [:: ("y", Real); ("x", Real)] Real "x" erefl) (Var "y" erefl))) : exp [::] _.
 
-
-Structure tagged_ctx := Tag {untag : ctx}.
-
-Definition recurse_tag h := Tag h.
-Canonical found_tag h := recurse_tag h.
-
-Structure find (s : string) (t : typ) := Find {
-  ctx_of : tagged_ctx ;
-  ctx_prf : t = nth Unit (map snd (untag ctx_of))
-                         (index s (map fst (untag ctx_of)))}.
-
-Lemma left_pf (s : string) (t : typ) (l : ctx) :
-  t = nth Unit (map snd ((s, t) :: l)) (index s (map fst ((s, t) :: l))).
-Proof.
-by rewrite /= !eqxx/=.
-Qed.
-
-Canonical found_struct s t (l : ctx) : find s t :=
-  Eval hnf in @Find s t (found_tag ((s, t) :: l)) (@left_pf s t l).
-
-Lemma right_pf (s : string) (t : typ) (l : ctx) u t' :
-  s != u ->
-  t' = nth Unit (map snd l) (index u (map fst l)) ->
-  t' = nth Unit (map snd ((s, t) :: l)) (index u (map fst ((s, t) :: l))).
-Proof.
-move=> su ut'l /=.
-case: ifPn => //=.
-by rewrite (negbTE su).
-Qed.
-
-Canonical recurse_struct s t t' u {su : infer (s != u)} (l : find u t') : find u t' :=
-  Eval hnf in @Find u t' (recurse_tag ((s, t) :: untag (ctx_of l)))
-  (@right_pf s t (untag (ctx_of l)) u t' su (ctx_prf l)).
-
 Definition Var' (x : string) (t : typ) (g : find x t) :=
   @Var (untag (ctx_of g)) t x (ctx_prf g).
 
