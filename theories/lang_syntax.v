@@ -19,9 +19,10 @@ From mathcomp Require Import ring.
 (*              mctx g := the measurable type corresponding to the context g  *)
 (*                        It is formed of nested pairings of measurable       *)
 (*                        spaces.                                             *)
-(*            expD g t == syntax of deterministic terms of type t in          *)
-(*                        context g                                           *)
-(*            expP g t == syntax of probabilistic terms                       *)
+(*                flag == a flag is either D (deterministic) or               *)
+(*                        P (probabilistic)                                   *)
+(*           exp f g t == syntax of expressions with flag f of type t         *)
+(*                        context g                                          *)
 (*          dval R g t == "deterministic value", i.e.,                        *)
 (*                        function from mctx g to mtyp t                      *)
 (*          pval R g t == "probabilistic value", i.e.,                        *)
@@ -345,32 +346,31 @@ Arguments mctx {R}.
 Section syntax_of_expressions.
 Context {R : realType}.
 
-Inductive expD : ctx -> typ -> Type :=
-| exp_unit g : expD g Unit
-| exp_bool g : bool -> expD g Bool
-| exp_real g : R -> expD g Real
-| exp_pair g t1 t2 : expD g t1 -> expD g t2 -> expD g (Pair t1 t2)
+Inductive flag := D | P.
+
+Inductive exp : flag -> ctx -> typ -> Type :=
+| exp_unit g : exp D g Unit
+| exp_bool g : bool -> exp D g Bool
+| exp_real g : R -> exp D g Real
+| exp_pair g t1 t2 : exp D g t1 -> exp D g t2 -> exp D g (Pair t1 t2)
 | exp_var g x t : t = nth Unit (map snd g) (index x (map fst g)) ->
-    expD g t
+    exp D g t
 | exp_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-    expD g (Prob Bool)
-| exp_poisson g : nat -> expD g Real -> expD g Real
-| exp_normalize g t : expP g t -> expD g (Prob t)
-| expD_weak g h t x : expD (g ++ h) t -> x.1 \notin map fst (g ++ h) ->
-    expD (g ++ x :: h) t
-with expP : ctx -> typ -> Type :=
-| exp_if g t : expD g Bool -> expP g t -> expP g t -> expP g t
-| exp_letin g t1 t2 str : expP g t1 -> expP ((str, t1) :: g) t2 ->
-    expP g t2
-| exp_sample g t : expD g (Prob t) -> expP g t
-| exp_score g : expD g Real -> expP g Unit
-| exp_return g t : expD g t -> expP g t
-| expP_weak g h t x : expP (g ++ h) t -> x.1 \notin map fst (g ++ h) ->
-    expP (g ++ x :: h) t.
+    exp D g (Prob Bool)
+| exp_poisson g : nat -> exp D g Real -> exp D g Real
+| exp_normalize g t : exp P g t -> exp D g (Prob t)
+| exp_if dp g t : exp D g Bool -> exp dp g t -> exp dp g t -> exp dp g t
+| exp_letin g t1 t2 str : exp P g t1 -> exp P ((str, t1) :: g) t2 ->
+    exp P g t2
+| exp_sample g t : exp D g (Prob t) -> exp P g t
+| exp_score g : exp D g Real -> exp P g Unit
+| exp_return g t : exp D g t -> exp P g t
+| exp_weak dp g h t x : exp dp (g ++ h) t -> x.1 \notin map fst (g ++ h) ->
+    exp dp (g ++ x :: h) t.
 
 End syntax_of_expressions.
 
-Arguments expD {R}.
+Arguments exp {R}.
 Arguments exp_unit {R g}.
 Arguments exp_bool {R g}.
 Arguments exp_real {R g}.
@@ -379,14 +379,12 @@ Arguments exp_var {R g} _ {t}.
 Arguments exp_bernoulli {R g}.
 Arguments exp_poisson {R g}.
 Arguments exp_normalize {R g _}.
-Arguments expD_weak {R g h t x}.
-Arguments expP {R}.
-Arguments exp_if {R g t}.
+Arguments exp_if {R dp g t}.
 Arguments exp_letin {R g _ _}.
 Arguments exp_sample {R g t}.
 Arguments exp_score {R g}.
 Arguments exp_return {R g _}.
-Arguments expP_weak {R g h t x}.
+Arguments exp_weak {R dp g h t x}.
 
 Declare Custom Entry expr.
 Notation "[ e ]" := e (e custom expr at level 5) : lang_scope.
@@ -396,7 +394,7 @@ Notation "'return' x" := (@exp_return _ _ _ x)
   (in custom expr at level 2) : lang_scope.
 Notation "% x" := (@exp_var _ _ x _ erefl)
   (in custom expr at level 1) : lang_scope.
-Notation "e :+ x" := (@expP_weak _ [::] _ _ (x, _) e erefl)
+Notation "e :+ x" := (@exp_weak _ _ [::] _ _ (x, _) e erefl)
   (in custom expr at level 1) : lang_scope.
 Notation "( x , y )" := (exp_pair x y)
   (in custom expr at level 1) : lang_scope.
@@ -420,26 +418,22 @@ Notation "'Score' e" := (exp_score e)
 Section free_vars.
 Context {R : realType}.
 
-Fixpoint free_varsD g t (e : @expD R g t) : seq string :=
+Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   match e with
-  | exp_unit _            => [::]
-  | exp_bool _ _          => [::]
-  | exp_real _ _          => [::]
-  | exp_pair _ _ _ e1 e2  => free_varsD e1 ++ free_varsD e2
-  | exp_var _ x _ _       => [:: x]
-  | exp_bernoulli _ _ _   => [::]
-  | exp_poisson _ _ e     => free_varsD e
-  | exp_normalize _ _ e   => free_varsP e
-  | expD_weak _ _ _ x e _ => rem x.1 (free_varsD e)
-  end
-with free_varsP T g (e : expP T g) : seq _ :=
-  match e with
-  | exp_if _ _ e1 e2 e3     => free_varsD e1 ++ free_varsP e2 ++ free_varsP e3
-  | exp_letin _ _ _ x e1 e2 => free_varsP e1 ++ rem x (free_varsP e2)
+  | exp_unit _              => [::]
+  | exp_bool _ _            => [::]
+  | exp_real _ _            => [::]
+  | exp_pair _ _ _ e1 e2    => free_vars e1 ++ free_vars e2
+  | exp_var _ x _ _         => [:: x]
+  | exp_bernoulli _ _ _     => [::]
+  | exp_poisson _ _ e       => free_vars e
+  | exp_normalize _ _ e     => free_vars e
+  | exp_if _ _ _ e1 e2 e3   => free_vars e1 ++ free_vars e2 ++ free_vars e3
+  | exp_letin _ _ _ x e1 e2 => free_vars e1 ++ rem x (free_vars e2)
   | exp_sample _ _ _        => [::]
-  | exp_score _ e           => free_varsD e
-  | exp_return _ _ e        => free_varsD e
-  | expP_weak _ _ _ x e _   => rem x.1 (free_varsP e)
+  | exp_score _ e           => free_vars e
+  | exp_return _ _ e        => free_vars e
+  | exp_weak _ _ _ _ x e _  => rem x.1 (free_vars e)
   end.
 
 End free_vars.
@@ -564,69 +558,74 @@ Context {R : realType}.
 Implicit Type (g : ctx) (str : string).
 Local Open Scope lang_scope.
 
-Inductive evalD : forall g t, expD g t ->
+Inductive evalD : forall g t, exp D g t ->
   forall f : dval R g t, measurable_fun setT f -> Prop :=
 | eval_unit g : @exp_unit _ g -D-> cst tt ; ktt
 
 | eval_bool g b : @exp_bool _ g b -D-> cst b ; kb b
 
-| eval_real g r : ([r :R] : expD g _) -D-> cst r ; kr r
+| eval_real g r : ([r :R] : exp D g _) -D-> cst r ; kr r
 
-| eval_pair g t1 (e1 : expD g t1) f1 mf1 t2 (e2 : expD g t2) f2 mf2 :
+| eval_pair g t1 (e1 : exp D g t1) f1 mf1 t2 (e2 : exp D g t2) f2 mf2 :
   e1 -D-> f1 ; mf1 -> e2 -D-> f2 ; mf2 ->
   [(e1, e2)] -D-> fun x => (f1 x, f2 x) ;
   measurable_fun_prod mf1 mf2
 
 | eval_var g str : let i := index str (map fst g) in
-  ([% str] : expD g _) -D-> @acc_typ R (map snd g) i ; @macc_typ R (map snd g) i
+  ([% str] : exp D g _) -D-> @acc_typ R (map snd g) i ; @macc_typ R (map snd g) i
 
 | eval_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   @exp_bernoulli _ g _ r1 -D-> cst (bernoulli r1) ; measurable_cst _
 
-| eval_poisson g n (e : expD g _) f mf :
+| eval_poisson g n (e : exp D g _) f mf :
   e -D-> f ; mf ->
   exp_poisson n e -D-> poisson n \o f ; measurableT_comp (mpoisson n) mf
 
-| eval_normalize g t (e : expP g t) k :
+| eval_normalize g t (e : exp P g t) k :
   e -P-> k ->
   exp_normalize e -D-> (normalize k point : _ -> pprobability _ _) ;
                        measurable_fun_mnormalize k
 
-| evalD_weak g h t (e : expD (g ++ h) t) x
+| evalD_if g t (e1 : exp D g Bool) f1 mf1 (e2 : exp D g t) f2 mf2 (e3 : exp D g t) f3 mf3 :
+  e1 -D-> f1 ; mf1 -> e2 -D-> f2 ; mf2 -> e3 -D-> f3 ; mf3 ->
+  [if e1 then e2 else e3] -D-> fun x => if f1 x then f2 x else f3 x ;
+                                        measurable_fun_ifT mf1 mf2 mf3
+
+| evalD_weak g h t (e : exp D (g ++ h) t) x
     (Hx : x.1 \notin map fst (g ++ h)) f mf :
   e -D-> f ; mf ->
-  expD_weak e Hx -D-> @weak R g h x t f ; @mweak R g h x t f mf
+  exp_weak e Hx -D-> @weak R g h x t f ; @mweak R g h x t f mf
 
 where "e -D-> v ; mv" := (@evalD _ _ e v mv)
 
-with evalP : forall g t, expP g t -> pval R g t -> Prop :=
+with evalP : forall g t, exp P g t -> pval R g t -> Prop :=
 
-| eval_ifP g t (e1 : expD g Bool) f1 mf (e2 : expP g t) k2 (e3 : expP g t) k3 :
+| evalP_if g t (e1 : exp D g Bool) f1 mf (e2 : exp P g t) k2 (e3 : exp P g t) k3 :
   e1 -D-> f1 ; mf -> e2 -P-> k2 -> e3 -P-> k3 ->
   [if e1 then e2 else e3] -P-> ite mf k2 k3
 
-| eval_letin g t1 t2 str (e1 : expP g t1) (e2 : expP ((str, t1) :: g) t2)
+| eval_letin g t1 t2 str (e1 : exp P g t1) (e2 : exp P ((str, t1) :: g) t2)
   (k1 : @pval R g t1) (k2 : @pval R ((str, t1) :: g) t2) :
   e1 -P-> k1 ->
   e2 -P-> k2 ->
   [let str := e1 in e2] -P-> letin' k1 k2
 
-| eval_sample g t (e : expD g (Prob t))
+| eval_sample g t (e : exp D g (Prob t))
     (p : mctx g -> pprobability (mtyp t) R) mp :
   e -D-> p ; mp ->
   [Sample e] -P-> sample p mp
 
-| eval_score g (e : expD g Real) (f : mctx g -> R) (mf : measurable_fun _ f) :
+| eval_score g (e : exp D g Real) (f : mctx g -> R) (mf : measurable_fun _ f) :
   e -D-> f ; mf ->
   [Score e] -P-> kscore mf
 
-| eval_return g t (e : expD g t) (f : _ -> _) (mf : measurable_fun _ f) :
+| eval_return g t (e : exp D g t) (f : _ -> _) (mf : measurable_fun _ f) :
   e -D-> f ; mf -> [return e] -P-> ret mf
 
-| evalP_weak g h t (e : expP (g ++ h) t) x
+| evalP_weak g h t (e : exp P (g ++ h) t) x
     (Hx : x.1 \notin map fst (g ++ h)) f :
   e -P-> f ->
-  expP_weak e Hx -P-> @kweak R g h x t f
+  exp_weak e Hx -P-> @kweak R g h x t f
 
 where "e -P-> v" := (@evalP _ _ e v).
 
@@ -638,25 +637,22 @@ Notation "e -P-> v" := (@evalP _ _ _ e v) : lang_scope.
 Scheme evalD_mut_ind := Induction for evalD Sort Prop
 with evalP_mut_ind := Induction for evalP Sort Prop.
 
-Scheme expD_mut_ind := Induction for expD Sort Prop
-with expP_mut_ind := Induction for expP Sort Prop.
-
 (* properties of the evaluation relation *)
 Section eval_prop.
 Variables (R : realType).
 Local Open Scope lang_scope.
 
-Lemma evalD_uniq g t (e : expD g t) (u v : dval R g t)
+Lemma evalD_uniq g t (e : exp D g t) (u v : dval R g t)
     (mu : measurable_fun setT u) (mv : measurable_fun setT v) :
   e -D-> u ; mu -> e -D-> v ; mv -> u = v.
 Proof.
 move=> hu.
 apply: (@evalD_mut_ind R
-  (fun g t (e : expD g t) (f : dval R g t)
+  (fun g t (e : exp D g t) (f : dval R g t)
   (mf : measurable_fun setT f) (h1 : evalD e mf) =>
     forall (v : dval R g t) (mv : measurable_fun setT v),
     evalD e mv -> f = v)
-  (fun g t (e : expP g t)
+  (fun g t (e : exp P g t)
     (u : @pval R g t) (h1 : evalP e u) =>
     forall (v : @pval R g t), evalP e v -> u = v)); last exact: hu.
 all: (rewrite {g t e u v mu mv hu}).
@@ -695,6 +691,16 @@ all: (rewrite {g t e u v mu mv hu}).
   inj_ex H2; subst e0.
   inj_ex H4; subst v.
   by rewrite (IH _ H3).
+- move=> g t e1 f1 mf1 e2 f2 mf2 e3 f3 mf3 ev1 IH1 ev2 IH2 ev3 IH3 f mf.
+  inversion 1; subst g0 t0.
+  inj_ex H2; subst e0.
+  inj_ex H6; subst e6.
+  inj_ex H7; subst e7.
+  inj_ex H9; subst f.
+  clear H11.
+  have ? := IH1 _ _ H5; subst f6.
+  have ? := IH2 _ _ H12; subst f7.
+  by have ? := IH3 _ _ H13; subst f8.
 - move=> g h t e0 x xgh f mf ev IH {}v {}mv.
   inversion 1; subst t0 g0 h0 x0.
   inj_ex H9; rewrite -H9.
@@ -742,15 +748,15 @@ all: (rewrite {g t e u v mu mv hu}).
   by rewrite (IH _ H3).
 Qed.
 
-Lemma evalP_uniq g t (e : expP g t) (u v : @pval R g t) :
-  evalP e u -> evalP e v -> u = v.
+Lemma evalP_uniq g t (e : exp P g t) (u v : @pval R g t) :
+  e -P-> u -> e -P-> v -> u = v.
 Proof.
 move=> eu.
 apply: (@evalP_mut_ind R
-  (fun g t (e : expD g t) (f : dval R g t)
+  (fun g t (e : exp D g t) (f : dval R g t)
     (mf : measurable_fun setT f) (h1 : evalD e mf) =>
     forall (v : dval R g t) (mv : measurable_fun setT v), evalD e mv -> f = v)
-  (fun g t (e : expP g t)
+  (fun g t (e : exp P g t)
     (u : pval R g t) (h1 : evalP e u) =>
     forall (v : pval R g t), evalP e v -> u = v)); last exact: eu.
 all: rewrite {g t e u v eu}.
@@ -792,6 +798,16 @@ all: rewrite {g t e u v eu}.
   inj_ex H4; subst v.
   inj_ex H5; subst mv.
   by rewrite (IH _ H3).
+- move=> g t e1 f1 mf1 e2 f2 mf2 e3 f3 mf3 ev IH ev1 IH1 ev2 IH2 f mf.
+  inversion 1; subst g0 t0.
+  inj_ex H2; subst e0.
+  inj_ex H6; subst e6.
+  inj_ex H7; subst e7.
+  inj_ex H9; subst f.
+  clear H11.
+  have ? := IH1 _ _ H12; subst f7.
+  have ? := IH2 _ _ H13; subst f8.
+  by have ? := IH _ _ H5; subst f6.
 - move=> g h t e x xgh f mf ef IH {}v {}mv.
   inversion 1; subst x0 g0 h0 t0.
   inj_ex H7; subst e1.
@@ -838,13 +854,18 @@ all: rewrite {g t e u v eu}.
   by rewrite (IH _ H3).
 Qed.
 
-Lemma evalD_total g t (e : expD g t) :
-  exists f (mf : measurable_fun _ f), @evalD R g t e f mf.
+Definition eval_total_statement dp g t :=
+  match dp with
+  | D => fun (e : @exp R D g t) =>
+      exists f (mf : measurable_fun _ f), e -D-> f ; mf
+  | P => fun (e : @exp R P g t) =>
+      exists (k : pval R g t), @evalP R g t e k
+  end.
+
+Lemma eval_total dp g t (e : @exp R dp g t) : eval_total_statement e.
 Proof.
-apply: (@expD_mut_ind R
-  (fun g t (e : expD g t) => exists f (mf : measurable_fun setT f), evalD e mf)
-  (fun g t (e : expP g t) => exists k, evalP e k)).
-all: rewrite {g t e}.
+elim: e.
+all: rewrite {dp g t}.
 - by do 2 eexists; exact: eval_unit.
 - by do 2 eexists; exact: eval_bool.
 - by do 2 eexists; exact: eval_real.
@@ -858,10 +879,14 @@ all: rewrite {g t e}.
 - move=> g t e [k ek].
   exists (normalize k point), (measurable_fun_mnormalize k).
   exact: eval_normalize.
-- move=> g h t x e [f [mf ef]] xgh.
-  by exists (weak f), (mweak mf); exact/evalD_weak.
-- move=> g t e1 [f [mf H1]] e2 [k2 H2] e3 [k3 H3].
-  by exists (ite mf k2 k3); exact: eval_ifP.
+- case.
+  + move=> g t e1 [f [mf H1]] e2 [f2 [mf2 H2]] e3 [f3 [mf3 H3]].
+    rewrite /eval_total_statement.
+    exists (fun g => if f g then f2 g else f3 g),
+      (measurable_fun_ifT mf mf2 mf3).
+    exact: evalD_if.
+  + move=> g t e1 [f [mf H1]] e2 [k2 H2] e3 [k3 H3].
+    by exists (ite mf k2 k3); exact: evalP_if.
 - move=> g t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
   by exists (letin' k1 k2); exact: eval_letin.
 - move=> g t e [f [/= mf ef]].
@@ -869,41 +894,20 @@ all: rewrite {g t e}.
 - move=> g e [f [mf f_mf]].
   by exists (kscore mf); exact: eval_score.
 - by move=> g t e [f [mf f_mf]]; exists (ret mf); exact: eval_return.
-- move=> g h st x e [k ek] xgh.
-  by exists (kweak k); exact: evalP_weak.
+- move=> [|].
+  + move=> g h t x e [f [mf ef]] xgh.
+    by exists (weak f), (mweak mf); exact/evalD_weak.
+  + move=> g h st x e [k ek] xgh.
+    by exists (kweak k); exact: evalP_weak.
 Qed.
 
-Lemma evalP_total g t (e : expP g t) : exists (k : pval R g t), @evalP R g t e k.
-Proof.
-apply: (@expP_mut_ind R
-  (fun g t (e : expD g t) => exists f (mf : measurable_fun _ f), evalD e mf)
-  (fun g t (e : expP g t) => exists k, evalP e k)).
-all: rewrite {g t e}.
-- by do 2 eexists; exact: eval_unit.
-- by do 2 eexists; exact: eval_bool.
-- by do 2 eexists; exact: eval_real.
-- move=> g t1 t2 e1 [f1 [mf1 H1]] e2 [f2 [mf2 H2]].
-  by exists (fun x => (f1 x, f2 x)); eexists; exact: eval_pair.
-- by move=> g x t tE; subst t; eexists; eexists; exact: eval_var.
-- by move=> r r1; eexists; eexists; exact: eval_bernoulli.
-- move=> g n e [f [mf ef]].
-  exists (poisson n \o f), (measurableT_comp (mpoisson n) mf).
-  exact: eval_poisson.
-- move=> g t e [k ek].
-  exists (normalize k point), (measurable_fun_mnormalize k).
-  exact: eval_normalize.
-- move=> g h t x e [f [mf ef]] xgh.
-  by exists (weak f), (mweak mf); exact: evalD_weak.
-- move=> g t e1 [f [mf H1]] e2 [k2 H2] e3 [k3 H3].
-  by exists (ite mf k2 k3); exact: eval_ifP.
-- move=> g t1 t2 x e1 [k1 ev1] e2 [k2 ev2].
-  by exists (letin' k1 k2); exact: eval_letin.
-- move=> g t e [f [mf ef]].
-  by eexists; exact: (@eval_sample _ _ _ _ _ mf).
-- by move=> g e [f [mf ef]]; exists (kscore mf); exact: eval_score.
-- by move=> g t e [f [mf ef]]; exists (ret mf); exact: eval_return.
-- by move=> g h s x e [k ek] xgh; exists (kweak k); exact: evalP_weak.
-Qed.
+Lemma evalD_total g t (e : @exp R D g t) :
+  exists f (mf : measurable_fun _ f), e -D-> f ; mf.
+Proof. exact: (eval_total e). Qed.
+
+Lemma evalP_total g t (e : @exp R P g t) :
+  exists (k : pval R g t), @evalP R g t e k.
+Proof. exact: (eval_total e). Qed.
 
 End eval_prop.
 
@@ -913,7 +917,7 @@ Local Open Scope lang_scope.
 Context {R : realType}.
 Implicit Type g : ctx.
 
-Definition execD g t (e : expD g t) :
+Definition execD g t (e : exp D g t) :
     {f : dval R g t & measurable_fun setT f} :=
   let: exist _ H := cid (evalD_total e) in
   existT _ _ (projT1 (cid H)).
@@ -922,10 +926,10 @@ Lemma evalD_execD g t e :
   let: x := @execD g t e in e -D-> projT1 x ; projT2 x.
  by rewrite /execD /=; case: cid => f [mf ?] /=; case: cid. Qed.
 
-Definition execP g t (e : expP g t) : pval R g t :=
+Definition execP g t (e : exp P g t) : pval R g t :=
   proj1_sig (cid (evalP_total e)).
 
-Lemma evalP_execP g t (e : expP g t) : e -P-> execP e.
+Lemma evalP_execP g t (e : exp P g t) : e -P-> execP e.
 Proof. by rewrite /execP; case: cid. Qed.
 
 Definition execP_return_real g (r : R) : pval R g Real :=
@@ -961,7 +965,7 @@ have ? := evalD_uniq ev1 ev2; subst f.
 by congr existT; exact: Prop_irrelevance.
 Qed.
 
-Lemma execD_normalize g t (e : expP g t) : @execD g _ (exp_normalize e) = existT _ (normalize (execP e) point) (measurable_fun_mnormalize (execP e)).
+Lemma execD_normalize g t (e : exp P g t) : @execD g _ (exp_normalize e) = existT _ (normalize (execP e) point : _ -> pprobability _ _) (measurable_fun_mnormalize (execP e)).
 Proof.
 rewrite /execD /=.
 case: cid => f [mf ?].
@@ -971,7 +975,7 @@ have ? := evalD_uniq ev1 ev2; subst f.
 by congr existT; exact: Prop_irrelevance.
 Qed.
 
-Lemma execD_pair g t1 t2 (e1 : expD g t1) (e2 : expD g t2) :
+Lemma execD_pair g t1 t2 (e1 : exp D g t1) (e2 : exp D g t2) :
   let f1 := projT1 (execD e1) in
   let f2 := projT1 (execD e2) in
   let mf1 := projT2 (execD e1) in
@@ -1003,7 +1007,7 @@ have ? := evalD_uniq ev1 (@eval_var R g str); subst f.
 by congr existT; exact: Prop_irrelevance.
 Qed.
 
-Lemma execD_poisson g n (e : expD g Real) :
+Lemma execD_poisson g n (e : exp D g Real) :
   execD (exp_poisson n e) =
     existT _ (poisson n \o (projT1 (execD e)))
              (measurableT_comp (mpoisson n) (projT2 (execD e))).
@@ -1022,10 +1026,10 @@ Lemma execP_if g st e1 e2 e3 :
   ite (projT2 (execD e1)) (execP e2) (execP e3).
 Proof.
 apply/evalP_uniq; first exact/evalP_execP.
-by apply/eval_ifP; [exact: evalD_execD|exact: evalP_execP|exact: evalP_execP].
+by apply/evalP_if; [exact: evalD_execD|exact: evalP_execP|exact: evalP_execP].
 Qed.
 
-Lemma execP_letin g x t1 t2 (e1 : expP g t1) (e2 : expP ((x, t1) :: g) t2) :
+Lemma execP_letin g x t1 t2 (e1 : exp P g t1) (e2 : exp P ((x, t1) :: g) t2) :
   execP [let x := e1 in e2] = letin' (execP e1) (execP e2) :> (R.-sfker _ ~> _).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
@@ -1039,23 +1043,23 @@ apply: evalP_uniq; first exact/evalP_execP.
 by apply: eval_sample => /=; exact: eval_bernoulli.
 Qed.
 
-Lemma execP_score g (e : expD g Real) :
+Lemma execP_score g (e : exp D g Real) :
   execP [Score e] = score (projT2 (execD e)).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 exact/eval_score/evalD_execD.
 Qed.
 
-Lemma execP_return g t (e : expD g t) : 
+Lemma execP_return g t (e : exp D g t) :
   execP [return e] = ret (projT2 (execD e)).
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 by apply: eval_return; exact/evalD_execD.
 Qed.
 
-Lemma execP_weak g h x t (e : expP (g ++ h) t)
+Lemma execP_weak g h x t (e : exp P (g ++ h) t)
     (xl : x.1 \notin map fst (g ++ h)) :
-  execP (@expP_weak R g h t _ e xl) = [the _.-sfker _ ~> _ of kweak (execP e)].
+  execP (@exp_weak R P g h t _ e xl) = [the _.-sfker _ ~> _ of kweak (execP e)].
 Proof.
 apply: evalP_uniq; first exact/evalP_execP.
 by apply: evalP_weak; exact: evalP_execP.
@@ -1077,14 +1081,14 @@ by rewrite execP_return execD_var; congr ret.
 Qed.
 
 (* generic version *)
-Lemma letinC g t1 t2 (e1 : @expP R g t1) (e2 : expP g t2)
+Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
   (xl : "x" \notin map fst g) (yl : "y" \notin map fst g) :
   forall U, measurable U ->
   execP [let "x" := e1 in
-         let "y" := {@expP_weak _ [::] _ _ ("x", t1) e2 xl} in
+         let "y" := {@exp_weak _ _ [::] _ _ ("x", t1) e2 xl} in
          return (%{"x"}, %{"y"})] ^~ U =
   execP [let "y" := e2 in
-         let "x" := {@expP_weak _ [::] _ _ ("y", t2) e1 yl} in
+         let "x" := {@exp_weak _ _ [::] _ _ ("y", t2) e1 yl} in
          return (%{"x"}, %{"y"})] ^~ U.
 Proof.
 move=> U mU; apply/funext => x.
@@ -1105,8 +1109,8 @@ Qed.
 
 (* letinC with a concrete context *)
 Lemma letinC_list (g := [:: ("a", Unit); ("b", Bool)]) t1 t2
-    (e1 : @expP R g t1)
-    (e2 : expP g t2) :
+    (e1 : @exp R P g t1)
+    (e2 : exp P g t2) :
   forall U, measurable U ->
   execP [let "x" := e1 in
          let "y" := e2 :+ {"x"} in
@@ -1135,8 +1139,8 @@ rewrite (execD_var _ "x")/= (execD_var _ "y")/=.
 Abort.
 
 (* TODO *)
-Lemma execP_LetInL g t1 t2 x (e1 : @expP R g t1) (e1' : expP g t1)
-   (e2 : expP ((x, t1) :: g) t2) :
+Lemma execP_LetInL g t1 t2 x (e1 : @exp R P g t1) (e1' : exp P g t1)
+   (e2 : exp P ((x, t1) :: g) t2) :
   forall U, measurable U ->
   execP e1 = execP e1' ->
   execP [let x := e1 in e2] ^~ U =
@@ -1145,8 +1149,8 @@ Proof.
 by move=> U mU e1e1'; rewrite !execP_letin e1e1'.
 Qed.
 
-Lemma execP_LetInR g t1 t2 x (e1 : @expP R g t1)
-    (e2 : expP _ t2) (e2' : expP ((x, t1) :: g) t2) :
+Lemma execP_LetInR g t1 t2 x (e1 : @exp R P g t1)
+    (e2 : exp P _ t2) (e2' : exp P ((x, t1) :: g) t2) :
   forall U, measurable U ->
   execP e2 = execP e2' ->
   execP [let x := e1 in e2] ^~ U =
@@ -1162,13 +1166,13 @@ Local Open Scope lang_scope.
 Variable R : realType.
 
 Lemma letinA g (xg : "x" \notin map fst g) t1 t2 t3
-  (e1 : @expP R g t1)
-  (e2 : expP [:: ("x", t1) & g] t2)
-  (e3 : expP [:: ("y", t2) & g] t3) :
+  (e1 : @exp R P g t1)
+  (e2 : exp P [:: ("x", t1) & g] t2)
+  (e3 : exp P [:: ("y", t2) & g] t3) :
   forall U, measurable U ->
   execP [let "x" := e1 in
          let "y" := e2 in
-         {@expP_weak _ [:: ("y", t2)] _ _ ("x", t1) e3 xg}] ^~ U =
+         {@exp_weak _ _ [:: ("y", t2)] _ _ ("x", t1) e3 xg}] ^~ U =
   execP [let "y" :=
            let "x" := e1 in e2 in
          e3] ^~ U.
@@ -1208,9 +1212,10 @@ Definition exp_var' (str : string) (t : typ) (g : find str t) :=
 Local Notation "# str" := (@exp_var' str%string _ _) (in custom expr at level 1).
 
 Local Open Scope lang_scope.
-Example e3 := [let "x" := return {1}:R in
-               let "y" := return #{"x"} in
-               let "z" := return #{"y"} in return #{"z"}] : expP [::] _.
+Example e3 : exp P [::] _ :=
+  [let "x" := return {1}:R in
+   let "y" := return #{"x"} in
+   let "z" := return #{"y"} in return #{"z"}].
 
 End exp_var'.
 
@@ -1236,13 +1241,13 @@ Definition score_poi :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
   score (measurableT_comp (mpoisson 4) (@macc0of2 _ _ _ _)).
 
-Example kstaton_bus_exp : expP [::] Bool :=
+Example kstaton_bus_exp : exp P [::] Bool :=
   [let "x" := Sample {(@exp_bernoulli R [::] (2 / 7%:R)%:nng p27)} in
    let "r" := if #{"x"} then return {3}:R else return {10}:R in
    let "_" := Score {(exp_poisson 4 [#{"r"}])} in
    return %{"x"}].
 
-Example staton_bus_exp : expD [::] (Prob Bool) := exp_normalize kstaton_bus_exp.
+Example staton_bus_exp : exp D [::] (Prob Bool) := exp_normalize kstaton_bus_exp.
 
 Local Definition kstaton_bus'' :=
   letin' sample_bern
@@ -1254,7 +1259,7 @@ Proof.
 apply: eval_letin.
   by apply: eval_sample; exact: eval_bernoulli.
 apply: eval_letin.
-  apply/eval_ifP/eval_return/eval_real/eval_return/eval_real.
+  apply/evalP_if/eval_return/eval_real/eval_return/eval_real.
   rewrite/exp_var'/=.
   have /= := @eval_var R [:: ("x", Bool)] "x".
   have <- : ([% {"x"}] = @exp_var R _ "x" _ (ctx_prf_head "x" Bool [::])).
@@ -1447,9 +1452,9 @@ Context {R : realType}.
 Local Notation "# str" := (@exp_var' R str%string _ _) (in custom expr at level 1).
 
 (* lhs *)
-Definition scorer (r : {nonneg R}) : expP [::] Unit := [Score {r%:num}:R].
+Definition scorer (r : {nonneg R}) : exp P [::] Unit := [Score {r%:num}:R].
 
-Definition ex_fail g : @expP R g Unit := 
+Definition ex_fail g : @exp R P g Unit :=
   [let "x" := Score {0}:R in return {exp_unit}].
 
 Lemma ex_fail_fail g x U : execP (ex_fail g) x U = fail tt U.
@@ -1460,8 +1465,8 @@ by rewrite /kcomp /kscore /= ge0_integral_mscale//= normr0 mul0e.
 Qed.
 
 (* rhs *)
-Definition iffail (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : expP [::] Unit :=
-  [let "x" := Sample {exp_bernoulli r r1} in 
+Definition iffail (r : {nonneg R}) (r1 : (r%:num <= 1)%R) : exp P [::] Unit :=
+  [let "x" := Sample {exp_bernoulli r r1} in
   if #{"x"} then return {exp_unit} else {ex_fail _}].
 
 Lemma ex_score_fail r (r1 : (r%:num <= 1)%R) :
@@ -1497,7 +1502,7 @@ Goal projT1 (execD (exp_normalize [return {1}:R])) =
 Proof. by rewrite execD_normalize execP_return execD_real. Qed.
 
 Lemma ex_normalize_return_r g r x U :
-  projT1 (execD (exp_normalize [return {r}:R] : expD g _)) x U =
+  projT1 (execD (exp_normalize [return {r}:R] : exp D g _)) x U =
   dirac (cst r x) U :> \bar R.
 Proof.
 rewrite execD_normalize execP_return execD_real.
