@@ -203,11 +203,12 @@ Example letin_plus' : exp [::] _ :=
 
 Definition exp_var' str (t : typ) (g : find str t) :=
   @exp_var (untag (ctx_of g)) t str (ctx_prf g).
+Arguments exp_var' str {t} g.
 
 Example letin_plus : exp [::] _ :=
   exp_letin "x" (exp_real 1)
   (exp_letin "y" (exp_real 2)
-   (exp_add (@exp_var' "x" _ _) (@exp_var' "y" _ _))).
+   (exp_add (exp_var' "x" _) (exp_var' "y" _))).
 
 Declare Custom Entry expr.
 
@@ -216,7 +217,7 @@ Notation "{ x }" := x (in custom expr, x constr).
 Notation "x ':R'" := (exp_real x) (in custom expr at level 1).
 Notation "x" := x (in custom expr at level 0, x ident).
 Notation "% x" := (exp_var x erefl) (in custom expr at level 1).
-Notation "# x" := (@exp_var' x%string _ _) (in custom expr at level 1).
+Notation "# x" := (exp_var' x%string _) (in custom expr at level 1).
 Notation "x + y" := (exp_add x y)
   (in custom expr at level 2, left associativity).
 Notation "'let' x ':=' e1 'in' e2" := (exp_letin x e1 e2)
@@ -333,7 +334,7 @@ inversion H; subst g0 str0.
 by inj_ex H6; subst f.
 Qed.
 
-Lemma exp_var'E str t (f : find str t) H : exp_var' f = exp_var str H.
+Lemma exp_var'E str t (f : find str t) H : exp_var' str f = exp_var str H.
 Proof. by rewrite /exp_var'; congr exp_var. Qed.
 
 Lemma exec_letin g x t1 t2 (e1 : exp g t1) (e2 : exp ((x, t1) :: g) t2) :

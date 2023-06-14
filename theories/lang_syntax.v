@@ -667,7 +667,24 @@ with evalP : forall g t, exp P g t -> pval R g t -> Prop :=
 
 where "e -P-> v" := (@evalP _ _ e v).
 
+Definition exp_var' (str : string) (t : typ) (g : find str t) :=
+  @exp_var R (untag (ctx_of g)) str t (ctx_prf g).
+Arguments exp_var' str {t} g.
+
+Local Notation "# str" := (@exp_var' str%string _ _) (in custom expr at level 1).
+
+Lemma exp_var'E str t (f : find str t) H : exp_var' str f = exp_var str H.
+Proof. by rewrite /exp_var'; congr exp_var. Qed.
+
+Local Open Scope lang_scope.
+Example e3 : exp P [::] _ :=
+  [let "x" := return {1}:R in
+   let "y" := return #{"x"} in
+   let "z" := return #{"y"} in return #{"z"}].
+
 End eval.
+Arguments exp_var'E {R} str.
+Notation "# str" := (@exp_var' _ str%string _ _) (in custom expr at level 1).
 
 Notation "e -D-> v ; mv" := (@evalD _ _ _ e v mv) : lang_scope.
 Notation "e -P-> v" := (@evalP _ _ _ e v) : lang_scope.
@@ -935,23 +952,7 @@ Proof. exact: (eval_total e). Qed.
 Lemma evalP_total g t (e : @exp R P g t) : exists k, e -P-> k.
 Proof. exact: (eval_total e). Qed.
 
-Definition exp_var' (str : string) (t : typ) (g : find str t) :=
-  @exp_var R (untag (ctx_of g)) str t (ctx_prf g).
-
-Local Notation "# str" := (@exp_var' str%string _ _) (in custom expr at level 1).
-
-Lemma exp_var'E str t (f : find str t) H : exp_var' f = exp_var str H.
-Proof. by rewrite /exp_var'; congr exp_var. Qed.
-
-Local Open Scope lang_scope.
-Example e3 : exp P [::] _ :=
-  [let "x" := return {1}:R in
-   let "y" := return #{"x"} in
-   let "z" := return #{"y"} in return #{"z"}].
-
 End eval_prop.
-Arguments exp_var'E {R} str.
-Notation "# str" := (@exp_var' _ str%string _ _) (in custom expr at level 1).
 
 Section execution_functions.
 Local Open Scope lang_scope.
