@@ -25,8 +25,6 @@ Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 
-Declare Scope easylang_scope.
-
 Section type.
 Variables (R : realType).
 
@@ -66,24 +64,18 @@ Inductive exp : Type :=
 | Plus : exp -> exp -> exp.
 Arguments Var {g T}.
 
-Declare Custom Entry exp.
+Declare Custom Entry expr.
 
-Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':R'" := (Cst x) (in custom exp at level 1)
-  : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2)
-  : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1)
-  : easylang_scope.
-Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom exp at level 3,
-   x constr,
-   e1 custom exp at level 2,
-   e2 custom exp at level 3,
-   left associativity) : easylang_scope.
-Notation "{ x }" := x (in custom exp, x constr) : easylang_scope.
-Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
-
-Local Open Scope easylang_scope.
+Notation "[ e ]" := e (e custom expr at level 5).
+Notation "{ x }" := x (in custom expr, x constr).
+Notation "x ':R'" := (Cst x) (in custom expr at level 1).
+Notation "x" := x (in custom expr at level 0, x ident).
+Notation "% x" := (Var x erefl) (in custom expr at level 1).
+Notation "x + y" := (Plus x y) (in custom expr at level 2, left associativity).
+Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom expr at level 3,
+  x constr,
+  e1 custom expr at level 2, e2 custom expr at level 3,
+  left associativity).
 
 Fail Example letin_once := @Letin "x" (Cst 1) (Var "x" erefl).
 Example letin_once := @Letin "x" (Cst 1) (@Var [:: ("x", Real)] Real "x" erefl).
@@ -127,24 +119,18 @@ Arguments Var {g T}.
 Arguments Cst {g}.
 Arguments Letin {g t}.
 
-Declare Custom Entry exp.
+Declare Custom Entry expr.
 
-Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':R'" := (Cst x) (in custom exp at level 1)
-  : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2)
-  : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1)
-  : easylang_scope.
-Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom exp at level 3,
-   x constr,
-   e1 custom exp at level 2,
-   e2 custom exp at level 3,
-   left associativity) : easylang_scope.
-Notation "{ x }" := x (in custom exp, x constr) : easylang_scope.
-Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
-
-Local Open Scope easylang_scope.
+Notation "[ e ]" := e (e custom expr at level 5).
+Notation "{ x }" := x (in custom expr, x constr).
+Notation "x ':R'" := (Cst x) (in custom expr at level 1).
+Notation "x" := x (in custom expr at level 0, x ident).
+Notation "% x" := (Var x erefl) (in custom expr at level 1).
+Notation "x + y" := (Plus x y) (in custom expr at level 2, left associativity).
+Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom expr at level 3,
+  x constr,
+  e1 custom expr at level 2, e2 custom expr at level 3,
+  left associativity).
 
 Fail Example letin_once : exp [::] := Letin "x" (Cst 1) (Var "x" erefl).
 Example letin_once : exp [::] :=
@@ -175,7 +161,7 @@ Goal @eval [::] Real [{1}:R + {2}:R] (fun=> 3).
 Proof. exact/eval_plus/eval_real/eval_real. Qed.
 Goal @eval [:: ("x", Real)] _ [% {"x"}] (@acc [:: ("x", Real)] 0).
 Proof. exact: eval_var. Qed.
-(* TODO *)
+(* TODO: rm? *)
 Check [let "x" := {1}:R in %{"x"} + {2}:R].
 
 End lang_intrinsic_sc.
@@ -200,24 +186,18 @@ Arguments Plus {g}.
 Arguments Var {g T}.
 Arguments Letin {g t u}.
 
-Declare Custom Entry exp.
+Declare Custom Entry expr.
 
-Notation "[ e ]" := e (e custom exp at level 5) : easylang_scope.
-Notation "x ':R'" := (Cst x) (in custom exp at level 1)
-  : easylang_scope.
-Notation "x + y" := (Plus x y) (in custom exp at level 2)
-  : easylang_scope.
-Notation "% x" := (Var x erefl) (in custom exp at level 1)
-  : easylang_scope.
-Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom exp at level 3,
-   x constr,
-   e1 custom exp at level 2,
-   e2 custom exp at level 3,
-   left associativity) : easylang_scope.
-Notation "{ x }" := x (in custom exp, x constr) : easylang_scope.
-Notation "x" := x (in custom exp at level 0, x ident) : easylang_scope.
-
-Local Open Scope easylang_scope.
+Notation "[ e ]" := e (e custom expr at level 5).
+Notation "{ x }" := x (in custom expr, x constr).
+Notation "x ':R'" := (Cst x) (in custom expr at level 1).
+Notation "x" := x (in custom expr at level 0, x ident).
+Notation "% x" := (Var x erefl) (in custom expr at level 1).
+Notation "x + y" := (Plus x y) (in custom expr at level 2, left associativity).
+Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom expr at level 3,
+  x constr,
+  e1 custom expr at level 2, e2 custom expr at level 3,
+  left associativity).
 
 Example e0 : exp [::] _ := [{1}:R].
 Example letin_once : exp [::] _ := Letin "x" (Cst 1) (Var "x" erefl).
@@ -241,8 +221,7 @@ Example letin_plus : exp [::] _ :=
   (Letin "y" (Cst 2)
    (Plus (@Var' "x" _ _) (@Var' "y" _ _))).
 
-Notation "# x" := (@Var' x%string _ _)
-  (in custom exp at level 1) : easylang_scope.
+Notation "# x" := (@Var' x%string _ _) (in custom expr at level 1).
 
 Example letin_plus_custom : exp [::] _ :=
   [let "x" := {1}:R in
@@ -278,8 +257,6 @@ Inductive eval : forall g t, exp g t -> (Type_of_ctx R g -> Type_of_typ R t) -> 
     e2 -e-> v2 ->
     Letin str e1 e2 -e-> (fun a => v2 (v1 a, a))
 where "e '-e->' v" := (@eval _ _ e v).
-
-Scheme eval_ind' := Induction for eval Sort Prop.
 
 Lemma eval_uniq g t (e : exp g t) u v :
   e -e-> u -> e -e-> v -> u = v.
