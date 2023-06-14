@@ -21,8 +21,14 @@ Ltac inj_ex H := revert H;
   | |- existT ?P ?l (existT ?Q ?t ?v1) =
        existT ?P ?l (existT ?Q ?t ?v2) -> _ =>
     (intro H; do 2 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
+  | |- existT ?P ?l (existT ?Q ?t ?v1) =
+       existT ?P ?l (existT ?Q ?t' ?v2) -> _ =>
+    (intro H; do 2 apply Classical_Prop.EqdepTheory.inj_pair2 in H)
   | |- existT ?P ?l ?v1 =
        existT ?P ?l ?v2 -> _ =>
+    (intro H; apply Classical_Prop.EqdepTheory.inj_pair2 in H)
+  | |- existT ?P ?l ?v1 =
+       existT ?P ?l' ?v2 -> _ =>
     (intro H; apply Classical_Prop.EqdepTheory.inj_pair2 in H)
 end.
 

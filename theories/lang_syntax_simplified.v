@@ -1,4 +1,4 @@
-Require Import String.
+Require Import String Classical.
 From HB Require Import structures.
 From mathcomp Require Import all_ssreflect ssralg.
 From mathcomp.classical Require Import mathcomp_extra boolp.
@@ -134,6 +134,7 @@ Fixpoint acc (g : ctx) (i : nat) :
                | j.+1 => fun H => acc j H.2
                end
   end.
+Arguments acc : clear implicits.
 
 Inductive eval : forall g (t : typ), exp g -> (Type_of_ctx R g -> Type_of_typ R t) -> Prop :=
 | eval_real g c : @eval g Real [c:R] (fun=> c)
@@ -142,13 +143,13 @@ Inductive eval : forall g (t : typ), exp g -> (Type_of_ctx R g -> Type_of_typ R 
     @eval g Real e2 (fun=> v2) ->
     @eval g Real [e1 + e2] (fun=> v1 + v2)
 | eval_var (g : ctx) str i :
-    i = index str (map fst g) -> eval [% str] (@acc g i).
+    i = index str (map fst g) -> eval [% str] (acc g i).
 
 Goal @eval [::] Real [{1}:R] (fun=> 1).
 Proof. exact: eval_real. Qed.
 Goal @eval [::] Real [{1}:R + {2}:R] (fun=> 3).
 Proof. exact/eval_plus/eval_real/eval_real. Qed.
-Goal @eval [:: ("x", Real)] _ [% {"x"}] (@acc [:: ("x", Real)] 0).
+Goal @eval [:: ("x", Real)] _ [% {"x"}] (acc [:: ("x", Real)] 0).
 Proof. exact: eval_var. Qed.
 Check [let "x" := {1}:R in %{"x"} + {2}:R] : exp [::].
 
@@ -203,13 +204,12 @@ Notation "[ e ]" := e (e custom expr at level 5).
 Notation "{ x }" := x (in custom expr, x constr).
 Notation "x ':R'" := (Cst x) (in custom expr at level 1).
 Notation "x" := x (in custom expr at level 0, x ident).
-Notation "% x" := (Var x erefl) (in custom expr at level 1).
+(*Notation "% x" := (Var x erefl) (in custom expr at level 1).*)
 Notation "x + y" := (Plus x y) (in custom expr at level 2, left associativity).
 Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom expr at level 3,
   x constr,
   e1 custom expr at level 2, e2 custom expr at level 3,
   left associativity).
-
 
 Notation "# x" := (@Var' x%string _ _) (in custom expr at level 1).
 
@@ -229,6 +229,7 @@ Fixpoint acc (g : ctx) (i : nat) :
                | j.+1 => fun H => acc j H.2
                end
   end.
+Arguments acc : clear implicits.
 
 Reserved Notation "e '-e->' v" (at level 40).
 
@@ -241,7 +242,7 @@ Inductive eval : forall g t, exp g t -> (Type_of_ctx R g -> Type_of_typ R t) -> 
     Plus e1 e2 -e-> fun x => v1 x + v2 x
 | eval_var g str :
     let i := index str (map fst g) in
-    Var str erefl -e-> @acc g i
+    Var str erefl -e-> acc g i
 | eval_letin g t t' str (e1 : exp g t) (e2 : exp ((str, t) :: g)  t') v1 v2 :
     e1 -e-> v1 ->
     e2 -e-> v2 ->
@@ -281,45 +282,71 @@ Qed.
 Lemma eval_total g t (e : exp g t) : exists v, e -e-> v.
 Proof.
 elim: e.
-eexists; exact: eval_tt.
-eexists; exact: eval_real.
-move=> {}g e1 [v1] IH1 e2 [v2] IH2.
-eexists; exact: (eval_plus IH1 IH2).
-move=> {}g {}t x e; subst t.
-eexists; exact: eval_var.
-move=> {}g {}t u x e1 [v1] IH1 e2 [v2] IH2.
-eexists; exact: (eval_letin IH1 IH2).
+- by eexists; exact: eval_tt.
+- by eexists; exact: eval_real.
+- move=> {}g e1 [v1] IH1 e2 [v2] IH2.
+  by eexists; exact: (eval_plus IH1 IH2).
+- move=> {}g {}t x e; subst t.
+  by eexists; exact: eval_var.
+- move=> {}g {}t u x e1 [v1] IH1 e2 [v2] IH2.
+  by eexists; exact: (eval_letin IH1 IH2).
 Qed.
 
-Definition exec g t (e : exp g t) : Type_of_ctx R g -> Type_of_typ R t.
-Proof.
-have /cid h := @eval_total g t e.
-exact: (proj1_sig h).
-Defined.
+Definition exec g t (e : exp g t) : Type_of_ctx R g -> Type_of_typ R t :=
+  proj1_sig (cid (@eval_total g t e)).
 
-Lemma eval_exec g t e : e -e-> @exec g t e.
-Proof. by rewrite /exec/= /sval; case: cid. Qed.
+Lemma exec_eval g t (e : exp g t) v : exec e = v -> e -e-> v.
+Proof. by move=> <-; rewrite /exec; case: cid. Qed.
+
+Lemma eval_exec g t (e : exp g t) v : e -e-> v -> exec e = v.
+Proof.
+move=> ev.
+by rewrite /exec; case: cid => f H/=; apply: eval_uniq; eauto.
+Qed.
 
 Lemma exec_real g r : @exec g Real (Cst r) = (fun=> r).
+Proof. by apply: eval_exec; exact: eval_real. Qed.
+
+Lemma exec_var g str t
+    (H : t = nth Unit (map snd g) (index str (map fst g))) :
+  exec (Var str H) =
+    eq_rect _ (fun a => Type_of_ctx R g -> Type_of_typ R a)
+      (acc g (index str (map fst g)))
+        _ (esym H).
 Proof.
-apply: eval_uniq.
-exact: eval_exec.
-apply: eval_real.
+subst t.
+rewrite {1}/exec.
+case: cid => f H.
+inversion H; subst g0 str0.
+by inj_ex H6; subst f.
 Qed.
+
+Lemma exec_var' str t (f : find str t) H :
+  exec (Var' f) = exec (Var str H).
+Proof. by rewrite /Var'; have -> : ctx_prf f = H. Qed.
+
+Lemma exec_letin g x t1 t2 (e1 : exp g t1) (e2 : exp ((x, t1) :: g) t2) :
+  exec [let x := e1 in e2] = (fun a => (exec e2) ((exec e1) a, a)).
+Proof. by apply: eval_exec; apply: eval_letin; apply: exec_eval. Qed.
 
 Goal ([{1}:R] : exp [::] _) -e-> (fun=> 1).
 Proof. exact: eval_real. Qed.
 Goal @eval [::] _ [{1}:R + {2}:R] (fun=> 3).
 Proof. exact/eval_plus/eval_real/eval_real. Qed.
-Goal @eval [:: ("x", Real)] _ [% {"x"}] (@acc [:: ("x", Real)] 0).
+Goal @eval [:: ("x", Real)] _ (Var "x" erefl) (@acc [:: ("x", Real)] 0).
 Proof. exact: eval_var. Qed.
-Goal @eval [::] _ [let "x" := {1}:R in %{"x"}] (fun=> 1).
-Proof. exact: (eval_letin (eval_real _ _) (eval_var _ _)). Qed.
-
-Goal exec (g := [::]) [let "x" := {1}:R in %{"x"}] = (fun=> 1).
+Goal @eval [::] _ [let "x" := {1}:R in #{"x"}] (fun=> 1).
 Proof.
-apply: eval_uniq; first exact: eval_exec.
-exact: (eval_letin (eval_real _ _) (eval_var _ _)).
+apply: exec_eval; rewrite exec_letin/=.
+apply/funext => t/=.
+by rewrite exec_var' exec_real/= exec_var/=.
+Qed.
+
+Goal exec (g := [::]) [let "x" := {1}:R in #{"x"}] = (fun=> 1).
+Proof.
+rewrite exec_letin//=.
+apply/funext => x.
+by rewrite exec_var' exec_var/= exec_real.
 Qed.
 
 End eval.
