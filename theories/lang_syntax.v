@@ -527,7 +527,22 @@ End weak.
 Section accessor_functions.
 Context {R : realType}.
 
-Definition acc_typ : forall (s : seq typ) n,
+(* NB: almost the same as acc (map (@measurable_of_typ R) s) n l,
+   modulo commutativity of map and measurable_of_typ *)
+Fixpoint acc_typ (s : seq typ) n :
+  projT2 (@measurable_of_seq R s) ->
+  projT2 (measurable_of_typ (nth Unit s n)) :=
+  match s return
+    projT2 (measurable_of_seq s) -> projT2 (measurable_of_typ (nth Unit s n))
+  with
+  | [::] => match n with | 0 => (fun=> tt) | m.+1 => (fun=> tt) end
+  | a :: l => match n with
+              | 0 => fst
+              | m.+1 => fun H => @acc_typ l m H.2
+              end
+  end.
+
+(*Definition acc_typ : forall (s : seq typ) n,
   projT2 (@measurable_of_seq R s) ->
   projT2 (@measurable_of_typ R (nth Unit s n)).
 fix H 1.
@@ -541,7 +556,8 @@ destruct n as [|n].
 rewrite /=.
 apply H.
 exact: (snd x).
-Defined.
+Show Proof.
+Defined.*)
 
 Lemma macc_typ (s : seq typ) n : measurable_fun setT (@acc_typ s n).
 Proof.

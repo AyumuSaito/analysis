@@ -41,9 +41,6 @@ Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 
 (* TODO: PR *)
-Lemma onem1' (R : numDomainType) (p : R) : (p + `1- p = 1)%R.
-Proof. by rewrite /onem addrCA subrr addr0. Qed.
-
 Lemma onem_nonneg_proof (R : numDomainType) (p : {nonneg R}) :
   (p%:num <= 1 -> 0 <= `1-(p%:num))%R.
 Proof. by rewrite /onem/= subr_ge0. Qed.
@@ -52,6 +49,13 @@ Definition onem_nonneg (R : numDomainType) (p : {nonneg R})
    (p1 : (p%:num <= 1)%R) :=
   NngNum (onem_nonneg_proof p1).
 (* /TODO: PR *)
+
+Lemma invr_nonneg_proof (R : numDomainType) (p : {nonneg R}) :
+  (0 <= (p%:num)^-1)%R.
+Proof. by rewrite invr_ge0. Qed.
+
+Definition invr_nonneg (R : numDomainType) (p : {nonneg R}) :=
+  NngNum (invr_nonneg_proof p).
 
 Section bernoulli.
 Variables (R : realType) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
@@ -69,12 +73,34 @@ Local Close Scope ring_scope.
 Let bernoulli_setT : bernoulli [set: _] = 1.
 Proof.
 rewrite /bernoulli/= /measure_add/= /msum 2!big_ord_recr/= big_ord0 add0e/=.
-by rewrite /mscale/= !diracT !mule1 -EFinD onem1'.
+by rewrite /mscale/= !diracT !mule1 -EFinD add_onemK.
 Qed.
 
-HB.instance Definition _ := @Measure_isProbability.Build _ _ R bernoulli bernoulli_setT.
+HB.instance Definition _ :=
+  @Measure_isProbability.Build _ _ R bernoulli bernoulli_setT.
 
 End bernoulli.
+
+Section uniform_probability.
+Context {R : realType}.
+Variables (a b : R) (ab0 : (0 < b - a)%R).
+
+Definition uniform_probability := mscale (invr_nonneg (NngNum (ltW ab0)))
+  (mrestr lebesgue_measure (measurable_itv `[a, b])).
+
+HB.instance Definition _ := Measure.on uniform_probability.
+
+Let uniform_probability_setT : uniform_probability [set: _] = 1.
+Proof.
+rewrite /uniform_probability /mscale/= /mrestr/=.
+rewrite setTI lebesgue_measure_itv hlength_itv/= lte_fin.
+by rewrite -subr_gt0 ab0 -EFinD -EFinM mulVf// gt_eqF// subr_gt0.
+Qed.
+
+HB.instance Definition _ := @Measure_isProbability.Build _ _ R
+  uniform_probability uniform_probability_setT.
+
+End uniform_probability.
 
 Section mscore.
 Context d (T : measurableType d) (R : realType).
