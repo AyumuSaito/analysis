@@ -432,9 +432,16 @@ Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_return g t : exp D g t -> exp P g t
 | exp_weak dp g h t x : exp dp (g ++ h) t -> x.1 \notin map fst (g ++ h) ->
     exp dp (g ++ x :: h) t.
+Arguments exp_var {g} _ {t}.
+
+Definition exp_var' (str : string) (t : typ) (g : find str t) :=
+  @exp_var (untag (ctx_of g)) str t (ctx_prf g).
+Arguments exp_var' str {t} g.
+
+Lemma exp_var'E str t (f : find str t) H : exp_var' str f = exp_var str H.
+Proof. by rewrite /exp_var'; congr exp_var. Qed.
 
 End syntax_of_expressions.
-
 Arguments exp {R}.
 Arguments exp_unit {R g}.
 Arguments exp_bool {R g}.
@@ -450,6 +457,8 @@ Arguments exp_sample {R g t}.
 Arguments exp_score {R g}.
 Arguments exp_return {R g _}.
 Arguments exp_weak {R dp g h t x}.
+Arguments exp_var' {R} str {t} g.
+Arguments exp_var'E {R} str.
 
 Declare Custom Entry expr.
 Notation "[ e ]" := e (e custom expr at level 5) : lang_scope.
@@ -480,6 +489,13 @@ Notation "'Score' e" := (exp_score e)
   (in custom expr at level 2) : lang_scope.
 Notation "'Normalize' e" := (exp_normalize e)
   (in custom expr at level 0) : lang_scope.
+Notation "# str" := (@exp_var' _ str%string _ _) (in custom expr at level 1).
+
+Local Open Scope lang_scope.
+Example example3 {R : realType} : @exp R P [::] _ :=
+  [let "x" := return {1}:R in
+   let "y" := return #{"x"} in
+   let "z" := return #{"y"} in return #{"z"}].
 
 Section free_vars.
 Context {R : realType}.
@@ -667,24 +683,7 @@ with evalP : forall g t, exp P g t -> pval R g t -> Prop :=
 
 where "e -P-> v" := (@evalP _ _ e v).
 
-Definition exp_var' (str : string) (t : typ) (g : find str t) :=
-  @exp_var R (untag (ctx_of g)) str t (ctx_prf g).
-Arguments exp_var' str {t} g.
-
-Local Notation "# str" := (@exp_var' str%string _ _) (in custom expr at level 1).
-
-Lemma exp_var'E str t (f : find str t) H : exp_var' str f = exp_var str H.
-Proof. by rewrite /exp_var'; congr exp_var. Qed.
-
-Local Open Scope lang_scope.
-Example e3 : exp P [::] _ :=
-  [let "x" := return {1}:R in
-   let "y" := return #{"x"} in
-   let "z" := return #{"y"} in return #{"z"}].
-
 End eval.
-Arguments exp_var'E {R} str.
-Notation "# str" := (@exp_var' _ str%string _ _) (in custom expr at level 1).
 
 Notation "e -D-> v ; mv" := (@evalD _ _ _ e v mv) : lang_scope.
 Notation "e -P-> v" := (@evalP _ _ _ e v) : lang_scope.
