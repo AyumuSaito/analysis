@@ -58,27 +58,15 @@ Implicit Types str : string.
 Inductive exp : Type :=
 | TT : exp
 | Cst : R -> exp
-| Var g T str :
+| Var (g : ctx) T str :
   T = nth Real (map snd g) (index str (map fst g)) -> exp
 | Letin str : exp -> exp -> exp
 | Plus : exp -> exp -> exp.
 Arguments Var {g T}.
 
-Declare Custom Entry expr.
-
-Notation "[ e ]" := e (e custom expr at level 5).
-Notation "{ x }" := x (in custom expr, x constr).
-Notation "x ':R'" := (Cst x) (in custom expr at level 1).
-Notation "x" := x (in custom expr at level 0, x ident).
-Notation "% x" := (Var x erefl) (in custom expr at level 1).
-Notation "x + y" := (Plus x y) (in custom expr at level 2, left associativity).
-Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom expr at level 3,
-  x constr,
-  e1 custom expr at level 2, e2 custom expr at level 3,
-  left associativity).
-
-Fail Example letin_once := @Letin "x" (Cst 1) (Var "x" erefl).
-Example letin_once := @Letin "x" (Cst 1) (@Var [:: ("x", Real)] Real "x" erefl).
+Fail Example letin_once : exp := @Letin "x" (Cst 1) (Var "x" erefl).
+Example letin_once : exp :=
+  @Letin "x" (Cst 1) (@Var [:: ("x", Real)] Real "x" erefl).
 
 End lang_extrinsic.
 End lang_extrinsic.
@@ -97,8 +85,9 @@ Inductive exp : typ -> Type :=
 | Letin t u : string -> exp t -> exp u -> exp u.
 Arguments Var {g T}.
 
-Fail Example letin_once := Letin "x" (Cst 1) (Var "x" erefl).
-Example letin_once := Letin "x" (Cst 1) (@Var [:: ("x", Real)] _ "x" erefl).
+Fail Example letin_once : exp Real := Letin "x" (Cst 1) (Var "x" erefl).
+Example letin_once : exp Real :=
+  Letin "x" (Cst 1) (@Var [:: ("x", Real)] _ "x" erefl).
 
 End lang_intrinsic_ty.
 End lang_intrinsic_ty.
@@ -132,9 +121,9 @@ Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom expr at level 3
   e1 custom expr at level 2, e2 custom expr at level 3,
   left associativity).
 
-Fail Example letin_once : exp [::] := Letin "x" (Cst 1) (Var "x" erefl).
+Fail Example letin_once : exp [::] := [let "x" := {1%R}:R in %{"x"}].
 Example letin_once : exp [::] :=
-  Letin "x" (Cst 1) (@Var [:: ("x", Real)] _ "x" erefl).
+  [let "x" := {1%R}:R in {@Var [:: ("x", Real)] _ "x" erefl}].
 
 Fixpoint acc (g : ctx) (i : nat) :
   Type_of_ctx R g -> @Type_of_typ R (nth Unit (map snd g) i) :=
@@ -147,13 +136,13 @@ Fixpoint acc (g : ctx) (i : nat) :
   end.
 
 Inductive eval : forall g (t : typ), exp g -> (Type_of_ctx R g -> Type_of_typ R t) -> Prop :=
-| eval_real g c : @eval g Real (Cst c) (fun=> c)
+| eval_real g c : @eval g Real [c:R] (fun=> c)
 | eval_plus g (e1 e2 : exp g) (v1 v2 : R) :
     @eval g Real e1 (fun=> v1) ->
     @eval g Real e2 (fun=> v2) ->
-    @eval g Real (Plus e1 e2) (fun=> v1 + v2)
+    @eval g Real [e1 + e2] (fun=> v1 + v2)
 | eval_var (g : ctx) str i :
-    i = index str (map fst g) -> eval (Var str erefl) (@acc g i).
+    i = index str (map fst g) -> eval [% str] (@acc g i).
 
 Goal @eval [::] Real [{1}:R] (fun=> 1).
 Proof. exact: eval_real. Qed.
@@ -161,8 +150,7 @@ Goal @eval [::] Real [{1}:R + {2}:R] (fun=> 3).
 Proof. exact/eval_plus/eval_real/eval_real. Qed.
 Goal @eval [:: ("x", Real)] _ [% {"x"}] (@acc [:: ("x", Real)] 0).
 Proof. exact: eval_var. Qed.
-(* TODO: rm? *)
-Check [let "x" := {1}:R in %{"x"} + {2}:R].
+Check [let "x" := {1}:R in %{"x"} + {2}:R] : exp [::].
 
 End lang_intrinsic_sc.
 End lang_intrinsic_sc.
@@ -186,6 +174,29 @@ Arguments Plus {g}.
 Arguments Var {g T}.
 Arguments Letin {g t u}.
 
+Example e0 : exp [::] _ := Cst 1.
+Example letin_once : exp [::] _ := Letin "x" (Cst 1) (Var "x" erefl).
+Example letin_twice : exp [::] _ :=
+  Letin "x" (Cst 1) (Letin "y" (Cst 2) (Var "x" erefl)).
+
+Fail Example letin_plus : exp [::] _ :=
+  Letin "x" (Cst 1)
+  (Letin "y" (Cst 2)
+   (Plus (Var "x" erefl) (Var "y" erefl))).
+Example letin_plus' : exp [::] _ :=
+  Letin "x" (Cst 1%:R)
+  (Letin "y" (Cst 2%:R)
+   (Plus (@Var [:: ("y", Real); ("x", Real)] Real "x" erefl)
+         (Var "y" erefl))).
+
+Definition Var' str (t : typ) (g : find str t) :=
+  @Var (untag (ctx_of g)) t str (ctx_prf g).
+
+Example letin_plus : exp [::] _ :=
+  Letin "x" (Cst 1)
+  (Letin "y" (Cst 2)
+   (Plus (@Var' "x" _ _) (@Var' "y" _ _))).
+
 Declare Custom Entry expr.
 
 Notation "[ e ]" := e (e custom expr at level 5).
@@ -199,27 +210,6 @@ Notation "'let' x ':=' e1 'in' e2" := (Letin x e1 e2) (in custom expr at level 3
   e1 custom expr at level 2, e2 custom expr at level 3,
   left associativity).
 
-Example e0 : exp [::] _ := [{1}:R].
-Example letin_once : exp [::] _ := Letin "x" (Cst 1) (Var "x" erefl).
-Example letin_twice : exp [::] _ :=
-  Letin "x" (Cst 1) (Letin "y" (Cst 2) (Var "x" erefl)).
-
-Fail Example letin_plus : exp [::] _ :=
-  Letin "x" (Cst 1)
-  (Letin "y" (Cst 2)
-   (Plus (Var "x" erefl) (Var "y" erefl))).
-Example letin_plus' : exp [::] _ :=
-  Letin "x" (Cst 1%:R)
-  (Letin "y" (Cst 2%:R)
-   (Plus (@Var [:: ("y", Real); ("x", Real)] Real "x" erefl) (Var "y" erefl))).
-
-Definition Var' str (t : typ) (g : find str t) :=
-  @Var (untag (ctx_of g)) t str (ctx_prf g).
-
-Example letin_plus : exp [::] _ :=
-  Letin "x" (Cst 1)
-  (Letin "y" (Cst 2)
-   (Plus (@Var' "x" _ _) (@Var' "y" _ _))).
 
 Notation "# x" := (@Var' x%string _ _) (in custom expr at level 1).
 
