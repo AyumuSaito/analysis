@@ -466,7 +466,6 @@ Notation "'let' x ':=' e 'in' f" := (exp_letin x e f)
    x constr,
    f custom expr at level 3,
    left associativity) : lang_scope.
-(*Notation "( x )" := x (in custom expr, x at level 50).*)
 Notation "'if' e1 'then' e2 'else' e3" := (exp_if e1 e2 e3)
   (in custom expr at level 1) : lang_scope.
 Notation "{ x }" := x
@@ -477,6 +476,8 @@ Notation "'Sample' e" := (exp_sample e)
   (in custom expr at level 2) : lang_scope.
 Notation "'Score' e" := (exp_score e)
   (in custom expr at level 2) : lang_scope.
+Notation "'Normalize' e" := (exp_normalize e)
+  (in custom expr at level 0) : lang_scope.
 
 Section free_vars.
 Context {R : realType}.
@@ -1320,7 +1321,8 @@ Example kstaton_bus_exp : exp P [::] Bool :=
    let "_" := Score {(exp_poisson 4 [#{"r"}])} in
    return %{"x"}].
 
-Example staton_bus_exp : exp D [::] (Prob Bool) := exp_normalize kstaton_bus_exp.
+Example staton_bus_exp : exp D [::] (Prob Bool) :=
+  [Normalize {kstaton_bus_exp}].
 
 Local Definition kstaton_bus'' :=
   letin' sample_bern
@@ -1407,7 +1409,7 @@ Definition bernoulli12_score := exp_normalize
    let "r" := if #{"x"} then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
    return #{"x"}].
 
-Lemma exec_bernoulli_score : 
+Lemma exec_bernoulli_score :
   execD (exp_bernoulli (1 / 3%:R)%:nng p13) = execD bernoulli12_score.
 Proof.
 apply: eq_execD.
@@ -1519,12 +1521,12 @@ Context (R : realType).
 Goal execP [return {1}:R] = ret (kr 1) :> pval R [::] _.
 Proof. by rewrite execP_return execD_real. Qed.
 
-Goal projT1 (execD (exp_normalize [return {1}:R])) =
+Goal projT1 (execD [Normalize return {1}:R]) =
   normalize (ret (kr 1)) point :> dval R [::] _.
 Proof. by rewrite execD_normalize execP_return execD_real. Qed.
 
 Lemma exec_normalize_return g x r :
-  projT1 (@execD _ g _ (exp_normalize [return {r}:R])) x = \d_r
+  projT1 (@execD _ g _ [Normalize return {r}:R]) x = \d_r
   :> probability _ R.
 Proof.
 by rewrite execD_normalize execP_return execD_real/= normalize_kdirac.
