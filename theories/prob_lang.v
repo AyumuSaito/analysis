@@ -616,14 +616,14 @@ Fixpoint acc (l : seq {d & measurableType d}) n :
                end
   end.
 
-Lemma macc (l : seq {d & measurableType d}) n :
+Lemma measurable_acc (l : seq {d & measurableType d}) n :
   measurable_fun setT (@acc l n).
 Proof.
 by elim: l n => //= h t ih [|m] //; exact: (measurableT_comp (ih _)).
 Qed.
 End acc.
 Arguments acc : clear implicits.
-Arguments macc : clear implicits.
+Arguments measurable_acc : clear implicits.
 
 Section rpair_pairA.
 Context d0 d1 d2 (T0 : measurableType d0) (T1 : measurableType d1)
@@ -719,13 +719,17 @@ Definition acc0of2 : [the measurableType _ of (T0 * T1)%type] -> T0 :=
   @acc Of2 0 \o pairAr munit tt.
 
 Lemma macc0of2 : measurable_fun setT acc0of2.
-Proof. by apply: measurableT_comp; [exact: (macc Of2 0)|exact: mpairAr]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of2 0)|exact: mpairAr].
+Qed.
 
 Definition acc1of2 : [the measurableType _ of (T0 * T1)%type] -> T1 :=
   acc Of2 1 \o pairAr munit tt.
 
 Lemma macc1of2 : measurable_fun setT acc1of2.
-Proof. by apply: measurableT_comp; [exact: (macc Of2 1)|exact: mpairAr]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of2 1)|exact: mpairAr].
+Qed.
 
 Definition Of3 := [:: existT _ _ T0; existT _ _ T1; existT _ d2 T2].
 
@@ -733,39 +737,53 @@ Definition acc1of3 : [the measurableType _ of (T0 * T1 * T2)%type] -> T1 :=
   acc Of3 1 \o pairAAr.
 
 Lemma macc1of3 : measurable_fun setT acc1of3.
-Proof. by apply: measurableT_comp; [exact: (macc Of3 1)|exact: mpairAAr]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of3 1)|exact: mpairAAr].
+Qed.
 
 Definition acc2of3 : [the measurableType _ of (T0 * T1 * T2)%type] -> T2 :=
   acc Of3 2 \o pairAAr.
 
 Lemma macc2of3 : measurable_fun setT acc2of3.
-Proof. by apply: measurableT_comp; [exact: (macc Of3 2)|exact: mpairAAr]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of3 2)|exact: mpairAAr].
+Qed.
 
 Definition acc0of3' : [the measurableType _ of (T0 * (T1 * T2))%type] -> T0 :=
   acc Of3 0 \o pairAArAi.
 
 Lemma macc0of3' : measurable_fun setT acc0of3'.
-Proof. by apply: measurableT_comp; [exact: (macc Of3 0)|exact: mpairAArAi]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of3 0)|exact: mpairAArAi].
+Qed.
 
 Definition acc1of3' : [the measurableType _ of (T0 * (T1 * T2))%type] -> T1 :=
   acc Of3 1 \o pairAArAi.
 
 Lemma macc1of3' : measurable_fun setT acc1of3'.
-Proof. by apply: measurableT_comp; [exact: (macc Of3 1)|exact: mpairAArAi]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of3 1)|exact: mpairAArAi].
+Qed.
 
 Definition acc2of3' : [the measurableType _ of (T0 * (T1 * T2))%type] -> T2 :=
   acc Of3 2 \o pairAArAi.
 
 Lemma macc2of3' : measurable_fun setT acc2of3'.
-Proof. by apply: measurableT_comp; [exact: (macc Of3 2)|exact: mpairAArAi]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of3 2)|exact: mpairAArAi].
+Qed.
 
-Definition Of4 := [:: existT _ _ T0; existT _ _ T1; existT _ d2 T2; existT _ d3 T3].
+Definition Of4 :=
+  [:: existT _ _ T0; existT _ _ T1; existT _ d2 T2; existT _ d3 T3].
 
-Definition acc2of4' : [the measurableType _ of (T0 * (T1 * (T2 * T3)))%type] -> T2 :=
+Definition acc2of4' :
+    [the measurableType _ of (T0 * (T1 * (T2 * T3)))%type] -> T2 :=
   acc Of4 2 \o pairAAArAAi.
 
 Lemma macc2of4' : measurable_fun setT acc2of4'.
-Proof. by apply: measurableT_comp; [exact: (macc Of4 2)|exact: mpairAAARAAAi]. Qed.
+Proof.
+by apply: measurableT_comp; [exact: (measurable_acc Of4 2)|exact: mpairAAARAAAi].
+Qed.
 
 End accessor_functions.
 Arguments macc0of2 {d0 d1 _ _}.
@@ -993,7 +1011,7 @@ move=> r0; rewrite /poisson mulr_gt0 ?expR_gt0//.
 by rewrite divr_gt0// ?exprn_gt0// invr_gt0 ltr0n fact_gt0.
 Qed.
 
-Lemma mpoisson k : measurable_fun setT (poisson k).
+Lemma measurable_poisson k : measurable_fun setT (poisson k).
 Proof.
 by apply: measurable_funM => /=;
   [exact: measurable_funM|exact: measurableT_comp].
@@ -1139,7 +1157,7 @@ Section staton_bus_poisson.
 Import Notations.
 Context d (T : measurableType d) (R : realType).
 Let poisson4 := @poisson R 4%N.
-Let mpoisson4 := @mpoisson R 4%N.
+Let mpoisson4 := @measurable_poisson R 4%N.
 
 Definition kstaton_bus_poisson : R.-sfker (mR R) ~> mbool :=
   kstaton_bus _ mpoisson4.

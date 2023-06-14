@@ -12,17 +12,27 @@ From mathcomp Require Import ring.
 (*       Syntax and Evaluation for a probabilistic programming language       *)
 (*                                                                            *)
 (*                 typ == syntax for types of data structures                 *)
-(*              mtyp t == the measurable type corresponding to the type t,    *)
-(*                        i.e., the semantics of t                            *)
+(* measurable_of_typ t == the measurable type corresponding to type t         *)
+(*                        It is of type {d & measurableType d}                *)
+(*              mtyp t == the measurable type corresponding to type t         *)
+(*                        It is of type                                       *)
+(*                        measurableType (projT1 (measurable_of_typ t))       *)
+(* measurable_of_seq s == the product space corresponding to the              *)
+(*                        list s : seq typ                                    *)
+(*                        It is of type {d & measurableType d}                *)
+(*         acc_typ s n == function that access the nth element of s : seq typ *)
+(*                        It is a function from projT2 (measurable_of_seq s)  *)
+(*                        to projT2 (measurable_of_typ (nth Unit s n))        *)
 (*                 ctx == type of context                                     *)
 (*                     := seq (string * type)                                 *)
 (*              mctx g := the measurable type corresponding to the context g  *)
 (*                        It is formed of nested pairings of measurable       *)
-(*                        spaces.                                             *)
+(*                        spaces. It is of type measurableType                *)
+(*                        (projT1 (measurable_of_seq (map snd g)))            *)
 (*                flag == a flag is either D (deterministic) or               *)
 (*                        P (probabilistic)                                   *)
 (*           exp f g t == syntax of expressions with flag f of type t         *)
-(*                        context g                                          *)
+(*                        context g                                           *)
 (*          dval R g t == "deterministic value", i.e.,                        *)
 (*                        function from mctx g to mtyp t                      *)
 (*          pval R g t == "probabilistic value", i.e.,                        *)
@@ -184,16 +194,24 @@ Import Notations.
 Context d d1 d' (X : measurableType d) (Y : measurableType d1)
   (Z : measurableType d') (R : realType).
 
+(* TODO: remove? *)
 Lemma letin'C12 z A : measurable A ->
   @letin' _ _ _ _ _ _ R (ret (kr 1))
     (letin' (ret (kb true))
-      (ret (measurable_fun_prod (macc [:: existT _ _ mbool; existT _ _ (mR R)] 1) (macc [:: existT _ _ mbool; existT _ _ (mR R)] 0)))) z A =
+      (ret (measurable_fun_prod
+              (measurable_acc [:: existT _ _ mbool; existT _ _ (mR R)] 1)
+              (measurable_acc [:: existT _ _ mbool; existT _ _ (mR R)] 0))))
+   z A =
   letin' (ret (kb true))
     (letin' (ret (kr 1))
-      (ret (measurable_fun_prod (macc [:: existT _ _ (mR R); existT _ _ mbool] 0) (macc [:: existT _ _ (mR R); existT _ _ mbool] 1)))) z A.
+      (ret (measurable_fun_prod
+         (measurable_acc [:: existT _ _ (mR R); existT _ _ mbool] 0)
+         (measurable_acc [:: existT _ _ (mR R); existT _ _ mbool] 1))))
+  z A.
 Proof.
 move=> mA.
-have : acc [:: existT _ _ mbool; existT _ _ (mR R)] 1 = acc [:: existT _ _ mbool; existT _ _ (mR R)] 1.
+have : acc [:: existT _ _ mbool; existT _ _ (mR R)] 1 =
+       acc [:: existT _ _ mbool; existT _ _ (mR R)] 1.
 rewrite /acc /=.
 (* rewrite !letin'E. *)
 Abort.
@@ -229,8 +247,9 @@ Let sfinU z : sfinite_measure (U' z). Proof. exact: sfinite_kernel_measure. Qed.
 HB.instance Definition _ z := @Measure_isSFinite_subdef.Build _ Y R
   (U' z) (sfinU z).
 
-Check (ret (measurable_fun_prod (macc
-  [:: existT _ _ Y; existT _ _ X; existT _ _ Z] 1) (macc
+(* TODO: remove? *)
+Check (ret (measurable_fun_prod (measurable_acc
+  [:: existT _ _ Y; existT _ _ X; existT _ _ Z] 1) (measurable_acc
   [:: existT _ _ Y; existT _ _ X; existT _ _ Z]
   0))).
 
@@ -331,6 +350,50 @@ End syntax_of_types.
 Arguments measurable_of_typ {R}.
 Arguments mtyp {R}.
 Arguments measurable_of_seq {R}.
+
+Section accessor_functions.
+Context {R : realType}.
+
+(* NB: almost the same as acc (map (@measurable_of_typ R) s) n l,
+   modulo commutativity of map and measurable_of_typ *)
+Fixpoint acc_typ (s : seq typ) n :
+  projT2 (@measurable_of_seq R s) ->
+  projT2 (measurable_of_typ (nth Unit s n)) :=
+  match s return
+    projT2 (measurable_of_seq s) -> projT2 (measurable_of_typ (nth Unit s n))
+  with
+  | [::] => match n with | 0 => (fun=> tt) | m.+1 => (fun=> tt) end
+  | a :: l => match n with
+              | 0 => fst
+              | m.+1 => fun H => @acc_typ l m H.2
+              end
+  end.
+
+(*Definition acc_typ : forall (s : seq typ) n,
+  projT2 (@measurable_of_seq R s) ->
+  projT2 (@measurable_of_typ R (nth Unit s n)).
+fix H 1.
+intros s n x.
+destruct s as [|s].
+  destruct n as [|n].
+    exact tt.
+  exact tt.
+destruct n as [|n].
+  exact (fst x).
+rewrite /=.
+apply H.
+exact: (snd x).
+Show Proof.
+Defined.*)
+
+Lemma measurable_acc_typ (s : seq typ) n : measurable_fun setT (@acc_typ s n).
+Proof.
+elim: s n => //= h t ih [|m]; first exact: measurable_fst.
+by apply: (measurableT_comp (ih _)); exact: measurable_snd.
+Qed.
+
+End accessor_functions.
+Arguments measurable_acc_typ {R} s n.
 
 Section context.
 Variables (R : realType).
@@ -524,51 +587,6 @@ End fkernel_weak.
 
 End weak.
 
-Section accessor_functions.
-Context {R : realType}.
-
-(* NB: almost the same as acc (map (@measurable_of_typ R) s) n l,
-   modulo commutativity of map and measurable_of_typ *)
-Fixpoint acc_typ (s : seq typ) n :
-  projT2 (@measurable_of_seq R s) ->
-  projT2 (measurable_of_typ (nth Unit s n)) :=
-  match s return
-    projT2 (measurable_of_seq s) -> projT2 (measurable_of_typ (nth Unit s n))
-  with
-  | [::] => match n with | 0 => (fun=> tt) | m.+1 => (fun=> tt) end
-  | a :: l => match n with
-              | 0 => fst
-              | m.+1 => fun H => @acc_typ l m H.2
-              end
-  end.
-
-(*Definition acc_typ : forall (s : seq typ) n,
-  projT2 (@measurable_of_seq R s) ->
-  projT2 (@measurable_of_typ R (nth Unit s n)).
-fix H 1.
-intros s n x.
-destruct s as [|s].
-  destruct n as [|n].
-    exact tt.
-  exact tt.
-destruct n as [|n].
-  exact (fst x).
-rewrite /=.
-apply H.
-exact: (snd x).
-Show Proof.
-Defined.*)
-
-Lemma macc_typ (s : seq typ) n : measurable_fun setT (@acc_typ s n).
-Proof.
-elim: s n => //= h t ih [|m].
-  exact: measurable_fst.
-apply: (measurableT_comp (ih _)).
-exact: measurable_snd.
-Qed.
-
-End accessor_functions.
-
 Section eval.
 Context {R : realType}.
 Implicit Type (g : ctx) (str : string).
@@ -588,18 +606,18 @@ Inductive evalD : forall g t, exp D g t ->
   measurable_fun_prod mf1 mf2
 
 | eval_var g str : let i := index str (map fst g) in
-  ([% str] : exp D g _) -D-> @acc_typ R (map snd g) i ; @macc_typ R (map snd g) i
+  ([% str] : exp D g _) -D-> @acc_typ R (map snd g) i ; measurable_acc_typ (map snd g) i
 
 | eval_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   @exp_bernoulli _ g _ r1 -D-> cst (bernoulli r1) ; measurable_cst _
 
 | eval_poisson g n (e : exp D g _) f mf :
   e -D-> f ; mf ->
-  exp_poisson n e -D-> poisson n \o f ; measurableT_comp (mpoisson n) mf
+  exp_poisson n e -D-> poisson n \o f ; measurableT_comp (measurable_poisson n) mf
 
 | eval_normalize g t (e : exp P g t) k :
   e -P-> k ->
-  exp_normalize e -D-> (normalize k point : _ -> pprobability _ _) ;
+  exp_normalize e -D-> normalize k point ;
                        measurable_fun_mnormalize k
 
 | evalD_if g t (e1 : exp D g Bool) f1 mf1 (e2 : exp D g t) f2 mf2 (e3 : exp D g t) f3 mf3 :
@@ -890,11 +908,9 @@ all: rewrite {dp g t}.
 - by move=> g x t tE; subst t; eexists; eexists; exact: eval_var.
 - by move=> r r1; eexists; eexists; exact: eval_bernoulli.
 - move=> g h e [f [mf H]].
-  exists (poisson h \o f), (measurableT_comp (mpoisson h) mf).
-  exact: eval_poisson.
+  by exists (poisson h \o f); eexists; exact: eval_poisson.
 - move=> g t e [k ek].
-  exists (normalize k point), (measurable_fun_mnormalize k).
-  exact: eval_normalize.
+  by exists (normalize k point); eexists; exact: eval_normalize.
 - case.
   + move=> g t e1 [f [mf H1]] e2 [f2 [mf2 H2]] e3 [f3 [mf3 H3]].
     rewrite /eval_total_statement.
@@ -1014,7 +1030,7 @@ Qed.
 Lemma execD_var g str :
   let i := index str (map fst g) in
   @execD g _ [% {str} ] = existT _ (@acc_typ R (map snd g) i)
-                                   (@macc_typ R (map snd g) i).
+                                   (measurable_acc_typ (map snd g) i).
 Proof.
 rewrite /execD /=.
 case: cid => f ?.
@@ -1035,7 +1051,7 @@ Qed.
 Lemma execD_poisson g n (e : exp D g Real) :
   execD (exp_poisson n e) =
     existT _ (poisson n \o (projT1 (execD e)))
-             (measurableT_comp (mpoisson n) (projT2 (execD e))).
+             (measurableT_comp (measurable_poisson n) (projT2 (execD e))).
 Proof.
 rewrite /execD /=.
 case: cid => f ?.
@@ -1123,13 +1139,13 @@ rewrite (@execP_weak _ [::] g).
 rewrite 2!execP_return/=.
 rewrite 2!execD_pair/=.
 rewrite !(execD_var _ "x")/= !(execD_var _ "y")/=.
-have -> : @macc_typ _ [:: t2, t1 & map snd g] 0 = macc0of3' by [].
-have -> : @macc_typ _ [:: t2, t1 & map snd g] 1 = macc1of3' by [].
+have -> : measurable_acc_typ [:: t2, t1 & map snd g] 0 = macc0of3' by [].
+have -> : measurable_acc_typ [:: t2, t1 & map snd g] 1 = macc1of3' by [].
 rewrite (letin'C _ _ (execP e2)
   ([the R.-sfker _ ~> _ of @kweak _ [::] _ ("y", t2) _ (execP e1)]));
   [ |by [] | by [] |by []].
-have -> : @macc_typ _ [:: t1, t2 & map snd g] 0 = macc0of3' by [].
-by have -> : @macc_typ _ [:: t1, t2 & map snd g] 1 = macc1of3' by [].
+have -> : measurable_acc_typ [:: t1, t2 & map snd g] 0 = macc0of3' by [].
+by have -> : measurable_acc_typ [:: t1, t2 & map snd g] 1 = macc1of3' by [].
 Qed.
 
 (* letinC with a concrete context *)
@@ -1264,7 +1280,7 @@ Definition ite_3_10 :
 
 Definition score_poi :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
-  score (measurableT_comp (mpoisson 4) (@macc0of2 _ _ _ _)).
+  score (measurableT_comp (measurable_poisson 4) (@macc0of2 _ _ _ _)).
 
 Example kstaton_bus_exp : exp P [::] Bool :=
   [let "x" := Sample {(exp_bernoulli (2 / 7%:R)%:nng p27)} in
@@ -1312,17 +1328,17 @@ rewrite !execP_if !execP_return !execD_real.
 have -> : @execD R _ _ (exp_var "x" (ctx_prf_head "x" Bool [::])) = execD [% {"x"}].
   by congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /= /ite_3_10.
-have -> : @macc_typ R [:: Bool] 0 = @macc0of2 _ _ _ _ by [].
+have -> : measurable_acc_typ [:: Bool] 0 = @macc0of2 _ _ _ _ by [].
 congr letin'.
 rewrite execP_score execD_poisson /=.
 have -> : (@execD R _ _ (exp_var "r" (ctx_prf_head "r" Real [:: ("x", Bool)])) =
           execD [% {"r"}]).
   by congr execD; congr exp_var; exact: Prop_irrelevance.
 rewrite execD_var /=.
-have ->/= : @macc_typ R [:: Real; Bool] 0 = macc0of2 by [].
+have ->/= : measurable_acc_typ [:: Real; Bool] 0 = macc0of2 by [].
 congr letin'.
 rewrite (execD_var _ "x") /=.
-by have -> : @macc_typ _ [:: Unit; Real; Bool] 2 = macc2of4'.
+by have -> : measurable_acc_typ [:: Unit; Real; Bool] 2 = macc2of4'.
 Qed.
 
 
