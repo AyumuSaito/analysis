@@ -607,7 +607,8 @@ Inductive evalD : forall g t, exp D g t ->
   measurable_fun_prod mf1 mf2
 
 | eval_var g str : let i := index str (map fst g) in
-  ([% str] : exp D g _) -D-> @acc_typ R (map snd g) i ; measurable_acc_typ (map snd g) i
+  ([% str] : exp D g _) -D-> @acc_typ R (map snd g) i ;
+                             measurable_acc_typ (map snd g) i
 
 | eval_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   @exp_bernoulli _ g _ r1 -D-> cst (bernoulli r1) ; measurable_cst _
@@ -635,12 +636,8 @@ where "e -D-> v ; mv" := (@evalD _ _ e v mv)
 
 with evalP : forall g t, exp P g t -> pval R g t -> Prop :=
 
-| evalP_if g t (e1 : exp D g Bool) f1 mf (e2 : exp P g t) k2 (e3 : exp P g t) k3 :
-  e1 -D-> f1 ; mf -> e2 -P-> k2 -> e3 -P-> k3 ->
-  [if e1 then e2 else e3] -P-> ite mf k2 k3
-
 | eval_letin g t1 t2 str (e1 : exp P g t1) (e2 : exp P ((str, t1) :: g) t2)
-  (k1 : @pval R g t1) (k2 : @pval R ((str, t1) :: g) t2) :
+  (k1 : pval R g t1) (k2 : pval R ((str, t1) :: g) t2) :
   e1 -P-> k1 ->
   e2 -P-> k2 ->
   [let str := e1 in e2] -P-> letin' k1 k2
@@ -650,12 +647,16 @@ with evalP : forall g t, exp P g t -> pval R g t -> Prop :=
   e -D-> p ; mp ->
   [Sample e] -P-> sample p mp
 
-| eval_score g (e : exp D g Real) (f : mctx g -> R) (mf : measurable_fun _ f) :
+| eval_score g (e : exp D g Real) f mf :
   e -D-> f ; mf ->
   [Score e] -P-> kscore mf
 
-| eval_return g t (e : exp D g t) (f : _ -> _) (mf : measurable_fun _ f) :
+| eval_return g t (e : exp D g t) f mf :
   e -D-> f ; mf -> [return e] -P-> ret mf
+
+| evalP_if g t (e1 : exp D g Bool) f1 mf (e2 : exp P g t) k2 (e3 : exp P g t) k3 :
+  e1 -D-> f1 ; mf -> e2 -P-> k2 -> e3 -P-> k3 ->
+  [if e1 then e2 else e3] -P-> ite mf k2 k3
 
 | evalP_weak g h t (e : exp P (g ++ h) t) x
     (Hx : x.1 \notin map fst (g ++ h)) f :
@@ -677,19 +678,15 @@ Section eval_prop.
 Variables (R : realType).
 Local Open Scope lang_scope.
 
-Lemma evalD_uniq g t (e : exp D g t) (u v : dval R g t)
-    (mu : measurable_fun setT u) (mv : measurable_fun setT v) :
+Lemma evalD_uniq g t (e : exp D g t) (u v : dval R g t) mu mv :
   e -D-> u ; mu -> e -D-> v ; mv -> u = v.
 Proof.
 move=> hu.
 apply: (@evalD_mut_ind R
-  (fun g t (e : exp D g t) (f : dval R g t)
-  (mf : measurable_fun setT f) (h1 : evalD e mf) =>
-    forall (v : dval R g t) (mv : measurable_fun setT v),
-    evalD e mv -> f = v)
-  (fun g t (e : exp P g t)
-    (u : @pval R g t) (h1 : evalP e u) =>
-    forall (v : @pval R g t), evalP e v -> u = v)); last exact: hu.
+  (fun g t (e : exp D g t) f mf (h1 : e -D-> f; mf) =>
+    forall v mv, e -D-> v; mv -> f = v)
+  (fun g t (e : exp P g t) u (h1 : e -P-> u) =>
+    forall v, e -P-> v -> u = v)); last exact: hu.
 all: (rewrite {g t e u v mu mv hu}).
 - move=> g {}v {}mv.
   inversion 1; subst g0.
@@ -742,15 +739,6 @@ all: (rewrite {g t e u v mu mv hu}).
   clear H11.
   inj_ex H7; subst e0.
   by rewrite (IH _ _ H3).
-- move=> g t e1 f1 mf1 e2 k2 e3 k3 ev1 IH1 ev2 IH2 ev3 IH3 k.
-  inversion 1; subst g0 t0.
-  inj_ex H0; subst e0.
-  inj_ex H1; subst e4.
-  inj_ex H5; subst k.
-  inj_ex H2; subst e5.
-  have ? := IH1 _ _ H6; subst f2.
-  have -> : mf1 = mf by exact: Prop_irrelevance.
-  by rewrite (IH2 _ H7) (IH3 _ H8).
 - move=> g t1 t2 x e1 e2 k1 k2 ev1 IH1 ev2 IH2 k.
   inversion 1; subst g0 t0 t3 x.
   inj_ex H7; subst k.
@@ -776,6 +764,15 @@ all: (rewrite {g t e u v mu mv hu}).
   inj_ex H7; subst k.
   have ? := IH _ _ H3; subst f1.
   by have -> : mf = mf1 by exact: Prop_irrelevance.
+- move=> g t e1 f1 mf1 e2 k2 e3 k3 ev1 IH1 ev2 IH2 ev3 IH3 k.
+  inversion 1; subst g0 t0.
+  inj_ex H0; subst e0.
+  inj_ex H1; subst e4.
+  inj_ex H5; subst k.
+  inj_ex H2; subst e5.
+  have ? := IH1 _ _ H6; subst f2.
+  have -> : mf1 = mf by exact: Prop_irrelevance.
+  by rewrite (IH2 _ H7) (IH3 _ H8).
 - move=> g h t e x xgh k ek IH.
   inversion 1; subst x0 g0 h0 t0.
   inj_ex H9; rewrite -H9.
@@ -783,17 +780,15 @@ all: (rewrite {g t e u v mu mv hu}).
   by rewrite (IH _ H3).
 Qed.
 
-Lemma evalP_uniq g t (e : exp P g t) (u v : @pval R g t) :
+Lemma evalP_uniq g t (e : exp P g t) (u v : pval R g t) :
   e -P-> u -> e -P-> v -> u = v.
 Proof.
 move=> eu.
 apply: (@evalP_mut_ind R
-  (fun g t (e : exp D g t) (f : dval R g t)
-    (mf : measurable_fun setT f) (h1 : evalD e mf) =>
-    forall (v : dval R g t) (mv : measurable_fun setT v), evalD e mv -> f = v)
-  (fun g t (e : exp P g t)
-    (u : pval R g t) (h1 : evalP e u) =>
-    forall (v : pval R g t), evalP e v -> u = v)); last exact: eu.
+  (fun g t (e : exp D g t) f mf (h1 : e -D-> f; mf) =>
+    forall v mv, e -D-> v; mv -> f = v)
+  (fun g t (e : exp P g t) u (h1 : e -P-> u) =>
+    forall v, e -P-> v -> u = v)); last exact: eu.
 all: rewrite {g t e u v eu}.
 - move=> g {}v {}mv.
   inversion 1; subst g0.
@@ -849,15 +844,6 @@ all: rewrite {g t e u v eu}.
   inj_ex H9; rewrite -H9.
   clear H11.
   by rewrite (IH _ _ H3).
-- move=> g t e f mf e1 k1 e2 k2 ev IH ev1 IH1 ev2 IH2 k.
-  inversion 1; subst g0 t0.
-  inj_ex H0; subst e0.
-  inj_ex H1; subst e3.
-  inj_ex H5; subst k.
-  inj_ex H2; subst e4.
-  have ? := IH _ _ H6; subst f0.
-  have -> : mf0 = mf by exact: Prop_irrelevance.
-  by rewrite (IH1 _ H7) (IH2 _ H8).
 - move=> g t1 t2 x e1 e2 k1 k2 ev1 IH1 ev2 IH2 k.
   inversion 1; subst g0 x t3 t0.
   inj_ex H7; subst k.
@@ -882,6 +868,15 @@ all: rewrite {g t e u v eu}.
   inj_ex H5; subst e1.
   have ? := IH _ _ H3; subst f1.
   by have -> : mf = mf1 by exact: Prop_irrelevance.
+- move=> g t e f mf e1 k1 e2 k2 ev IH ev1 IH1 ev2 IH2 k.
+  inversion 1; subst g0 t0.
+  inj_ex H0; subst e0.
+  inj_ex H1; subst e3.
+  inj_ex H5; subst k.
+  inj_ex H2; subst e4.
+  have ? := IH _ _ H6; subst f0.
+  have -> : mf0 = mf by exact: Prop_irrelevance.
+  by rewrite (IH1 _ H7) (IH2 _ H8).
 - move=> g h t e x xgh k ek IH.
   inversion 1; subst x0 g0 h0 t0.
   inj_ex H9; rewrite -H9.
@@ -889,12 +884,10 @@ all: rewrite {g t e u v eu}.
   by rewrite (IH _ H3).
 Qed.
 
-Definition eval_total_statement dp g t :=
+Definition eval_total_statement dp g t : @exp R dp g t -> Prop :=
   match dp with
-  | D => fun (e : @exp R D g t) =>
-      exists f (mf : measurable_fun _ f), e -D-> f ; mf
-  | P => fun (e : @exp R P g t) =>
-      exists (k : pval R g t), @evalP R g t e k
+  | D => fun e => exists f mf, e -D-> f ; mf
+  | P => fun e => exists k, e -P-> k
   end.
 
 Lemma eval_total dp g t (e : @exp R dp g t) : eval_total_statement e.
@@ -934,12 +927,10 @@ all: rewrite {dp g t}.
     by exists (kweak k); exact: evalP_weak.
 Qed.
 
-Lemma evalD_total g t (e : @exp R D g t) :
-  exists f (mf : measurable_fun _ f), e -D-> f ; mf.
+Lemma evalD_total g t (e : @exp R D g t) : exists f mf, e -D-> f ; mf.
 Proof. exact: (eval_total e). Qed.
 
-Lemma evalP_total g t (e : @exp R P g t) :
-  exists (k : pval R g t), @evalP R g t e k.
+Lemma evalP_total g t (e : @exp R P g t) : exists k, e -P-> k.
 Proof. exact: (eval_total e). Qed.
 
 End eval_prop.
