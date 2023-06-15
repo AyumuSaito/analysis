@@ -756,7 +756,7 @@ HB.instance Definition _ x :=
 
 End mnormalize.
 
-Lemma measurable_fun_mnormalize d d' (X : measurableType d)
+Lemma measurable_mnormalize d d' (X : measurableType d)
     (Y : measurableType d') (R : realType) (k : R.-sfker X ~> Y) :
   measurable_fun [set: X] (fun x =>
     [the probability _ _ of mnormalize k point x] : pprobability Y R).
