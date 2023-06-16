@@ -50,6 +50,7 @@ theories/prob_lang_wip.v
 theories/lang_syntax_util.v
 theories/lang_syntax.v
 theories/lang_syntax_simplified.v
+theories/lang_syntax_examples.v
 theories/altreals/xfinmap.v
 theories/altreals/discrete.v
 theories/altreals/realseq.v
