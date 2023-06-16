@@ -37,6 +37,9 @@ From mathcomp Require Import ring lra.
 (*                        function from mctx g to mtyp t                      *)
 (*          pval R g t == "probabilistic value", i.e.,                        *)
 (*                        s-finite kernel, from mctx g to mtyp t              *)
+(*            mkswap k == given a kernel k : (Y * X) ~> Z,                    *)
+(*                        returns a kernel of type (X * Y) ~> Z               *)
+(*             letin' := mkcomp \o mkswap                                     *)
 (*        e -D> f ; mf == the evaluation of the deterministic expression e    *)
 (*                        leads to the deterministic value f                  *)
 (*                        (mf is the proof that f is measurable)              *)
@@ -61,8 +64,6 @@ Reserved Notation "f .; g" (at level 60, right associativity,
   format "f  .; '/ '  g").
 Reserved Notation "e -D> f ; mf" (at level 40).
 Reserved Notation "e -P> k" (at level 40).
-Reserved Notation "% x" (at level 1, format "% x").
-Reserved Notation "# x" (at level 1, format "# x").
 
 (* TODO: move *)
 Lemma eq_probability R d (Y : measurableType d) (m1 m2 : probability Y R) :
@@ -127,7 +128,7 @@ HB.instance Definition _ x := isMeasure.Build _ R _
   (mswap x) (mswap0 x) (mswap_ge0 x) (@mswap_sigma_additive x).
 
 Definition mkswap : _ -> {measure set Z -> \bar R} :=
-  fun x => [the measure _ _ of mswap x].
+  fun x => mswap x.
 
 Let measurable_fun_kswap U :
   measurable U -> measurable_fun setT (mkswap ^~ U).
@@ -184,7 +185,7 @@ HB.instance Definition _ :=
 
 End kswap_finite_kernel_finite.
 
-Notation "l .; k" := (mkcomp l [the _.-ker _ ~> _ of mkswap k]) : ereal_scope.
+Notation "l .; k" := (mkcomp l (mkswap k)) : ereal_scope.
 
 (* TODO: document *)
 Section letin'.
@@ -446,9 +447,6 @@ Definition exp_var' (str : string) (t : typ) (g : find str t) :=
   @exp_var (untag (ctx_of g)) str t (ctx_prf g).
 Arguments exp_var' str {t} g.
 
-Lemma exp_var'E str t (f : find str t) H : exp_var' str f = exp_var str H.
-Proof. by rewrite /exp_var'; congr exp_var. Qed.
-
 End syntax_of_expressions.
 Arguments exp {R}.
 Arguments exp_unit {R g}.
@@ -464,14 +462,12 @@ Arguments exp_letin {R g _ _}.
 Arguments exp_sample {R g t}.
 Arguments exp_score {R g}.
 Arguments exp_return {R g _}.
-Arguments exp_weak {R dp g h t x}.
+Arguments exp_weak {R} dp g h {t} x.
 Arguments exp_var' {R} str {t} g.
-Arguments exp_var'E {R} str.
 
 Declare Custom Entry expr.
 Notation "[ e ]" := e (e custom expr at level 5) : lang_scope.
-Notation "'TT'" := (exp_unit)
-  (in custom expr at level 1) : lang_scope.
+Notation "'TT'" := (exp_unit) (in custom expr at level 1) : lang_scope.
 Notation "b ':B'" := (@exp_bool _ _ b%bool)
   (in custom expr at level 1) : lang_scope.
 Notation "r ':R'" := (@exp_real _ _ r%R)
@@ -480,8 +476,9 @@ Notation "'return' e" := (@exp_return _ _ _ e)
   (in custom expr at level 2) : lang_scope.
 Notation "% str" := (@exp_var _ _ str%string _ erefl)
   (in custom expr at level 1, format "% str") : lang_scope.
-Notation "# str" := (@exp_var' _ str%string _ _) (in custom expr at level 1).
-Notation "e :+ str" := (@exp_weak _ _ [::] _ _ (str, _) e erefl)
+Notation "# str" := (@exp_var' _ str%string _ _)
+  (in custom expr at level 1, format "# str").
+Notation "e :+ str" := (exp_weak _ [::] _ (str, _) e erefl)
   (in custom expr at level 1) : lang_scope.
 Notation "( e1 , e2 )" := (exp_pair e1 e2)
   (in custom expr at level 1) : lang_scope.
@@ -507,7 +504,7 @@ Notation "'Normalize' e" := (exp_normalize e)
   (in custom expr at level 0) : lang_scope.
 
 Local Open Scope lang_scope.
-Example example3 {R : realType} : @exp R P [::] _ :=
+Example three_letin {R : realType} : @exp R P [::] _ :=
   [let "x" := return {1}:R in
    let "y" := return #{"x"} in
    let "z" := return #{"y"} in return #{"z"}].
@@ -622,6 +619,7 @@ End fkernel_weak.
 End weak.
 Arguments weak {R} g h x {t}.
 Arguments measurable_weak {R} g h x {t}.
+Arguments kweak {R} g h x {t}.
 
 (* TODO: mv *)
 Arguments measurable_fst {d1 d2 T1 T2}.
@@ -674,7 +672,8 @@ Inductive evalD : forall g t, exp D g t ->
 
 | evalD_weak g h t e x (H : x.1 \notin map fst (g ++ h)) f mf :
   e -D> f ; mf ->
-  (exp_weak e H : exp _ _ t) -D> weak g h x f ; measurable_weak g h x f mf
+  (exp_weak _ g h x e H : exp _ _ t) -D> weak g h x f ;
+                                         measurable_weak g h x f mf
 
 where "e -D> v ; mv" := (@evalD _ _ e v mv)
 
@@ -705,7 +704,7 @@ with evalP : forall g t, exp P g t -> pval R g t -> Prop :=
 | evalP_weak g h t (e : exp P (g ++ h) t) x
     (Hx : x.1 \notin map fst (g ++ h)) f :
   e -P> f ->
-  exp_weak e Hx -P> @kweak R g h x t f
+  exp_weak _ g h x e Hx -P> kweak g h x f
 
 where "e -P> v" := (@evalP _ _ e v).
 
@@ -992,11 +991,9 @@ all: rewrite {dp g t}.
 - move=> g e [f [mf f_mf]].
   by exists (kscore mf); exact: eval_score.
 - by move=> g t e [f [mf f_mf]]; exists (ret mf); exact: eval_return.
-- move=> [|].
-  + move=> g h t x e [f [mf ef]] xgh.
-    by exists (weak _ _ _ f), (measurable_weak _ _ _ _ mf); exact/evalD_weak.
-  + move=> g h st x e [k ek] xgh.
-    by exists (kweak k); exact: evalP_weak.
+- case=> [g h t x e [f [mf ef]] xgh|g h st x e [k ek] xgh].
+  + by exists (weak _ _ _ f), (measurable_weak _ _ _ _ mf); exact/evalD_weak.
+  + by exists (kweak _ _ _ k); exact: evalP_weak.
 Qed.
 
 Lemma evalD_total g t (e : @exp R D g t) : exists f mf, e -D> f ; mf.
@@ -1109,8 +1106,8 @@ by move=> f mf; apply/execD_evalD/eval_proj1; exact: evalD_execD.
 Qed.
 
 Lemma execD_var g str : let i := index str (map fst g) in
-  @execD g _ (exp_var str erefl) = existT _ (acc_typ (map snd g) i)
-                                   (measurable_acc_typ (map snd g) i).
+  @execD g _ [%str] = existT _ (acc_typ (map snd g) i)
+                      (measurable_acc_typ (map snd g) i).
 Proof. by move=> i; apply/execD_evalD; exact: eval_var. Qed.
 
 Lemma execD_bernoulli g r (r1 : (r%:num <= 1)%R) :
@@ -1156,12 +1153,17 @@ Proof. exact/execP_evalP/eval_return/evalD_execD. Qed.
 
 Lemma execP_weak g h x t (e : exp P (g ++ h) t)
     (xl : x.1 \notin map fst (g ++ h)) :
-  execP (@exp_weak R P g h t _ e xl) = [the _.-sfker _ ~> _ of kweak (execP e)].
+  execP (exp_weak P g h _ e xl) = kweak _ _ _ (execP e).
 Proof. exact/execP_evalP/evalP_weak/evalP_execP. Qed.
+
+Lemma exp_var'E str t (f : find str t) H :
+  exp_var' str f = exp_var str H :> (@exp R _ _ _).
+Proof. by rewrite /exp_var'; congr exp_var. Qed.
 
 End execution_functions.
 Arguments execD_var {R g} str.
 Arguments execP_weak {R} g h x {t} e.
+Arguments exp_var'E {R} str.
 
 Section staton_bus.
 Local Open Scope ring_scope.
@@ -1375,7 +1377,7 @@ Definition exp_sample_pair : exp D [::] _ :=
    let "y" := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S R 2)} in
    return (%{"x"}, %{"y"})].
 
-Lemma exec_sample_pair : 
+Lemma exec_sample_pair :
   (projT1 (execD exp_sample_pair)) tt [set p | p.1 || p.2 = true] = (2 / 3%:R)%:E.
 Proof.
 rewrite execD_normalize.
