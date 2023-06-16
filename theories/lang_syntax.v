@@ -94,6 +94,18 @@ Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 
+(* TODO: move *)
+Lemma integral_bernoulli {R : realType}
+    (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : bool -> set bool -> _) U :
+  (forall x y, 0 <= f x y) ->
+  \int[bernoulli p1]_y (f y ) U =
+  p%:num%:E * f true U + (`1-(p%:num))%:E * f false U.
+Proof.
+move=> f0.
+rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
+by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
+Qed.
+
 (* TODO: document *)
 Section mswap.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
@@ -1297,81 +1309,68 @@ Context {R : realType}.
 Goal (ret (kr 3) : R.-sfker _ ~> (mR R)) tt [set: R] = 1%:E.
 Proof. rewrite /= diracE in_setT //. Qed.
 
-Definition sample_bern : R.-sfker munit ~> mbool :=
+Definition staton_bus_syntax0 : @exp R _ [::] _ :=
+  [let "x" := Sample {exp_bernoulli (2 / 7%:R)%:nng p27} in
+   let "r" := if #{"x"} then return {3}:R else return {10}:R in
+   let "_" := Score {exp_poisson 4 [#{"r"}]} in
+   return %{"x"}].
+
+Definition staton_bus_syntax : exp _ [::] _ :=
+  [Normalize {staton_bus_syntax0}].
+
+Let sample_bern : R.-sfker munit ~> mbool :=
   sample_cst [the probability _ _ of bernoulli p27].
 
-Definition ite_3_10 :
+Let ite_3_10 :
   R.-sfker [the measurableType _ of (mbool * munit)%type] ~> (mR R) :=
-  ite (@macc0of2 _ _ _ _) (ret k3) (ret k10).
+  ite macc0of2 (ret k3) (ret k10).
 
-Definition score_poi :
+Let score_poisson4 :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
   score (measurableT_comp (measurable_poisson 4) (@macc0of2 _ _ _ _)).
 
-Example kstaton_bus_exp : @exp R P [::] Bool :=
-  [let "x" := Sample {(exp_bernoulli (2 / 7%:R)%:nng p27)} in
-   let "r" := if #{"x"} then return {3}:R else return {10}:R in
-   let "_" := Score {(exp_poisson 4 [#{"r"}])} in
-   return %{"x"}].
-
-Example staton_bus_exp : exp D [::] (Prob Bool) :=
-  [Normalize {kstaton_bus_exp}].
-
-Local Definition kstaton_bus'' :=
+(* same as kstaton_bus _ (measurable_poisson 4) but expressed with letin'
+   instead of letin *)
+Let kstaton_bus' :=
   letin' sample_bern
     (letin' ite_3_10
-      (letin' score_poi (ret macc2of4'))).
+      (letin' score_poisson4 (ret macc2of4'))).
 
-Lemma eval_staton_bus : kstaton_bus_exp -P-> kstaton_bus''.
+Lemma eval_staton_bus0 : staton_bus_syntax0 -P-> kstaton_bus'.
 Proof.
+apply: eval_letin; first by apply: eval_sample; exact: eval_bernoulli.
 apply: eval_letin.
-  by apply: eval_sample; exact: eval_bernoulli.
-apply: eval_letin.
-  apply/evalP_if/eval_return/eval_real/eval_return/eval_real.
+  apply/evalP_if; [|exact/eval_return/eval_real..].
   rewrite exp_var'E.
   by apply/execD_evalD; rewrite (execD_var "x")/=; congr existT.
 apply: eval_letin.
   apply/eval_score/eval_poisson.
   rewrite exp_var'E.
   by apply/execD_evalD; rewrite (execD_var "r")/=; congr existT.
-apply/execP_evalP; rewrite execP_return/= (execD_var "x")/=.
-by congr ret.
+apply/eval_return.
+by apply/execD_evalD; rewrite (execD_var "x")/=; congr existT.
 Qed.
 
-Lemma exec_kstaton_bus : execP kstaton_bus_exp = kstaton_bus''.
+Lemma exec_staton_bus0 : execP staton_bus_syntax0 = kstaton_bus'.
 Proof.
-rewrite /kstaton_bus''.
 rewrite 3!execP_letin execP_sample/= execD_bernoulli.
-congr letin'.
-rewrite !execP_if !execP_return !execD_real.
+rewrite /kstaton_bus'; congr letin'.
+rewrite !execP_if !execP_return !execD_real/=.
 rewrite exp_var'E (execD_var "x")/=.
-rewrite /ite_3_10.
-have -> : measurable_acc_typ [:: Bool] 0 = @macc0of2 _ _ _ _ by [].
+have -> : measurable_acc_typ [:: Bool] 0 = macc0of2 by [].
 congr letin'.
-rewrite execP_score execD_poisson /=.
+rewrite execP_score execD_poisson/=.
 rewrite exp_var'E (execD_var "r")/=.
-have ->/= : measurable_acc_typ [:: Real; Bool] 0 = macc0of2 by [].
+have -> : measurable_acc_typ [:: Real; Bool] 0 = macc0of2 by [].
 congr letin'.
 by rewrite (execD_var "x") /=; congr ret.
 Qed.
 
-Lemma exec_staton_bus : execD staton_bus_exp =
-  existT _ (normalize kstaton_bus'' point)(measurable_mnormalize _).
-Proof. by rewrite execD_normalize exec_kstaton_bus. Qed.
+Lemma exec_staton_bus : execD staton_bus_syntax =
+  existT _ (normalize kstaton_bus' point) (measurable_mnormalize _).
+Proof. by rewrite execD_normalize exec_staton_bus0. Qed.
 
 End staton_bus.
-
-(* TODO: move *)
-Lemma integral_bernoulli {R : realType}
-    (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : bool -> set bool -> _) U :
-  (forall x y, 0 <= f x y) ->
-  \int[bernoulli p1]_y (f y ) U =
-  p%:num%:E * f true U + (`1-(p%:num))%:E * f false U.
-Proof.
-move=> f0.
-rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
-by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
-Qed.
 
 Section bernoulli_example.
 Local Open Scope ring_scope.
