@@ -419,8 +419,7 @@ Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_pair g t1 t2 : exp D g t1 -> exp D g t2 -> exp D g (Pair t1 t2)
 | exp_proj0 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t1
 | exp_proj1 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t2
-| exp_var g x t : t = nth Unit (map snd g) (index x (map fst g)) ->
-    exp D g t
+| exp_var g str t : t = lookup Unit g str -> exp D g t
 | exp_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
     exp D g (Prob Bool)
 | exp_poisson g : nat -> exp D g Real -> exp D g Real

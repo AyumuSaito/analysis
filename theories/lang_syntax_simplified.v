@@ -64,11 +64,10 @@ Implicit Types str : string.
 Inductive exp : Type :=
 | exp_unit : exp
 | exp_real : R -> exp
-| exp_var (g : ctx) T str :
-  T = nth Real (map snd g) (index str (map fst g)) -> exp
+| exp_var (g : ctx) t str : t = lookup Unit g str -> exp
 | exp_add : exp -> exp -> exp
 | exp_letin str : exp -> exp -> exp.
-Arguments exp_var {g T}.
+Arguments exp_var {g t}.
 
 Fail Example letin_once : exp :=
   exp_letin "x" (exp_real 1) (exp_var "x" erefl).
@@ -86,11 +85,10 @@ Implicit Types str : string.
 Inductive exp : typ -> Type :=
 | exp_unit : exp Unit
 | exp_real : R -> exp Real
-| exp_var g T str :
-  T = nth Unit (map snd g) (index str (map fst g)) -> exp T
+| exp_var g t str : t = lookup Unit g str -> exp t
 | exp_add : exp Real -> exp Real -> exp Real
 | exp_letin t u : string -> exp t -> exp u -> exp u.
-Arguments exp_var {g T}.
+Arguments exp_var {g t}.
 
 Fail Example letin_once : exp Real :=
   exp_letin "x" (exp_real 1) (exp_var "x" erefl).
@@ -108,12 +106,11 @@ Implicit Types str : string.
 Inductive exp : ctx -> Type :=
 | exp_unit g : exp g
 | exp_real g : R -> exp g
-| exp_var g T str :
-  T = nth Unit (map snd g) (index str (map fst g)) -> exp g
+| exp_var g t str : t = lookup Unit g str -> exp g
 | exp_add g : exp g -> exp g -> exp g
 | exp_letin g t str : exp g -> exp ((str, t) :: g) -> exp g.
 Arguments exp_real {g}.
-Arguments exp_var {g T}.
+Arguments exp_var {g t}.
 Arguments exp_letin {g t}.
 
 Declare Custom Entry expr.
@@ -174,14 +171,12 @@ Implicit Types str : string.
 Inductive exp : ctx -> typ -> Type :=
 | exp_unit g : exp g Unit
 | exp_real g : R -> exp g Real
-| exp_var g T str :
-    T = nth Unit (map snd g) (index str (map fst g)) ->
-    exp g T
+| exp_var g t str : t = lookup Unit g str -> exp g t
 | exp_add g : exp g Real -> exp g Real -> exp g Real
 | exp_letin g t u str : exp g t -> exp ((str, t) :: g) u -> exp g u.
 Arguments exp_unit {g}.
 Arguments exp_real {g}.
-Arguments exp_var {g T}.
+Arguments exp_var {g t}.
 Arguments exp_add {g}.
 Arguments exp_letin {g t u}.
 
