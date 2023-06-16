@@ -14,9 +14,9 @@ From mathcomp Require Import ring lra.
 (*                 typ == syntax for types of data structures                 *)
 (* measurable_of_typ t == the measurable type corresponding to type t         *)
 (*                        It is of type {d & measurableType d}                *)
+(*         mtyp_disp t == the display corresponding to type t                 *)
 (*              mtyp t == the measurable type corresponding to type t         *)
-(*                        It is of type                                       *)
-(*                        measurableType (projT1 (measurable_of_typ t))       *)
+(*                        It is of type measurableType (mtyp_disp t)          *)
 (* measurable_of_seq s == the product space corresponding to the              *)
 (*                        list s : seq typ                                    *)
 (*                        It is of type {d & measurableType d}                *)
@@ -25,10 +25,11 @@ From mathcomp Require Import ring lra.
 (*                        to projT2 (measurable_of_typ (nth Unit s n))        *)
 (*                 ctx == type of context                                     *)
 (*                     := seq (string * type)                                 *)
+(*         mctx_disp g == the display corresponding to the context g          *)
 (*              mctx g := the measurable type corresponding to the context g  *)
 (*                        It is formed of nested pairings of measurable       *)
-(*                        spaces. It is of type measurableType                *)
-(*                        (projT1 (measurable_of_seq (map snd g)))            *)
+(*                        spaces. It is of type measurableType (mctx_disp g)  *)
+(*                                    *)
 (*                flag == a flag is either D (deterministic) or               *)
 (*                        P (probabilistic)                                   *)
 (*           exp f g t == syntax of expressions with flag f of type t         *)
@@ -353,7 +354,9 @@ Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
   | Prob A => existT _ _ (pprobability (projT2 (measurable_of_typ A)) R)
   end.
 
-Definition mtyp t : measurableType (projT1 (measurable_of_typ t)) :=
+Definition mtyp_disp t : measure_display := projT1 (measurable_of_typ t).
+
+Definition mtyp t : measurableType (mtyp_disp t) :=
   projT2 (measurable_of_typ t).
 
 Definition measurable_of_seq (l : seq typ) : {d & measurableType d} :=
@@ -413,8 +416,9 @@ Section context.
 Variables (R : realType).
 Definition ctx := seq (string * typ).
 
-Definition mctx (g : ctx)
-    : measurableType (projT1 (measurable_of_seq (map snd g))) :=
+Definition mctx_disp (g : ctx) := projT1 (@measurable_of_seq R (map snd g)).
+
+Definition mctx (g : ctx) : measurableType (mctx_disp g) :=
   projT2 (@measurable_of_seq R (map snd g)).
 
 End context.
