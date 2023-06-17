@@ -9,7 +9,7 @@ Require Import lang_syntax_util.
 From mathcomp Require Import ring lra.
 
 (******************************************************************************)
-(*       Syntax and Evaluation for a probabilistic programming language       *)
+(*       Syntax and Evaluation for a Probabilistic Programming Language       *)
 (*                                                                            *)
 (*                 typ == syntax for types of data structures                 *)
 (* measurable_of_typ t == the measurable type corresponding to type t         *)
@@ -39,7 +39,7 @@ From mathcomp Require Import ring lra.
 (*                        s-finite kernel, from mctx g to mtyp t              *)
 (*            mkswap k == given a kernel k : (Y * X) ~> Z,                    *)
 (*                        returns a kernel of type (X * Y) ~> Z               *)
-(*             letin' := mkcomp \o mkswap                                     *)
+(*              letin' := mkcomp \o mkswap                                    *)
 (*        e -D> f ; mf == the evaluation of the deterministic expression e    *)
 (*                        leads to the deterministic value f                  *)
 (*                        (mf is the proof that f is measurable)              *)
@@ -187,18 +187,19 @@ End kswap_finite_kernel_finite.
 
 Notation "l .; k" := (mkcomp l (mkswap k)) : ereal_scope.
 
-(* TODO: document *)
 Section letin'.
 Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
           (Z : measurableType d3) (R : realType).
 
-Definition letin' (l : R.-sfker X ~> Y)
-    (k : R.-sfker [the measurableType (d', d).-prod of (Y * X)%type] ~> Z) :=
+Definition letin' (l : R.-sfker X ~> Y) (k : R.-sfker (Y * X)%type ~> Z) :=
   locked [the R.-sfker X ~> Z of l .; k].
 
-Lemma letin'E (l : R.-sfker X ~> Y)
-    (k : R.-sfker [the measurableType (d', d).-prod of (Y * X)%type] ~> Z) x U :
+Lemma letin'E (l : R.-sfker X ~> Y) (k : R.-sfker (Y * X)%type ~> Z) x U :
   letin' l k x U = \int[l x]_y k (y, x) U.
+Proof. by rewrite /letin'; unlock. Qed.
+
+Lemma letin'_letin (l : R.-sfker X ~> Y) (k : R.-sfker (Y * X)%type ~> Z) :
+  letin' l k = letin l (mkswap k).
 Proof. by rewrite /letin'; unlock. Qed.
 
 End letin'.
@@ -309,7 +310,7 @@ Proof.
 move=> mA.
 rewrite !letin'E.
 under eq_integral do rewrite letin'E.
-rewrite /letin'; unlock.
+rewrite letin'_letin/=.
 rewrite integral_kcomp; [|by []|].
   apply: eq_integral => z _.
   apply: eq_integral => y _.
@@ -1164,4 +1165,3 @@ End execution_functions.
 Arguments execD_var {R g} str.
 Arguments execP_weak {R} g h x {t} e.
 Arguments exp_var'E {R} str.
-
