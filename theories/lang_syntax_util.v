@@ -41,7 +41,9 @@ Context {T : eqType} {t0 : T}.
 Let ctx := seq (string * T).
 Implicit Types (str : string) (g : ctx) (t : T).
 
-Definition lookup g str := nth t0 (map snd g) (index str (map fst g)).
+Definition dom g := map fst g.
+
+Definition lookup g str := nth t0 (map snd g) (index str (dom g)).
 
 Structure tagged_ctx := Tag {untag : ctx}.
 
@@ -53,12 +55,12 @@ Lemma ctx_prf_head str t g : t = lookup ((str, t) :: g) str.
 Proof. by rewrite /lookup /= !eqxx. Qed.
 
 Lemma ctx_prf_tail str t g str' t' :
-  str != str' ->
-  t' = lookup g str' ->
-  t' = lookup ((str, t) :: g) str'.
+  str' != str ->
+  t = lookup g str ->
+  t = lookup ((str', t') :: g) str.
 Proof.
-move=> strstr' t'g /=; rewrite /lookup/=.
-by case: ifPn => //=; rewrite (negbTE strstr').
+move=> str'str tg /=; rewrite /lookup/=.
+by case: ifPn => //=; rewrite (negbTE str'str).
 Qed.
 
 Definition recurse_tag g := Tag g.
@@ -68,10 +70,10 @@ Canonical found str t g : find str t :=
   @Find str t (found_tag ((str, t) :: g))
               (@ctx_prf_head str t g).
 
-Canonical recurse str t str' t' {H : infer (str != str')}
-    (F : find str' t') : find str' t' :=
-  @Find str' t' (recurse_tag ((str, t) :: untag (ctx_of F)))
-    (@ctx_prf_tail str t (untag (ctx_of F)) str' t' H (ctx_prf F)).
+Canonical recurse str t str' t' {H : infer (str' != str)}
+    (g : find str t) : find str t :=
+  @Find str t (recurse_tag ((str', t') :: untag (ctx_of g)))
+    (@ctx_prf_tail str t (untag (ctx_of g)) str' t' H (ctx_prf g)).
 
 End tagged_context.
 Arguments lookup {T} t0 g str.
