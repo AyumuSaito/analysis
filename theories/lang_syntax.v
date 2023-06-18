@@ -427,8 +427,8 @@ Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_bool g : bool -> exp D g Bool
 | exp_real g : R -> exp D g Real
 | exp_pair g t0 t1 : exp D g t0 -> exp D g t1 -> exp D g (Pair t0 t1)
-| exp_proj0 g t0 t1 : exp D g (Pair t0 t1) -> exp D g t0
-| exp_proj1 g t0 t1 : exp D g (Pair t0 t1) -> exp D g t1
+| exp_proj1 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t1
+| exp_proj2 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t2
 | exp_var g str t : t = lookup Unit g str -> exp D g t
 | exp_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
     exp D g (Prob Bool)
@@ -483,9 +483,9 @@ Notation "e :+ str" := (exp_weak _ [::] _ (str, _) e erefl)
   (in custom expr at level 1) : lang_scope.
 Notation "( e1 , e2 )" := (exp_pair e1 e2)
   (in custom expr at level 1) : lang_scope.
-Notation "\pi_0 e" := (exp_proj0 e)
-  (in custom expr at level 1) : lang_scope.
 Notation "\pi_1 e" := (exp_proj1 e)
+  (in custom expr at level 1) : lang_scope.
+Notation "\pi_2 e" := (exp_proj2 e)
   (in custom expr at level 1) : lang_scope.
 Notation "'let' x ':=' e 'in' f" := (exp_letin x e f)
   (in custom expr at level 3,
@@ -519,8 +519,8 @@ Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   | exp_bool _ _            => [::]
   | exp_real _ _            => [::]
   | exp_pair _ _ _ e1 e2    => free_vars e1 ++ free_vars e2
-  | exp_proj0 _ _ _ e       => free_vars e
   | exp_proj1 _ _ _ e       => free_vars e
+  | exp_proj2 _ _ _ e       => free_vars e
   | exp_var _ x _ _         => [:: x]
   | exp_bernoulli _ _ _     => [::]
   | exp_poisson _ _ e       => free_vars e
@@ -643,13 +643,13 @@ Inductive evalD : forall g t, exp D g t ->
   e0 -D> f0 ; mf0 -> e1 -D> f1 ; mf1 ->
   [(e0, e1)] -D> fun x => (f0 x, f1 x) ; measurable_fun_prod mf0 mf1
 
-| eval_proj0 g t0 t1 (e : exp D g (Pair t0 t1)) f mf :
-  e -D> f ; mf ->
-  [\pi_0 e] -D> fst \o f ; measurableT_comp measurable_fst mf
-
 | eval_proj1 g t0 t1 (e : exp D g (Pair t0 t1)) f mf :
   e -D> f ; mf ->
-  [\pi_1 e] -D> snd \o f ; measurableT_comp measurable_snd mf
+  [\pi_1 e] -D> fst \o f ; measurableT_comp measurable_fst mf
+
+| eval_proj2 g t0 t1 (e : exp D g (Pair t0 t1)) f mf :
+  e -D> f ; mf ->
+  [\pi_2 e] -D> snd \o f ; measurableT_comp measurable_snd mf
 
 | eval_var g str : let i := index str (map fst g) in
   [%str] -D> acc_typ (map snd g) i ; measurable_acc_typ (map snd g) i
@@ -968,9 +968,9 @@ all: rewrite {dp g t}.
 - move=> g t1 t2 e1 [f1 [mf1 H1]] e2 [f2 [mf2 H2]].
   by exists (fun x => (f1 x, f2 x)); eexists; exact: eval_pair.
 - move=> g t1 t2 e [f [mf H]].
-  by exists (fst \o f); eexists; exact: eval_proj0.
+  by exists (fst \o f); eexists; exact: eval_proj1.
 - move=> g t1 t2 e [f [mf H]].
-  by exists (snd \o f); eexists; exact: eval_proj1.
+  by exists (snd \o f); eexists; exact: eval_proj2.
 - by move=> g x t tE; subst t; eexists; eexists; exact: eval_var.
 - by move=> r r1; eexists; eexists; exact: eval_bernoulli.
 - move=> g h e [f [mf H]].
@@ -1076,10 +1076,8 @@ Lemma execD_real g r : @execD g _ [r:R] = existT _ (cst r) (kr r).
 Proof. exact/execD_evalD/eval_real. Qed.
 
 Lemma execD_pair g t1 t2 (e1 : exp D g t1) (e2 : exp D g t2) :
-  let f1 := projT1 (execD e1) in
-  let f2 := projT1 (execD e2) in
-  let mf1 := projT2 (execD e1) in
-  let mf2 := projT2 (execD e2) in
+  let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in
+  let mf1 := projT2 (execD e1) in let mf2 := projT2 (execD e2) in
   execD [(e1, e2)] =
   @existT _ _ (fun z => (f1 z, f2 z))
               (@measurable_fun_prod _ _ _ (mctx g) (mtyp t1) (mtyp t2)
@@ -1088,22 +1086,21 @@ Proof.
 by move=> f1 f2 mf1 mf2; apply/execD_evalD/eval_pair; exact: evalD_execD.
 Qed.
 
-Lemma execD_proj0 g t1 t2 (e : exp D g (Pair t1 t2)) :
-  let f := projT1 (execD e) in
-  let mf := projT2 (execD e) in
-  execD [\pi_0 e] = @existT _ _ (fst \o f)
-                    (measurableT_comp measurable_fst mf).
-Proof.
-by move=> f mf; apply/execD_evalD/eval_proj0; exact: evalD_execD.
-Qed.
-
 Lemma execD_proj1 g t1 t2 (e : exp D g (Pair t1 t2)) :
   let f := projT1 (execD e) in
   let mf := projT2 (execD e) in
-  execD [\pi_1 e] = @existT _ _ (snd \o f)
-                    (measurableT_comp measurable_snd mf).
+  execD [\pi_1 e] = @existT _ _ (fst \o f)
+                    (measurableT_comp measurable_fst mf).
 Proof.
 by move=> f mf; apply/execD_evalD/eval_proj1; exact: evalD_execD.
+Qed.
+
+Lemma execD_proj2 g t1 t2 (e : exp D g (Pair t1 t2)) :
+  let f := projT1 (execD e) in let mf := projT2 (execD e) in
+  execD [\pi_2 e] = @existT _ _ (snd \o f)
+                    (measurableT_comp measurable_snd mf).
+Proof.
+by move=> f mf; apply/execD_evalD/eval_proj2; exact: evalD_execD.
 Qed.
 
 Lemma execD_var g str : let i := index str (map fst g) in
