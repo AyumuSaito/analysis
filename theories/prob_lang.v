@@ -19,7 +19,7 @@ Require Import lebesgue_measure  numfun lebesgue_integral exp kernel.
 (*           score mf == observe t from d, where f is the density of d and    *)
 (*                       t occurs in f                                        *)
 (*                       e.g., score (r e^(-r * t)) = observe t from exp(r)   *)
-(*     pnormalize k P == normalize the kernel k into a probability kernel,    *)
+(*      normalize k P == normalize the kernel k into a probability kernel,    *)
 (*                       P is a default probability in case normalization is  *)
 (*                       not possible                                         *)
 (*       ite mf k1 k2 == access the context with the boolean function f and   *)
@@ -56,6 +56,32 @@ Proof. by rewrite invr_ge0. Qed.
 
 Definition invr_nonneg (R : numDomainType) (p : {nonneg R}) :=
   NngNum (invr_nonneg_proof p).
+
+(* TODO: move *)
+Lemma eq_probability R d (Y : measurableType d) (m1 m2 : probability Y R) :
+  (m1 =1 m2 :> (set Y -> \bar R)) -> m1 = m2.
+Proof.
+move: m1 m2 => [m1 +] [m2 +] /= m1m2.
+move/funext : m1m2 => <- -[[c11 c12] [m01] [sf1] [sig1] [fin1] [sub1] [p1]]
+                    [[c21 c22] [m02] [sf2] [sig2] [fin2] [sub2] [p2]].
+have ? : c11 = c21 by [].
+subst c21.
+have ? : c12 = c22 by [].
+subst c22.
+have ? : m01 = m02 by [].
+subst m02.
+have ? : sf1 = sf2 by [].
+subst sf2.
+have ? : sig1 = sig2 by [].
+subst sig2.
+have ? : fin1 = fin2 by [].
+subst fin2.
+have ? : sub1 = sub2 by [].
+subst sub2.
+have ? : p1 = p2 by [].
+subst p2.
+by f_equal.
+Qed.
 
 Section bernoulli.
 Variables (R : realType) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
@@ -483,6 +509,15 @@ by case: ifPn => fx /=; rewrite /mzero ?(adde0,add0e).
 Qed.
 
 End insn2_lemmas.
+
+Lemma normalize_kdirac (R : realType)
+    d (T : measurableType d) d' (T' : measurableType d') (x : T) (r : T') P :
+  normalize (kdirac (measurable_cst r)) P x = \d_r :> probability T' R.
+Proof.
+apply: eq_probability => U.
+rewrite normalizeE /= diracE in_setT/=.
+by rewrite onee_eq0/= indicE in_setT/= -div1r divr1 mule1.
+Qed.
 
 Section insn3.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
