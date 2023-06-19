@@ -474,8 +474,8 @@ Let staton_bus_probability U :=
   ((2 / 7)%:E * (poisson4 3)%:E * \d_true U +
   (5 / 7)%:E * (poisson4 10)%:E * \d_false U)%E.
 
-Lemma exec_staton_bus0' t U :
-  execP staton_bus_syntax0 t U = staton_bus_probability U.
+Lemma exec_staton_bus0' U :
+  execP staton_bus_syntax0 tt U = staton_bus_probability U.
 Proof.
 rewrite exec_staton_bus0 /staton_bus_probability /kstaton_bus'.
 rewrite letin'_sample_bernoulli.
