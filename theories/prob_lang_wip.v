@@ -9,7 +9,7 @@ Require Import prob_lang.
 
 (******************************************************************************)
 (*  Semantics of a probabilistic programming language using s-finite kernels  *)
-(*                                (wip)                                       *)
+(*                      (wip about gauss density)                             *)
 (******************************************************************************)
 
 Set Implicit Arguments.
@@ -41,6 +41,9 @@ Qed.
 
 Definition gauss01_density : R -> R := gauss_density 0 1.
 
+Hypothesis integral_gauss01_density :
+  (\int[lebesgue_measure]_x (gauss01_density x)%:E = 1%E)%E.
+
 Lemma gauss01_densityE x :
   gauss01_density x = (sqrtr (pi *+ 2))^-1 * expR (- (x ^+ 2) / 2%:R).
 Proof. by rewrite /gauss01_density /gauss_density mul1r subr0 divr1. Qed.
@@ -67,9 +70,6 @@ Let mgauss01_ge0 A : (0 <= mgauss01 A)%E.
 Proof.
 by rewrite /mgauss01 integral_ge0//= => x _; rewrite lee_fin gauss_density_ge0.
 Qed.
-
-Axiom integral_gauss01_density :
-  (\int[lebesgue_measure]_x (gauss01_density x)%:E = 1%E)%E.
 
 Let mgauss01_sigma_additive : semi_sigma_additive mgauss01.
 Proof.
@@ -105,8 +105,14 @@ End gauss.
 Section gauss_lebesgue.
 Import Notations.
 Context d (T : measurableType d) (R : realType).
+Hypothesis integral_gauss01_density :
+  (\int[@lebesgue_measure R]_x (gauss01_density x)%:E = 1%E)%E.
 
 Let f1 (x : R) := (gauss01_density x) ^-1.
+
+Hypothesis integral_mgauss01 : forall U, measurable U ->
+  \int[mgauss01 (R:=R)]_(y in U) (f1 y)%:E =
+  \int[lebesgue_measure]_(x0 in U) (gauss01_density x0 * f1 x0)%:E.
 
 Let mf1 : measurable_fun setT f1.
 Proof.
@@ -121,10 +127,10 @@ Qed.
 Variable mu : {measure set mR R -> \bar R}.
 
 Definition staton_lebesgue : R.-sfker T ~> _ :=
-  letin (sample_cst (@gauss01 R : pprobability _ _))
+  letin (sample_cst (gauss01 integral_gauss01_density : pprobability _ _))
   (letin
-    (score (measurableT_comp mf1 (@macc1of2 _ _ _ _)))
-    (ret (@macc1of3 _ _ _ _ _ _))).
+    (score (measurableT_comp mf1 macc1of2))
+    (ret macc1of3)).
 
 Lemma staton_lebesgueE x U : measurable U ->
   staton_lebesgue x U = lebesgue_measure U.
@@ -133,16 +139,15 @@ move=> mU; rewrite [in LHS]/staton_lebesgue/=.
 rewrite [in LHS]letinE /=.
 transitivity (\int[@mgauss01 R]_(y in U) (f1 y)%:E).
   rewrite -[in RHS](setTI U) integral_setI_indic//=.
-  apply: eq_integral => /= r _.
+  apply: eq_integral => //= r.
   rewrite letinE/= ge0_integral_mscale//= ger0_norm//; last first.
     by rewrite invr_ge0// gauss_density_ge0.
   by rewrite integral_dirac// indicT mul1e diracE indicE.
-transitivity (\int[lebesgue_measure]_(x in U) (gauss01_density x * f1 x)%:E).
-  admit.
+rewrite integral_mgauss01//.
 transitivity (\int[lebesgue_measure]_(x in U) (\1_U x)%:E).
   apply: eq_integral => /= y yU.
   by rewrite /f1 divrr ?indicE ?yU// unitfE gt_eqF// gauss_density_gt0.
 by rewrite integral_indic//= setIid.
-Abort.
+Qed.
 
 End gauss_lebesgue.
