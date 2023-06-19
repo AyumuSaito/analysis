@@ -17,7 +17,7 @@ From mathcomp Require Import ring lra.
 (*   return x)                                                                *)
 (* exp_sample_pair := normalize (                                             *)
 (*   let x := sample (bernoulli 1/2) in                                       *)
-(*   let y := sample (bernoulli 1/3 in                                        *)
+(*   let y := sample (bernoulli 1/3) in                                       *)
 (*   return (x, y))                                                           *)
 (* commutativity                                                              *)
 (* associativity                                                              *)
@@ -107,12 +107,58 @@ Local Open Scope lang_scope.
 Import Notations.
 Context {R : realType}.
 
+Let p13 : (1 / 3%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
+
+Definition bernoulli13_score := [Normalize
+  let "x" := Sample {@exp_bernoulli R [::] (1 / 3%:R)%:nng p13} in
+  let "r" := if #{"x"} then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
+  return #{"x"}].
+
+Lemma exec_bernoulli13_score :
+  execD (exp_bernoulli (1 / 5%:R)%:nng (p1S R 4)) = execD bernoulli13_score.
+Proof.
+apply: eq_execD.
+rewrite execD_bernoulli/= /bernoulli13_score execD_normalize 2!execP_letin.
+rewrite execP_sample/= execD_bernoulli/= execP_if /= exp_var'E.
+rewrite (execD_var "x")/= !execP_return/= 2!execP_score 2!execD_real/=.
+apply: funext=> g; apply: eq_probability => U.
+rewrite normalizeE !letin'E/=.
+under eq_integral.
+  move=> x _.
+  rewrite !letin'E.
+  under eq_integral do rewrite retE /=.
+  over.
+rewrite !integral_measure_add //=; last by move=> b _; rewrite integral_ge0.
+rewrite !ge0_integral_mscale //=; last 2 first.
+  by move=> b _; rewrite integral_ge0.
+  by move=> b _; rewrite integral_ge0.
+rewrite !integral_dirac// !indicE !in_setT !mul1e.
+rewrite iteE/= !ge0_integral_mscale//=.
+rewrite ger0_norm//; last by lra.
+rewrite !integral_indic//= !iteE/= /mscale/=.
+rewrite setTI diracE !in_setT !mule1.
+rewrite ger0_norm//; last by lra.
+rewrite -EFinD/= eqe ifF; last first.
+  apply/negbTE/negP => /orP[/eqP|//].
+  by rewrite /onem; lra.
+rewrite !letin'E/= !iteE/=.
+rewrite !ge0_integral_mscale//=.
+rewrite ger0_norm//; last by lra.
+rewrite !integral_dirac//= !indicE !in_setT /= !mul1e ger0_norm//; last by lra.
+rewrite exp_var'E (execD_var "x")/=.
+rewrite /bernoulli/= measure_addE/= /mscale/= !mul1r.
+rewrite muleDl//; congr (_ + _)%E;
+  rewrite -!EFinM;
+  congr (_%:E);
+  by rewrite indicE /onem; case: (_ \in _); field.
+Qed.
+
 Definition bernoulli12_score := [Normalize
   let "x" := Sample {@exp_bernoulli R [::] (1 / 2)%:nng (p1S R 1)} in
   let "r" := if #{"x"} then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
   return #{"x"}].
 
-Lemma exec_bernoulli_score :
+Lemma exec_bernoulli12_score :
   execD (exp_bernoulli (1 / 3%:R)%:nng (p1S R 2)) = execD bernoulli12_score.
 Proof.
 apply: eq_execD.
