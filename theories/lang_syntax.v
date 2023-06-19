@@ -76,7 +76,7 @@ Arguments measurable_snd {d1 d2 T1 T2}.
 Section mswap.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType).
-Variable k : R.-ker (Y * X)%type ~> Z.
+Variable k : R.-ker Y * X ~> Z.
 
 Definition mswap xy U := k (swap xy) U.
 
@@ -112,15 +112,15 @@ End mswap.
 Section mswap_sfinite_kernel.
 Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
           (Z : measurableType d3) (R : realType).
-Variable k : R.-sfker [the measurableType _ of (Y * X)%type] ~> Z.
+Variable k : R.-sfker Y * X ~> Z.
 
 Let mkswap_sfinite :
-  exists2 k_ : (R.-ker [the measurableType _ of (X * Y)%type] ~> Z)^nat,
+  exists2 k_ : (R.-ker X * Y ~> Z)^nat,
   forall n, measure_fam_uub (k_ n) &
   forall x U, measurable U -> mkswap k x U = kseries k_ x U.
 Proof.
 have [k_ /= kE] := sfinite_kernel k.
-exists (fun n => [the R.-ker _ ~> _ of mkswap (k_  n)]).
+exists (fun n => mkswap (k_  n)).
   move=> n.
   have /measure_fam_uubP[M hM] := measure_uub (k_ n).
   by exists M%:num => x/=; exact: hM.
@@ -136,7 +136,7 @@ End mswap_sfinite_kernel.
 Section kswap_finite_kernel_finite.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType)
-  (k : R.-fker [the measurableType _ of (Y * X)%type] ~> Z).
+  (k : R.-fker Y * X ~> Z).
 
 Let mkswap_finite : measure_fam_uub (mkswap k).
 Proof.
@@ -156,14 +156,14 @@ Section letin'.
 Variables (d d' d3 : _) (X : measurableType d) (Y : measurableType d')
           (Z : measurableType d3) (R : realType).
 
-Definition letin' (l : R.-sfker X ~> Y) (k : R.-sfker (Y * X)%type ~> Z) :=
+Definition letin' (l : R.-sfker X ~> Y) (k : R.-sfker Y * X ~> Z) :=
   locked [the R.-sfker X ~> Z of l .; k].
 
-Lemma letin'E (l : R.-sfker X ~> Y) (k : R.-sfker (Y * X)%type ~> Z) x U :
+Lemma letin'E (l : R.-sfker X ~> Y) (k : R.-sfker Y * X ~> Z) x U :
   letin' l k x U = \int[l x]_y k (y, x) U.
 Proof. by rewrite /letin'; unlock. Qed.
 
-Lemma letin'_letin (l : R.-sfker X ~> Y) (k : R.-sfker (Y * X)%type ~> Z) :
+Lemma letin'_letin (l : R.-sfker X ~> Y) (k : R.-sfker Y * X ~> Z) :
   letin' l k = letin l (mkswap k).
 Proof. by rewrite /letin'; unlock. Qed.
 
@@ -174,9 +174,9 @@ Import Notations.
 Context d d1 d' (X : measurableType d) (Y : measurableType d1)
   (Z : measurableType d') (R : realType).
 Variables (t : R.-sfker Z ~> X)
-          (u' : R.-sfker (X * Z)%type ~> Y)
+          (u' : R.-sfker X * Z ~> Y)
           (u : R.-sfker Z ~> Y)
-          (t' : R.-sfker (Y * Z)%type ~> X)
+          (t' : R.-sfker Y * Z ~> X)
           (tt' : forall y, t =1 fun z => t' (y, z))
           (uu' : forall x, u =1 fun z => u' (x, z)).
 
@@ -236,9 +236,9 @@ Context d d' d1 d2 d3 (X : measurableType d) (Y : measurableType d')
   (R : realType).
 Import Notations.
 Variables (t : R.-sfker X ~> T1)
-          (u : R.-sfker (T1 * X)%type ~> T2)
-          (v : R.-sfker (T2 * X)%type ~> Y)
-          (v' : R.-sfker (T2 * (T1 * X))%type ~> Y)
+          (u : R.-sfker T1 * X ~> T2)
+          (v : R.-sfker T2 * X ~> Y)
+          (v' : R.-sfker T2 * (T1 * X) ~> Y)
           (vv' : forall y, v =1 fun xz => v' (xz.1, (y, xz.2))).
 
 Lemma letin'A x A : measurable A ->
@@ -540,7 +540,7 @@ Let sf : exists2 s : (R.-ker @mctx R (g ++ x :: h) ~> @mtyp R t)^nat,
   forall z U, measurable U -> (@kweak g h x t f) z U = kseries s z U .
 Proof.
 have [s hs] := sfinite_kernel f.
-exists (fun n => [the _.-ker _ ~> _ of @kweak g h x t (s n)]).
+exists (fun n => @kweak g h x t (s n)).
   by move=> n; have [M hM] := measure_uub (s n); exists M => x0; exact: hM.
 by move=> z U mU; by rewrite /kweak/= hs.
 Qed.

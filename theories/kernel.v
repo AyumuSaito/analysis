@@ -65,7 +65,7 @@ HB.mixin Record isKernel d d' (X : measurableType d) (Y : measurableType d')
 HB.structure Definition Kernel d d'
     (X : measurableType d) (Y : measurableType d') (R : realType) :=
   { k & isKernel _ _ X Y R k }.
-Notation "R .-ker X ~> Y" := (kernel X Y R).
+Notation "R .-ker X ~> Y" := (kernel X%type Y R).
 
 Arguments measurable_kernel {_ _ _ _ _} _.
 
@@ -168,7 +168,7 @@ HB.structure Definition SFiniteKernel d d'
     (X : measurableType d) (Y : measurableType d') (R : realType) :=
   { k of @Kernel _ _ _ _ R k &
          Kernel_isSFinite_subdef _ _ X Y R k }.
-Notation "R .-sfker X ~> Y" := (SFiniteKernel.type X Y R).
+Notation "R .-sfker X ~> Y" := (SFiniteKernel.type X%type Y R).
 Arguments sfinite_kernel_subdef {_ _ _ _ _} _.
 
 Lemma eq_sfkernel d d' (T : measurableType d) (T' : measurableType d')
@@ -191,7 +191,7 @@ HB.structure Definition FiniteKernel d d'
     (X : measurableType d) (Y : measurableType d') (R : realType) :=
   { k of @SFiniteKernel _ _ _ _ _ k &
          SFiniteKernel_isFinite _ _ X Y R k }.
-Notation "R .-fker X ~> Y" := (finite_kernel X Y R).
+Notation "R .-fker X ~> Y" := (finite_kernel X%type Y R).
 Arguments measure_uub {_ _ _ _ _} _.
 
 HB.factory Record Kernel_isFinite d d'

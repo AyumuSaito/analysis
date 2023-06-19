@@ -45,7 +45,7 @@ Local Open Scope ereal_scope.
 (* letin' versions of rewriting laws *)
 Lemma letin'_sample_bernoulli d d' (T : measurableType d)
     (T' : measurableType d') (R : realType)(r : {nonneg R}) (r1 : (r%:num <= 1)%R)
-    (u : R.-sfker [the measurableType _ of (bool * T)%type] ~> T') x y :
+    (u : R.-sfker bool * T ~> T') x y :
   letin' (sample_cst (bernoulli r1)) u x y =
   r%:num%:E * u (true, x) y + (`1- (r%:num))%:E * u (false, x) y.
 Proof.
@@ -69,11 +69,9 @@ rewrite integral_indic ?setIT// -[X in measurable X]setTI.
 exact: (measurableT_comp mf).
 Qed.
 
-Lemma letin'_retk
-  (f : X -> Y) (mf : measurable_fun setT f)
-  (k : R.-sfker [the measurableType _ of (Y * X)%type] ~> Z)
-  x U : measurable U ->
-  letin' (ret mf) k x U = k (f x, x) U.
+Lemma letin'_retk (f : X -> Y) (mf : measurable_fun setT f)
+    (k : R.-sfker Y * X ~> Z) x U :
+  measurable U -> letin' (ret mf) k x U = k (f x, x) U.
 Proof.
 move=> mU; rewrite letin'E retE integral_dirac ?indicT ?mul1e//.
 exact: (measurableT_comp (measurable_kernel k _ mU)).
@@ -85,7 +83,7 @@ Section letin'_ite.
 Context d d2 d3 (T : measurableType d) (T2 : measurableType d2)
   (Z : measurableType d3) (R : realType).
 Variables (k1 k2 : R.-sfker T ~> Z)
-  (u : R.-sfker [the measurableType _ of (Z * T)%type] ~> T2)
+  (u : R.-sfker Z * T ~> T2)
   (f : T -> bool) (mf : measurable_fun setT f)
   (t : T) (U : set T2).
 
@@ -418,15 +416,12 @@ Definition staton_bus_syntax0 : @exp R _ [::] _ :=
 
 Definition staton_bus_syntax := [Normalize {staton_bus_syntax0}].
 
-Let sample_bern : R.-sfker munit ~> mbool :=
-  sample_cst [the probability _ _ of bernoulli p27].
+Let sample_bern : R.-sfker munit ~> mbool := sample_cst (bernoulli p27).
 
-Let ite_3_10 :
-  R.-sfker [the measurableType _ of (mbool * munit)%type] ~> (mR R) :=
+Let ite_3_10 : R.-sfker mbool * munit ~> (mR R) :=
   ite macc0of2 (ret k3) (ret k10).
 
-Let score_poisson4 :
-  R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
+Let score_poisson4 : R.-sfker mR R * (mbool * munit) ~> munit :=
   score (measurableT_comp (measurable_poisson 4) macc0of2).
 
 Let kstaton_bus' :=
@@ -514,15 +509,12 @@ Definition staton_busA_syntax0 : @exp R _ [::] _ :=
 Definition staton_busA_syntax : exp _ [::] _ :=
   [Normalize {staton_busA_syntax0}].
 
-Let sample_bern : R.-sfker munit ~> mbool :=
-  sample_cst [the probability _ _ of bernoulli p27].
+Let sample_bern : R.-sfker munit ~> mbool := sample_cst (bernoulli p27).
 
-Let ite_3_10 :
-  R.-sfker [the measurableType _ of (mbool * munit)%type] ~> (mR R) :=
+Let ite_3_10 : R.-sfker mbool * munit ~> (mR R) :=
   ite macc0of2 (ret k3) (ret k10).
 
-Let score_poisson4 :
-  R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
+Let score_poisson4 : R.-sfker mR R * (mbool * munit) ~> munit :=
   score (measurableT_comp (measurable_poisson 4) macc0of3').
 
 (* same as kstaton_bus _ (measurable_poisson 4) but expressed with letin'
@@ -611,7 +603,7 @@ Qed.
 
 Let poisson4 := @poisson R 4%N.
 
-Lemma exec_staton_busA0' t U : execP staton_busA_syntax0 t U =
+Lemma exec_staton_busA0' U : execP staton_busA_syntax0 tt U =
   ((2 / 7%:R)%:E * (poisson4 3%:R)%:E * \d_true U +
   (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U)%E.
 Proof. by rewrite -staton_bus_staton_busA exec_staton_bus0'. Qed.
@@ -643,7 +635,7 @@ rewrite !(execD_var "y")/=.
 have -> : measurable_acc_typ [:: t2, t1 & map snd g] 0 = macc0of3' by [].
 have -> : measurable_acc_typ [:: t2, t1 & map snd g] 1 = macc1of3' by [].
 rewrite (letin'C _ _ (execP e2)
-  ([the R.-sfker _ ~> _ of @kweak _ [::] _ ("y", t2) _ (execP e1)]));
+  [the R.-sfker _ ~> _ of @kweak _ [::] _ ("y", t2) _ (execP e1)]);
   [ |by [] | by [] |by []].
 have -> : measurable_acc_typ [:: t1, t2 & map snd g] 0 = macc0of3' by [].
 by have -> : measurable_acc_typ [:: t1, t2 & map snd g] 1 = macc1of3' by [].
