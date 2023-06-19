@@ -69,23 +69,14 @@ Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 
-(* TODO: move *)
-Lemma integral_bernoulli {R : realType}
-    (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : bool -> set bool -> _) U :
-  (forall x y, 0 <= f x y) ->
-  \int[bernoulli p1]_y (f y ) U =
-  p%:num%:E * f true U + (`1-(p%:num))%:E * f false U.
-Proof.
-move=> f0.
-rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
-by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
-Qed.
+(* TODO: mv *)
+Arguments measurable_fst {d1 d2 T1 T2}.
+Arguments measurable_snd {d1 d2 T1 T2}.
 
-(* TODO: document *)
 Section mswap.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType).
-Variable k : R.-ker [the measurableType _ of (Y * X)%type] ~> Z.
+Variable k : R.-ker (Y * X)%type ~> Z.
 
 Definition mswap xy U := k (swap xy) U.
 
@@ -114,7 +105,7 @@ exact: measurable_swap.
 Qed.
 
 HB.instance Definition _ := isKernel.Build _ _
-  [the measurableType _ of (X * Y)%type] Z R mkswap measurable_fun_kswap.
+  (X * Y)%type Z R mkswap measurable_fun_kswap.
 
 End mswap.
 
@@ -182,33 +173,10 @@ Section letin'C.
 Import Notations.
 Context d d1 d' (X : measurableType d) (Y : measurableType d1)
   (Z : measurableType d') (R : realType).
-
-(* TODO: remove? *)
-Lemma letin'C12 z A : measurable A ->
-  @letin' _ _ _ _ _ _ R (ret (kr 1))
-    (letin' (ret (kb true))
-      (ret (measurable_fun_prod
-              (measurable_acc [:: existT _ _ mbool; existT _ _ (mR R)] 1)
-              (measurable_acc [:: existT _ _ mbool; existT _ _ (mR R)] 0))))
-   z A =
-  letin' (ret (kb true))
-    (letin' (ret (kr 1))
-      (ret (measurable_fun_prod
-         (measurable_acc [:: existT _ _ (mR R); existT _ _ mbool] 0)
-         (measurable_acc [:: existT _ _ (mR R); existT _ _ mbool] 1))))
-  z A.
-Proof.
-move=> mA.
-have : acc [:: existT _ _ mbool; existT _ _ (mR R)] 1 =
-       acc [:: existT _ _ mbool; existT _ _ (mR R)] 1.
-rewrite /acc /=.
-(* rewrite !letin'E. *)
-Abort.
-
 Variables (t : R.-sfker Z ~> X)
-          (u' : R.-sfker [the measurableType _ of (X * Z)%type] ~> Y)
+          (u' : R.-sfker (X * Z)%type ~> Y)
           (u : R.-sfker Z ~> Y)
-          (t' : R.-sfker [the measurableType _ of (Y * Z)%type] ~> X)
+          (t' : R.-sfker (Y * Z)%type ~> X)
           (tt' : forall y, t =1 fun z => t' (y, z))
           (uu' : forall x, u =1 fun z => u' (x, z)).
 
@@ -251,10 +219,7 @@ under eq_integral.
   rewrite letin'E -uu'.
   under eq_integral do rewrite retE /=.
   over.
-rewrite (sfinite_Fubini
-  [the {sfinite_measure set X -> \bar R} of T' z]
-  [the {sfinite_measure set Y -> \bar R} of U' z]
-  (fun x => \d_(x.1, x.2) A ))//; last first.
+rewrite (sfinite_Fubini (T' z) (U' z) (fun x => \d_(x.1, x.2) A ))//; last first.
   apply/EFin_measurable_fun => /=; rewrite (_ : (fun x => _) = mindic R mA)//.
   by apply/funext => -[].
 rewrite /=.
@@ -271,9 +236,9 @@ Context d d' d1 d2 d3 (X : measurableType d) (Y : measurableType d')
   (R : realType).
 Import Notations.
 Variables (t : R.-sfker X ~> T1)
-          (u : R.-sfker [the measurableType _ of (T1 * X)%type] ~> T2)
-          (v : R.-sfker [the measurableType _ of (T2 * X)%type] ~> Y)
-          (v' : R.-sfker [the measurableType _ of (T2 * (T1 * X))%type] ~> Y)
+          (u : R.-sfker (T1 * X)%type ~> T2)
+          (v : R.-sfker (T2 * X)%type ~> Y)
+          (v' : R.-sfker (T2 * (T1 * X))%type ~> Y)
           (vv' : forall y, v =1 fun xz => v' (xz.1, (y, xz.2))).
 
 Lemma letin'A x A : measurable A ->
@@ -600,10 +565,6 @@ Arguments weak {R} g h x {t}.
 Arguments measurable_weak {R} g h x {t}.
 Arguments kweak {R} g h x {t}.
 
-(* TODO: mv *)
-Arguments measurable_fst {d1 d2 T1 T2}.
-Arguments measurable_snd {d1 d2 T1 T2}.
-
 Section eval.
 Context {R : realType}.
 Implicit Type (g : ctx) (str : string).
@@ -613,9 +574,9 @@ Inductive evalD : forall g t, exp D g t ->
   forall f : dval R g t, measurable_fun setT f -> Prop :=
 | eval_unit g : ([TT] : exp D g _) -D> cst tt ; ktt
 
-| eval_bool g b : ([b :B] : exp D g _) -D> cst b ; kb b
+| eval_bool g b : ([b:B] : exp D g _) -D> cst b ; kb b
 
-| eval_real g r : ([r :R] : exp D g _) -D> cst r ; kr r
+| eval_real g r : ([r:R] : exp D g _) -D> cst r ; kr r
 
 | eval_pair g t1 (e1 : exp D g t1) f1 mf1 t2 (e2 : exp D g t2) f2 mf2 :
   e1 -D> f1 ; mf1 -> e2 -D> f2 ; mf2 ->
@@ -1008,7 +969,7 @@ by subst mf2'.
 Qed.
 
 Definition execP g t (e : exp P g t) : pval R g t :=
-  proj1_sig (cid (evalP_total e)).
+  projT1 (cid (evalP_total e)).
 
 Lemma execD_evalD g t e x mx:
   @execD g t e = existT _ x mx <-> e -D> x ; mx.
