@@ -107,15 +107,13 @@ Local Open Scope lang_scope.
 Import Notations.
 Context {R : realType}.
 
-Let p13 : (1 / 3%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
-
 Definition bernoulli12_score := [Normalize
-  let "x" := Sample {@exp_bernoulli R [::] (1 / 2%:R)%:nng p12} in
+  let "x" := Sample {@exp_bernoulli R [::] (1 / 2)%:nng (p1S R 1)} in
   let "r" := if #{"x"} then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
   return #{"x"}].
 
 Lemma exec_bernoulli_score :
-  execD (exp_bernoulli (1 / 3%:R)%:nng p13) = execD bernoulli12_score.
+  execD (exp_bernoulli (1 / 3%:R)%:nng (p1S R 2)) = execD bernoulli12_score.
 Proof.
 apply: eq_execD.
 rewrite execD_bernoulli/= /bernoulli12_score execD_normalize 2!execP_letin.
@@ -226,12 +224,12 @@ Local Open Scope ring_scope.
 Import Notations.
 Context {R : realType}.
 
-Definition exp_sample_pair : exp P [::] _ :=
+Definition exp_sample_pair : exp _ [::] _ :=
   [let "x" := Sample {exp_bernoulli (1 / 2%:R)%:nng (p1S R 1)} in
    let "y" := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S R 2)} in
    return (%{"x"}, %{"y"})].
 
-Definition exp_normalize_sample_pair : exp D [::] _ :=
+Definition exp_normalize_sample_pair : exp _ [::] _ :=
   [Normalize {exp_sample_pair}].
 
 Lemma exec_sample_pair_true_and_true :
@@ -446,7 +444,7 @@ Let ite_3_10 :
 
 Let score_poisson4 :
   R.-sfker [the measurableType _ of (mR R * (mbool * munit))%type] ~> munit :=
-  score (measurableT_comp (measurable_poisson 4) (@macc0of2 _ _ _ _)).
+  score (measurableT_comp (measurable_poisson 4) macc0of2).
 
 Let kstaton_bus' :=
   letin' sample_bern
