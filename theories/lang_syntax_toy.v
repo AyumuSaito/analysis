@@ -191,8 +191,8 @@ Fail Example letin_plus : exp [::] _ :=
   (exp_letin "y" (exp_real 2)
    (exp_add (exp_var "x" erefl) (exp_var "y" erefl))).
 Example letin_plus' : exp [::] _ :=
-  exp_letin "x" (exp_real 1%:R)
-  (exp_letin "y" (exp_real 2%:R)
+  exp_letin "x" (exp_real 1)
+  (exp_letin "y" (exp_real 2)
    (exp_add (@exp_var [:: ("y", Real); ("x", Real)] Real "x" erefl)
          (exp_var "y" erefl))).
 

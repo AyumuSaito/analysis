@@ -307,7 +307,7 @@ Import Notations.
 Context {R : realType}.
 
 Definition sample_pair_syntax0 : @exp R _ [::] _ :=
-  [let "x" := Sample {exp_bernoulli (1 / 2%:R)%:nng (p1S 1)} in
+  [let "x" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
    let "y" := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S 2)} in
    return (%{"x"}, %{"y"})].
 
@@ -315,7 +315,7 @@ Definition sample_pair_syntax : exp _ [::] _ :=
   [Normalize {sample_pair_syntax0}].
 
 Lemma exec_sample_pair_true_and_true :
-  @execP R [::] _ sample_pair_syntax0 tt [set p | p.1 && p.2] = (1 / 6%:R)%:E.
+  @execP R [::] _ sample_pair_syntax0 tt [set p | p.1 && p.2] = (1 / 6)%:E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
 rewrite execD_pair (execD_var "x") (execD_var "y") /=.
@@ -329,7 +329,7 @@ Qed.
 
 Lemma exec_sample_pair_true_or_true :
   (projT1 (execD sample_pair_syntax)) tt [set p | p.1 || p.2] =
-  (2 / 3%:R)%:E.
+  (2 / 3)%:E.
 Proof.
 rewrite execD_normalize.
 rewrite normalizeE/=.
@@ -349,7 +349,7 @@ by congr (_%:E); field.
 Qed.
 
 Lemma exec_sample_pair_true_and_false :
-  @execP R [::] _ sample_pair_syntax0 tt [set (true, false)] = (1 / 3%:R)%:E.
+  @execP R [::] _ sample_pair_syntax0 tt [set (true, false)] = (1 / 3)%:E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
 rewrite execD_pair (execD_var "x") (execD_var "y") /=.
@@ -416,8 +416,7 @@ Definition staton_bus_syntax0 : @exp R _ [::] _ :=
    let "_" := Score {exp_poisson 4 [#{"r"}]} in
    return %{"x"}].
 
-Definition staton_bus_syntax : exp _ [::] _ :=
-  [Normalize {staton_bus_syntax0}].
+Definition staton_bus_syntax := [Normalize {staton_bus_syntax0}].
 
 Let sample_bern : R.-sfker munit ~> mbool :=
   sample_cst [the probability _ _ of bernoulli p27].
@@ -472,8 +471,8 @@ Proof. by rewrite execD_normalize exec_staton_bus0. Qed.
 Let poisson4 := @poisson R 4%N.
 
 Let staton_bus_probability U :=
-  ((2 / 7%:R)%:E * (poisson4 3%:R)%:E * \d_true U +
-  (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U)%E.
+  ((2 / 7)%:E * (poisson4 3)%:E * \d_true U +
+  (5 / 7)%:E * (poisson4 10)%:E * \d_false U)%E.
 
 Lemma exec_staton_bus0' t U :
   execP staton_bus_syntax0 t U = staton_bus_probability U.
