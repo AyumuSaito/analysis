@@ -324,7 +324,7 @@ rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e !diracE.
 rewrite mem_set// memNset//=.
-congr (_%:E); lra.
+by congr (_%:E); lra.
 Qed.
 
 Lemma exec_sample_pair_true_or_true :
