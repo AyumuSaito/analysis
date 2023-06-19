@@ -12,7 +12,7 @@ Require Import lebesgue_measure  numfun lebesgue_integral exp kernel.
 (*                                                                            *)
 (*       bernoulli r1 == Bernoulli probability with r1 a proof that           *)
 (*                       r : {nonneg R} is smaller than 1                     *)
-(*                                                                            *)
+(* uniform_probability a b ab0 == uniform probability over the interval [a,b] *)
 (*       sample_cst P == sample according to the probability P                *)
 (*          letin l k == execute l, augment the context, and execute k        *)
 (*             ret mf == access the context with f and return the result      *)
@@ -106,6 +106,17 @@ HB.instance Definition _ :=
   @Measure_isProbability.Build _ _ R bernoulli bernoulli_setT.
 
 End bernoulli.
+
+Lemma integral_bernoulli {R : realType}
+    (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : bool -> set bool -> _) U :
+  (forall x y, 0 <= f x y) ->
+  \int[bernoulli p1]_y (f y ) U =
+  p%:num%:E * f true U + (`1-(p%:num))%:E * f false U.
+Proof.
+move=> f0.
+rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
+by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
+Qed.
 
 Section uniform_probability.
 Context {R : realType}.
@@ -457,7 +468,7 @@ Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
 Definition ret (f : X -> Y) (mf : measurable_fun setT f)
   : R.-pker X ~> Y := [the R.-pker _ ~> _ of kdirac mf].
 
-Definition sample_cst (P : pprobability Y R) : R.-pker X ~> Y :=
+Definition sample_cst(P : pprobability Y R) : R.-pker X ~> Y :=
   [the R.-pker _ ~> _ of kprobability (measurable_cst P)].
 
 Definition sample (P : X -> pprobability Y R) (mP : measurable_fun setT P) : R.-pker X ~> Y :=
@@ -1026,6 +1037,7 @@ End constants.
 Arguments p12 {R}.
 Arguments p14 {R}.
 Arguments p27 {R}.
+Arguments p1S {R}.
 
 Section poisson.
 Variable R : realType.

@@ -22,6 +22,7 @@ depends: [
   "coq-mathcomp-solvable" { (>= "1.13.0" & < "1.17~") | (= "dev") }
   "coq-mathcomp-field"
   "coq-mathcomp-bigenough" { (>= "1.0.0") }
+  "coq-mathcomp-algebra-tactics" { (>= "1.1.1") }
 ]
 
 tags: [
