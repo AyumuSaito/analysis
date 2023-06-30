@@ -273,37 +273,6 @@ Inductive typ :=
 
 Canonical stype_eqType := Equality.Pack (@gen_eqMixin typ).
 
-Structure tagged_typ := Tag_typ {untag_typ : typ}.
-
-Structure find_typ str t (g : find str t) := Find_typ {
-  typ_of : tagged_typ ;
-  typ_prf : untag_typ typ_of = @lookup stype_eqType Unit (untag (@ctx_of stype_eqType Unit _ _ g)) str}.
-
-Lemma typ_prf_head str t g : t = lookup Unit ((str, t) :: g) str.
-Proof. by rewrite /lookup /= !eqxx. Qed.
-
-Lemma typ_prf_tail str t g str' t' :
-  str' != str ->
-  t = lookup Unit g str ->
-  t = lookup Unit ((str', t') :: g) str.
-Proof.
-move=> str'str tg /=; rewrite /lookup/=.
-by case: ifPn => //=; rewrite (negbTE str'str).
-Qed.
-
-Definition recurse_tag_typ t := Tag_typ t.
-Canonical found_tag_typ t := recurse_tag_typ t.
-
-Canonical found_typ str t (g : find str t) : find_typ _ :=
-  @Find_typ str t 
-    (Find ((str, t) :: (untag (ctx_of g)))) (found_tag_typ t)
-            (@typ_prf_head str t g).
-
-Canonical recurse_typ str str' t' {H : infer (str' != str)}
-    g (fg : find_typ str g) : find_typ str _ :=
-  @Find_typ str ((str', t') :: g) (recurse_tag_typ (untag_typ (typ_of fg)))
-    (@typ_prf_tail str (untag_typ (typ_of fg)) g str' t' H (typ_prf fg)).
-
 Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
   match t with
   | Unit => existT _ _ munit

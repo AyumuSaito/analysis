@@ -147,10 +147,10 @@ Local Open Scope lang_scope.
 Import Notations.
 Context {R : realType}.
 
-Definition bernoulli13_score := [Normalize
-  let "x" := Sample {@exp_bernoulli R [::] (1 / 3%:R)%:nng (p1S 2)} in
-  let "r" := if #{"x"} then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
-  return #{"x"}].
+Definition bernoulli13_score (x := "x") (y := "y") := [Normalize
+  let x := Sample {@exp_bernoulli R [::] (1 / 3%:R)%:nng (p1S 2)} in
+  let y := if #x then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
+  return #x].
 
 Lemma exec_bernoulli13_score :
   execD (exp_bernoulli (1 / 5%:R)%:nng (p1S 4)) = execD bernoulli13_score.
@@ -268,10 +268,10 @@ Section hard_constraint.
 Local Open Scope ring_scope.
 Local Open Scope lang_scope.
 Import Notations.
-Context {R : realType}.
+Context {R : realType} {str : string}.
 
 Definition hard_constraint g : @exp R _ g _ :=
-  [let "x" := Score {0}:R in return TT].
+  [let str := Score {0}:R in return TT].
 
 Lemma exec_hard_constraint g mg U : execP (hard_constraint g) mg U = fail' (false, tt) U.
 Proof.
@@ -302,7 +302,7 @@ Section sample_pair.
 Local Open Scope lang_scope.
 Local Open Scope ring_scope.
 Import Notations.
-Context {R : realType}.
+Context {R : realType} {str0 str1 : string}.
 
 Definition sample_pair_syntax0 : @exp R _ [::] _ :=
   [let "x" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
@@ -612,7 +612,99 @@ End staton_busA.
 
 Section letinC.
 Local Open Scope lang_scope.
-Variable R : realType.
+Variable (R : realType).
+
+Structure tagged_typ := Tag_typ {untag_typ : typ}.
+
+Structure find_typ str t (g : find str t) := Find_typ {
+  typ_of : tagged_typ ;
+  typ_prf : untag_typ typ_of = @lookup stype_eqType Unit (untag (@ctx_of stype_eqType Unit _ _ g)) str}.
+
+Lemma typ_prf_head str t g : t = lookup Unit ((str, t) :: g) str.
+Proof. by rewrite /lookup /= !eqxx. Qed.
+
+Lemma typ_prf_tail str t g str' t' :
+  str' != str ->
+  t = lookup Unit g str ->
+  t = lookup Unit ((str', t') :: g) str.
+Proof.
+move=> str'str tg /=; rewrite /lookup/=.
+by case: ifPn => //=; rewrite (negbTE str'str).
+Qed.
+
+Definition recurse_tag_typ t := Tag_typ t.
+Canonical found_tag_typ t := recurse_tag_typ t.
+
+Canonical found_typ str t (g : find (t0 := Unit) str t) : find_typ 
+  (found str t (untag (ctx_of g)))
+  :=
+  @Find_typ str t (found str t (untag (ctx_of g))) (found_tag_typ t)
+  (ctx_prf_head (t0 := Unit) str t (untag (ctx_of g))).
+  (* (ctx_prf (found str t (untag (ctx_of g)))). *)
+    (* (@Find _ _ str t (found_tag ((str, t) :: (untag (ctx_of g))))
+    (ctx_prf _)) t
+    (@typ_prf_head str t (untag (ctx_of g))). *)
+
+Canonical recurse_typ str str' (t t' : typ) {H : infer (str' != str)}
+    (g : find (t0 := Unit) str t) : find_typ (recurse Unit _) :=
+  @Find_typ str t (recurse Unit g) (recurse_tag_typ t)
+  (ctx_prf_tail Unit H (ctx_prf g)).
+
+
+Definition tmp1 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  str1 str2
+  (* (str1 := "x") (str2 := "y")  *)
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) : find_typ (found str1 t1 [:: (str1, t1); (str2, t2)]).
+apply: (@Find_typ _ _ _ (Tag_typ t1)) => //.
+apply: typ_prf_head.
+Show Proof.
+Defined.
+
+Definition tmp2 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  str1 str2 (H : str1 != str2)
+  (* (str1 := "x") (str2 := "y")  *)
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) : find_typ (found str2 t2 [:: (str1, t1); (str2, t2)]).
+apply: (@Find_typ _ _ _ (Tag_typ t2)).
+have ? := (typ_prf_tail _ H).
+(* by done. *)
+apply: typ_prf_head.
+Show Proof.
+Defined.
+
+Lemma __ g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str0 := "x") (str1 := "y") (xl : str0 \notin dom g) (yl : str1 \notin dom g) :
+  let h1 := tmp1 e1 e2 xl yl in lookup Unit ((str1, t2) :: [::] ++ (str0, t1) :: g) str0 = untag_typ (typ_of h1).
+Proof.
+by rewrite /lookup/=.
+Abort.
+
+Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (* (str1 str2 : string) *)
+  (str1 := "x") (str2 := "y")
+  (H : str1 != str2)  
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
+  let h1 := tmp1 e1 e2 xl yl in
+  let h2 := tmp2 e1 e2 H xl yl in
+  forall (U : set (mtyp (Pair (untag_typ (typ_of h1)) (untag_typ (typ_of h2))))), measurable U ->
+  execP [let str1 := e1 in
+         let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
+         return (%str1, %str2)] ^~ U =
+  execP [let str2 := e2 in
+         let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
+         return (%str1, %str2)] ^~ U.
+Abort.
+         
+(* Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str0 := "x") (str1 := "y") (xl : str0 \notin dom g) (yl : str1 \notin dom g) :
+  let h1 := tmp e1 e2 xl yl in
+  let h2 := tmp e1 e2 xl yl in
+  forall (U : set (mtyp (Pair (untag_typ (typ_of h1)) (untag_typ (typ_of h2))))), measurable U ->
+  execP [let str0 := e1 in
+         let str1 := {exp_weak _ [::] _ (str0, t1) e2 xl} in
+         return (%str0, %str1)] ^~ U =
+  execP [let str1 := e2 in
+         let str0 := {exp_weak _ [::] _ (str1, t2) e1 yl} in
+         return (%str0, %str1)] ^~ U. *)
 
 (* version parameterized by any context g *)
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
