@@ -618,7 +618,8 @@ Structure tagged_typ := Tag_typ {untag_typ : typ}.
 
 Structure find_typ str t (g : find str t) := Find_typ {
   typ_of : tagged_typ ;
-  typ_prf : untag_typ typ_of = @lookup stype_eqType Unit (untag (@ctx_of stype_eqType Unit _ _ g)) str}.
+  typ_prf : untag_typ typ_of = @lookup stype_eqType Unit
+    (untag (@ctx_of stype_eqType Unit _ _ g)) str}.
 
 Lemma typ_prf_head str t g : t = lookup Unit ((str, t) :: g) str.
 Proof. by rewrite /lookup /= !eqxx. Qed.
@@ -650,42 +651,53 @@ Canonical recurse_typ str str' (t t' : typ) {H : infer (str' != str)}
   @Find_typ str t (recurse Unit g) (recurse_tag_typ t)
   (ctx_prf_tail Unit H (ctx_prf g)).
 
-
 Definition tmp1 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   str1 str2
   (* (str1 := "x") (str2 := "y")  *)
-  (xl : str1 \notin dom g) (yl : str2 \notin dom g) : find_typ (found str1 t1 [:: (str1, t1); (str2, t2)]).
-apply: (@Find_typ _ _ _ (Tag_typ t1)) => //.
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) : 
+    find_typ (found str1 t1 [:: (str1, t1); (str2, t2)]).
+apply: (@Find_typ _ _ _ (found_tag_typ t1)) => //.
 apply: typ_prf_head.
 Show Proof.
 Defined.
 
 Definition tmp2 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  str1 str2 (H : str1 != str2)
+  str1 str2 (H : infer (str1 != str2))
   (* (str1 := "x") (str2 := "y")  *)
-  (xl : str1 \notin dom g) (yl : str2 \notin dom g) : find_typ (found str2 t2 [:: (str1, t1); (str2, t2)]).
-apply: (@Find_typ _ _ _ (Tag_typ t2)).
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
+    find_typ (found str2 t2 [:: (str1, t1); (str2, t2)]).
+Proof.
+apply: (@Find_typ _ _ _ (recurse_tag_typ t2)).
 have ? := (typ_prf_tail _ H).
 (* by done. *)
 apply: typ_prf_head.
 Show Proof.
 Defined.
 
-Lemma __ g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  (str0 := "x") (str1 := "y") (xl : str0 \notin dom g) (yl : str1 \notin dom g) :
-  let h1 := tmp1 e1 e2 xl yl in lookup Unit ((str1, t2) :: [::] ++ (str0, t1) :: g) str0 = untag_typ (typ_of h1).
+Lemma __ (g := [::]) t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str0 str1 : string) (H : infer (str0 != str1))
+  (* (str0 := "x") (str1 := "y") *)
+  (xl : str0 \notin dom g) (yl : str1 \notin dom g) :
+  let h1 := tmp1 e1 e2 xl yl in 
+  (* lookup Unit ((str1, t2) :: [::] ++ (str0, t1) :: g) str0 *)
+  t1 = untag_typ (typ_of h1).
 Proof.
-by rewrite /lookup/=.
+move=> h1.
+Eval compute in (typ_of h1).
+rewrite /lookup/=.
 Abort.
 
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (* (str1 str2 : string) *)
   (str1 := "x") (str2 := "y")
-  (H : str1 != str2)  
+  (H : infer (str1 != str2))
   (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
   let h1 := tmp1 e1 e2 xl yl in
   let h2 := tmp2 e1 e2 H xl yl in
-  forall (U : set (mtyp (Pair (untag_typ (typ_of h1)) (untag_typ (typ_of h2))))), measurable U ->
+  forall (U : set 
+  _
+  (* (mtyp (Pair (untag_typ (typ_of _)) (untag_typ (typ_of _)))) *)
+  ), measurable U ->
   execP [let str1 := e1 in
          let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
          return (%str1, %str2)] ^~ U =
