@@ -235,6 +235,53 @@ rewrite muleDl//; congr (_ + _)%E;
   by rewrite indicE /onem; case: (_ \in _); field.
 Qed.
 
+(* https://dl.acm.org/doi/pdf/10.1145/2933575.2935313 (Sect.4) *)
+Definition bernoulli14_score52_syntax0 := [Normalize
+  let "x" := Sample {@exp_bernoulli R [::] (1 / 4%:R)%:nng (p1S 3)} in
+  let "r" := if #{"x"} then Score {5}:R else Score {2}:R in
+  return #{"x"}].
+
+Axiom p511 : ((5%:R / 11%:R)%:nng%:num <= (1 : R)).
+
+Lemma exec_bernoulli14_score52_syntax0 :
+  execD bernoulli14_score52_syntax0 = execD (exp_bernoulli (5%:R / 11%:R)%:nng p511).
+Proof.
+apply: eq_execD.
+rewrite execD_bernoulli/= execD_normalize 2!execP_letin.
+rewrite execP_sample/= execD_bernoulli/= execP_if /= !exp_var'E.
+rewrite !execP_return/= 2!execP_score 2!execD_real/=.
+rewrite !(execD_var "x")/=.
+apply: funext=> g; apply: eq_probability => U.
+rewrite normalizeE !letin'E/=.
+under eq_integral.
+  move=> x _.
+  rewrite !letin'E.
+  under eq_integral do rewrite retE /=.
+  over.
+rewrite !integral_measure_add //=; last by move=> b _; rewrite integral_ge0.
+rewrite !ge0_integral_mscale //=; last 2 first.
+  by move=> b _; rewrite integral_ge0.
+  by move=> b _; rewrite integral_ge0.
+rewrite !integral_dirac// !indicE !in_setT !mul1e.
+rewrite iteE/= !ge0_integral_mscale//=.
+rewrite ger0_norm/=; last by lra.
+rewrite !integral_indic//= !iteE/= /mscale/=.
+rewrite setTI diracE !in_setT !mule1.
+rewrite ger0_norm/=; last by lra.
+rewrite -EFinD/= eqe ifF; last first.
+  apply/negbTE/negP => /orP[/eqP|//].
+  by rewrite /onem; lra.
+rewrite !letin'E/= !iteE/=.
+rewrite !ge0_integral_mscale//=.
+rewrite ger0_norm/=; last by lra.
+rewrite !integral_dirac//= !indicE !in_setT /= !mul1e ger0_norm//.
+rewrite /bernoulli/= measure_addE/= /mscale/= !mul1r.
+rewrite muleDl//; congr (_ + _)%E;
+  rewrite -!EFinM;
+  congr (_%:E);
+  by rewrite indicE /onem; case: (_ \in _); field.
+Qed.
+
 End bernoulli_examples.
 
 Section hard_constraint'.
@@ -628,11 +675,13 @@ Definition v2 (a b c d : string) (H : infer (b != a)) : @exp R P [::] _ := [
 
 (* Problem: pair of variables *)
 Definition v3 (a b c d : string) (H1 : infer (b != a)) (H2 : infer (c != a))
-  (H3 : infer (c != b)) (H4 : infer (a != b)) : @exp R P [::] _ := [
+  (H3 : infer (c != b)) (H4 : infer (a != b)) (H5 : infer (a != c)) 
+  (H6 : infer (b != c)) : @exp R P [::] _ := [
   let a := return {1}:R in
   let b := return {2}:R in
   let c := return {3}:R in
   (* let d := return {4}:R in *)
+  (* return (#b, #a)]. *)
   return {@exp_pair R [:: (c, _); (b, _); (a, _)] _ _ (exp_var' a _) (exp_var' b _)}].
 
 End variables.
@@ -678,7 +727,7 @@ Canonical recurse_typ str str' (t t' : typ) {H : infer (str' != str)}
   @Find_typ str t (recurse Unit g) (recurse_tag_typ t)
   (ctx_prf_tail Unit H (ctx_prf g)).
 
-Definition tmp1 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+(* Definition tmp1 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   str1 str2
   (* (str1 := "x") (str2 := "y")  *)
   (xl : str1 \notin dom g) (yl : str2 \notin dom g) : 
@@ -699,9 +748,9 @@ have ? := (typ_prf_tail _ H).
 (* by done. *)
 apply: typ_prf_head.
 Show Proof.
-Defined.
+Defined. *)
 
-Lemma __ (g := [::]) t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+(* Lemma __ (g := [::]) t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (str0 str1 : string) (H : infer (str0 != str1))
   (* (str0 := "x") (str1 := "y") *)
   (xl : str0 \notin dom g) (yl : str1 \notin dom g) :
@@ -712,7 +761,7 @@ Proof.
 move=> h1.
 Eval compute in (typ_of h1).
 rewrite /lookup/=.
-Abort.
+Abort. *)
 
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (str1 str2 : string) (H : infer (str2 != str1))
