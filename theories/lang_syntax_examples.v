@@ -141,25 +141,6 @@ Qed.
 
 End simple_example.
 
-Section variables.
-Local Open Scope lang_scope.
-Import Notations.
-Context (R : realType).
-
-Definition v1 : @exp R P [::] _ := [
-  let "x" := return {1}:R in
-  return %{"x"}].
-
-(* Problem: pair of variables *)
-Definition v2 : @exp R P [::] _ := [
-  let "a" := return {1}:R in
-  let "b" := return {true}:B in
-  let "c" := return {3}:R in
-  let "d" := return {4}:R in
-  return (#{"a"}, #{"d"})].
-
-End variables.
-
 Section bernoulli_examples.
 Local Open Scope ring_scope.
 Local Open Scope lang_scope.
@@ -629,6 +610,33 @@ Proof. by rewrite -staton_bus_staton_busA exec_staton_bus0'. Qed.
 
 End staton_busA.
 
+Section variables.
+Local Open Scope lang_scope.
+Import Notations.
+Context (R : realType).
+
+Definition v1 x : @exp R P [::] _ := [
+  let x := return {1}:R in
+  return %x].
+
+Definition v2 (a b c d : string) (H : infer (b != a)) : @exp R P [::] _ := [
+  let a := return {1}:R in
+  let b := return {true}:B in
+  (* let c := return {3}:R in
+  let d := return {4}:R in *)
+  return (#a, #b)].
+
+(* Problem: pair of variables *)
+Definition v3 (a b c d : string) (H1 : infer (b != a)) (H2 : infer (c != a))
+  (H3 : infer (c != b)) (H4 : infer (a != b)) : @exp R P [::] _ := [
+  let a := return {1}:R in
+  let b := return {2}:R in
+  let c := return {3}:R in
+  (* let d := return {4}:R in *)
+  return {@exp_pair R [:: (c, _); (b, _); (a, _)] _ _ (exp_var' a _) (exp_var' b _)}].
+
+End variables.
+
 Section letinC.
 Local Open Scope lang_scope.
 Variable (R : realType).
@@ -707,22 +715,51 @@ rewrite /lookup/=.
 Abort.
 
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  (* (str1 str2 : string) *)
-  (str1 := "x") (str2 := "y")
-  (H : infer (str1 != str2))
+  (str1 str2 : string) (H : infer (str2 != str1))
   (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
-  let h1 := tmp1 e1 e2 xl yl in
-  let h2 := tmp2 e1 e2 H xl yl in
-  forall (U : set 
-  _
-  (* (mtyp (Pair (untag_typ (typ_of _)) (untag_typ (typ_of _)))) *)
-  ), measurable U ->
+  forall U, measurable U ->
   execP [let str1 := e1 in
          let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
-         return (%str1, %str2)] ^~ U =
+         return #str1] ^~ U =
   execP [let str2 := e2 in
          let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
-         return (%str1, %str2)] ^~ U.
+         return #str1] ^~ U.
+move=> U mU; apply/funext => x.
+rewrite 4!execP_letin.
+rewrite 2!(execP_weak [::] g).
+rewrite 2!execP_return/=.
+rewrite !exp_var'E.
+Abort.
+
+Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str1 str2 : string)
+  (* (str1 := "x") (str2 := "y") *)
+  (H1 : infer (str2 != str1)) (H2 : infer (str1 != str2))
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
+  forall U, measurable U ->
+  execP [
+    let str1 := e1 in
+    let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
+    return (#str1, #str2)] ^~ U =
+  execP [
+    let str2 := e2 in
+    let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
+    (* return (#str1, #str2)] *)
+    return {@exp_pair R [:: (str1, t1), (str2, t2) & g] _ _ [#str1] [#str2]}]
+    ^~ U.
+Proof.
+move=> U mU; apply/funext => x.
+rewrite 4!execP_letin.
+rewrite 2!(execP_weak [::] g).
+rewrite 2!execP_return/=.
+rewrite 2!execD_pair/=.
+rewrite !exp_var'E.
+apply /(ctx_prf_tail _ H1) /ctx_prf_head.
+apply /ctx_prf_head.
+apply /ctx_prf_head.
+apply /(ctx_prf_tail _ H2) /ctx_prf_head.
+move=> h1 h2 h3 h4.
+(* rewrite (execD_var str1)/=. *)
 Abort.
          
 (* Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
