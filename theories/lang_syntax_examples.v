@@ -141,6 +141,25 @@ Qed.
 
 End simple_example.
 
+Section variables.
+Local Open Scope lang_scope.
+Import Notations.
+Context (R : realType).
+
+Definition v1 : @exp R P [::] _ := [
+  let "x" := return {1}:R in
+  return %{"x"}].
+
+(* Problem: pair of variables *)
+Definition v2 : @exp R P [::] _ := [
+  let "a" := return {1}:R in
+  let "b" := return {true}:B in
+  let "c" := return {3}:R in
+  let "d" := return {4}:R in
+  return (#{"a"}, #{"d"})].
+
+End variables.
+
 Section bernoulli_examples.
 Local Open Scope ring_scope.
 Local Open Scope lang_scope.
