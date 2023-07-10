@@ -690,95 +690,7 @@ Section letinC.
 Local Open Scope lang_scope.
 Variable (R : realType).
 
-Structure tagged_typ := Tag_typ {untag_typ : typ}.
-
-Structure find_typ str t (g : find str t) := Find_typ {
-  typ_of : tagged_typ ;
-  typ_prf : untag_typ typ_of = @lookup stype_eqType Unit
-    (untag (@ctx_of stype_eqType Unit _ _ g)) str}.
-
-Lemma typ_prf_head str t g : t = lookup Unit ((str, t) :: g) str.
-Proof. by rewrite /lookup /= !eqxx. Qed.
-
-Lemma typ_prf_tail str t g str' t' :
-  str' != str ->
-  t = lookup Unit g str ->
-  t = lookup Unit ((str', t') :: g) str.
-Proof.
-move=> str'str tg /=; rewrite /lookup/=.
-by case: ifPn => //=; rewrite (negbTE str'str).
-Qed.
-
-Definition recurse_tag_typ t := Tag_typ t.
-Canonical found_tag_typ t := recurse_tag_typ t.
-
-Canonical found_typ str t (g : find (t0 := Unit) str t) : find_typ 
-  (found str t (untag (ctx_of g)))
-  :=
-  @Find_typ str t (found str t (untag (ctx_of g))) (found_tag_typ t)
-  (ctx_prf_head (t0 := Unit) str t (untag (ctx_of g))).
-  (* (ctx_prf (found str t (untag (ctx_of g)))). *)
-    (* (@Find _ _ str t (found_tag ((str, t) :: (untag (ctx_of g))))
-    (ctx_prf _)) t
-    (@typ_prf_head str t (untag (ctx_of g))). *)
-
-Canonical recurse_typ str str' (t t' : typ) {H : infer (str' != str)}
-    (g : find (t0 := Unit) str t) : find_typ (recurse Unit _) :=
-  @Find_typ str t (recurse Unit g) (recurse_tag_typ t)
-  (ctx_prf_tail Unit H (ctx_prf g)).
-
-(* Definition tmp1 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  str1 str2
-  (* (str1 := "x") (str2 := "y")  *)
-  (xl : str1 \notin dom g) (yl : str2 \notin dom g) : 
-    find_typ (found str1 t1 [:: (str1, t1); (str2, t2)]).
-apply: (@Find_typ _ _ _ (found_tag_typ t1)) => //.
-apply: typ_prf_head.
-Show Proof.
-Defined.
-
-Definition tmp2 g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  str1 str2 (H : infer (str1 != str2))
-  (* (str1 := "x") (str2 := "y")  *)
-  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
-    find_typ (found str2 t2 [:: (str1, t1); (str2, t2)]).
-Proof.
-apply: (@Find_typ _ _ _ (recurse_tag_typ t2)).
-have ? := (typ_prf_tail _ H).
-(* by done. *)
-apply: typ_prf_head.
-Show Proof.
-Defined. *)
-
-(* Lemma __ (g := [::]) t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  (str0 str1 : string) (H : infer (str0 != str1))
-  (* (str0 := "x") (str1 := "y") *)
-  (xl : str0 \notin dom g) (yl : str1 \notin dom g) :
-  let h1 := tmp1 e1 e2 xl yl in 
-  (* lookup Unit ((str1, t2) :: [::] ++ (str0, t1) :: g) str0 *)
-  t1 = untag_typ (typ_of h1).
-Proof.
-move=> h1.
-Eval compute in (typ_of h1).
-rewrite /lookup/=.
-Abort. *)
-
-Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  (str1 str2 : string) (H : infer (str2 != str1))
-  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
-  forall U, measurable U ->
-  execP [let str1 := e1 in
-         let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
-         return #str1] ^~ U =
-  execP [let str2 := e2 in
-         let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
-         return #str1] ^~ U.
-move=> U mU; apply/funext => x.
-rewrite 4!execP_letin.
-rewrite 2!(execP_weak [::] g).
-rewrite 2!execP_return/=.
-rewrite !exp_var'E.
-Abort.
+Require Import Classical_Prop.
 
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (str1 str2 : string)
@@ -803,12 +715,47 @@ rewrite 2!(execP_weak [::] g).
 rewrite 2!execP_return/=.
 rewrite 2!execD_pair/=.
 rewrite !exp_var'E.
-apply /(ctx_prf_tail _ H1) /ctx_prf_head.
-apply /ctx_prf_head.
-apply /ctx_prf_head.
-apply /(ctx_prf_tail _ H2) /ctx_prf_head.
-move=> h1 h2 h3 h4.
-(* rewrite (execD_var str1)/=. *)
+- apply/(ctx_prf_tail _ H1)/ctx_prf_head.
+- apply/ctx_prf_head.
+- apply/ctx_prf_head.
+- apply/(ctx_prf_tail _ H2)/ctx_prf_head.
+- move=> h1 h2 h3 h4.
+  rewrite (_ : execD (exp_var str1 h4) = existT _ (acc_typ (map snd _) 1) (measurable_acc_typ (map snd _) 1)); last first.
+  apply/execD_evalD.
+  have h4' : t1 = lookup Unit (untag (ctx_of (recurse t2 (found str1 t1 g)))) str1.
+    done.
+  have Htmp : h4 = h4' Unit by done.
+  rewrite (_ : h4 = h4' Unit)//.
+  have 
+
+  move: h4.
+  rewrite /lookup /= (negbTE H1) eqxx/=.
+
+
+
+
+
+  rewrite (_ : exp_var str1 h4 = eq_rect _ h4 _ _ (exp_var str1 erefl)).
+  move: (h4).
+  case: t1 / h4.
+  clear -h4.
+  subst t1.
+  rewrite (_ : h4 = erefl).
+  admit.
+  rewrite (_ : execD (exp_var str2 h3) = existT _ (acc_typ (map snd _) 0) (measurable_acc_typ (map snd _) 0)); last first.
+  admit.
+  rewrite /=.
+  have -> : measurable_acc_typ [:: t2, t1 & map snd g] 0 = macc0of3' by [].
+  have -> : measurable_acc_typ [:: t2, t1 & map snd g] 1 = macc1of3' by [].
+  rewrite (letin'C _ _ (execP e2)
+    [the R.-sfker _ ~> _ of @kweak _ [::] _ (str2, t2) _ (execP e1)]);
+    [ |by [] | by [] |by []].
+  rewrite (_ : execD (exp_var str2 h1) = existT _ (acc_typ (map snd _) 1) (measurable_acc_typ (map snd _) 1)); last first.
+  admit.
+  rewrite (_ : execD (exp_var str1 h2) = existT _ (acc_typ (map snd _) 0) (measurable_acc_typ (map snd _) 0)); last first.
+  admit.
+  have -> : measurable_acc_typ [:: t1, t2 & map snd g] 0 = macc0of3' by [].
+  by have -> : measurable_acc_typ [:: t1, t2 & map snd g] 1 = macc1of3' by [].
 Abort.
          
 (* Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
