@@ -777,7 +777,10 @@ move=> U mU; apply/funext => x.
 rewrite 4!execP_letin.
 rewrite 2!(execP_weak [::] g).
 rewrite 2!execP_return/=.
-rewrite !exp_var'E.
+rewrite !exp_var'E /=.
+apply /(ctx_prf_tail _ H) /ctx_prf_head.
+apply /ctx_prf_head.
+move=> H1 H2.
 Abort.
 
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
