@@ -522,19 +522,11 @@ Proof.
 rewrite exec_staton_bus0 /staton_bus_probability /kstaton_bus'.
 rewrite letin'_sample_bernoulli.
 rewrite -!muleA; congr (_ * _ + _ * _)%E.
-- rewrite letin'_iteT//.
-  rewrite letin'_retk//.
-  rewrite letin'_kret//.
-  rewrite /score_poisson4.
-  rewrite /score/= /mscale/= ger0_norm//= poisson_ge0//.
-  by rewrite /acc0of2/=.
+- rewrite letin'_iteT// letin'_retk// letin'_kret// /score_poisson4.
+  by rewrite /score/= /mscale/= ger0_norm//= poisson_ge0// /acc0of2/=.
 - by rewrite onem27.
-- rewrite letin'_iteF//.
-  rewrite letin'_retk//.
-  rewrite letin'_kret//.
-  rewrite /score_poisson4.
-  rewrite /score/= /mscale/= ger0_norm//= poisson_ge0//.
-  by rewrite /acc0of2/=.
+- rewrite letin'_iteF// letin'_retk// letin'_kret// /score_poisson4.
+  rewrite /score/= /mscale/= ger0_norm//= poisson_ge0// /acc0of2/=.
 Qed.
 
 End staton_bus.
@@ -720,27 +712,104 @@ rewrite !exp_var'E.
 - apply/ctx_prf_head.
 - apply/(ctx_prf_tail _ H2)/ctx_prf_head.
 - move=> h1 h2 h3 h4.
+  (* set f1 := (found str1 t1 ((str2, t2) :: g)). *)
+  set g1 := [:: (str2, t2), (str1, t1) & g].
+  set g2 := [:: (str1, t1), (str2, t2) & g].
+  (*
+  rewrite (@execD_var _ g2 str1 h2).
+  have : projT2 (execD [% str1 h4]) = macc1of3'. *)
+  have H := (@letin'C _ _ _ _ _ _ R (execP e1) [the R.-sfker _ ~> _ of kweak [::] g (str1, t1) (execP e2)] (execP e2) [the R.-sfker _ ~> _ of kweak [::] g (str2, t2) (execP e1)]).
+  (* have ? := (@execP_weak R [::] g (str1, t1) t2 e2 xl).
+  (* rewrite letin'C. *)
+  rewrite (@execD_var R g1 str1 h4). *)
+  (* rewrite (_ : execD [% str1 h4] = existT _ (acc_typ (map snd g1) 1)
+                                    (measurable_acc_typ (map snd g1) 1))/=; last first. *)
+  (* rewrite -exp_var'E. *)
+  rewrite /execD/=.
+  case: cid => x0 [mx0 p].
+  case: cid => mx0' p' //=.
+  case: cid => x1 [mx1 p1] /=.
+  case: cid => mx1' p1' /=.
+  case: cid => x2 [mx2 p2] /=.
+  case: cid => x3 [mx3 p3] /=.
+  case: cid => mx2' p2' /=.
+  case: cid => mx3' p3' /=.
+  have ? : mx0 = mx0'.
+  exact: Prop_irrelevance.
+  subst mx0'.
+  have ? : mx1 = mx1'.
+  exact: Prop_irrelevance.
+  have ? : mx2 = mx2'.
+  exact: Prop_irrelevance.
+  have ? : mx3 = mx3'.
+  exact: Prop_irrelevance.
+  subst mx1' mx2' mx3'.
+  clear p' p1' p2' p3'.
+  have ? : x0 = @acc1of3' _ _ _ _ _ _.
+  have : (exp_var str1 h4 : (@exp R D _ _)) -D> @acc1of3' _ _ _ _ _ _ ; macc1of3'.
+  apply/execD_evalD.
+  rewrite /execD.
+  admit.
+  admit.
+  subst.
+  have -> : mx0 = @macc1of3' _ _ _ _ _ _.
+  done.
+  have ? : x1 = @acc0of3' _ _ _ _ _ _.
+  admit.
+  subst.
+  have -> : mx1 = @macc0of3' _ _ _ _ _ _.
+  done.
+  have ? : x2 = @acc0of3' _ _ _ _ _ _.
+  admit.
+  subst.
+  have -> : mx2 = @macc0of3' _ _ _ _ _ _.
+  done.
+  have ? : x3 = @acc1of3' _ _ _ _ _ _.
+  admit.
+  subst.
+  have -> : mx3 = @macc1of3' _ _ _ _ _ _.
+  done.
+  exact: H.
+Abort.
+
+Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str1 str2 : string)
+  (* (str1 := "x") (str2 := "y") *)
+  (H1 : infer (str2 != str1)) (H2 : infer (str1 != str2))
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
+  forall U, measurable U ->
+  execP [
+    let str1 := e1 in
+    let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
+    return (#str1, #str2)] ^~ U =
+  execP [
+    let str2 := e2 in
+    let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
+    (* return (#str1, #str2)] *)
+    return {@exp_pair R [:: (str1, t1), (str2, t2) & g] _ _ [#str1] [#str2]}]
+    ^~ U.
+Proof.
+move=> U mU; apply/funext => x.
+rewrite 4!execP_letin.
+rewrite 2!(execP_weak [::] g).
+rewrite 2!execP_return/=.
+rewrite 2!execD_pair/=.
+rewrite !exp_var'E.
+- apply/(ctx_prf_tail _ H1)/ctx_prf_head.
+- apply/ctx_prf_head.
+- apply/ctx_prf_head.
+- apply/(ctx_prf_tail _ H2)/ctx_prf_head.
+- move=> h1 h2 h3 h4.
   rewrite (_ : execD (exp_var str1 h4) = existT _ (acc_typ (map snd _) 1) (measurable_acc_typ (map snd _) 1)); last first.
   apply/execD_evalD.
   have h4' : t1 = lookup Unit (untag (ctx_of (recurse t2 (found str1 t1 g)))) str1.
     done.
   have Htmp : h4 = h4' Unit by done.
   rewrite (_ : h4 = h4' Unit)//.
-  have 
 
-  move: h4.
-  rewrite /lookup /= (negbTE H1) eqxx/=.
+  (* move: h4.
+  rewrite /lookup /= (negbTE H1) eqxx/=. *)
 
-
-
-
-
-  rewrite (_ : exp_var str1 h4 = eq_rect _ h4 _ _ (exp_var str1 erefl)).
-  move: (h4).
-  case: t1 / h4.
-  clear -h4.
-  subst t1.
-  rewrite (_ : h4 = erefl).
   admit.
   rewrite (_ : execD (exp_var str2 h3) = existT _ (acc_typ (map snd _) 0) (measurable_acc_typ (map snd _) 0)); last first.
   admit.
