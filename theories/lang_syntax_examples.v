@@ -664,7 +664,7 @@ Context (R : realType).
 
 Definition v1 x : @exp R P [::] _ := [
   let x := return {1}:R in
-  return %x {erefl}].
+  return %x].
 
 Definition v2 (a b c d : string) (H : infer (b != a)) : @exp R P [::] _ := [
   let a := return {1}:R in
@@ -723,6 +723,8 @@ rewrite !exp_var'E.
   (* set f1 := (found str1 t1 ((str2, t2) :: g)). *)
   set g1 := [:: (str2, t2), (str1, t1) & g].
   set g2 := [:: (str1, t1), (str2, t2) & g].
+  have := (@execD_varH R g1 str1).
+  have := H h4.
   (*
   rewrite (@execD_var _ g2 str1 h2).
   have : projT2 (execD [% str1 h4]) = macc1of3'. *)
