@@ -692,6 +692,52 @@ Variable (R : realType).
 
 Require Import Classical_Prop.
 
+(* Lemma prop_ (a b c : eqType) (H1 : a = c) (H2 : b = c) : a = b -> . *)
+
+Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str1 str2 : string)
+  (* (str1 := "x") (str2 := "y") *)
+  (H1 : infer (str2 != str1)) (H2 : infer (str1 != str2))
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
+  forall U, measurable U ->
+  execP [
+    let str1 := e1 in
+    let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
+    return #str1] ^~ U =
+  execP [
+    let str2 := e2 in
+    let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
+    return #str1]
+    ^~ U.
+Proof.
+move=> U mU; apply/funext => x.
+rewrite 4!execP_letin.
+rewrite 2!(execP_weak [::] g).
+rewrite 2!execP_return/=.
+set g1 := [:: (str1, t1), (str2, t2) & g].
+rewrite !exp_var'E /=.
+have H : nth Unit [seq i.2 | i <- [:: (str1, t1), (str2, t2) & g]]
+         (index str1 (dom [:: (str1, t1), (str2, t2) & g])) = lookup Unit [:: (str1, t1), (str2, t2) & g] str1.
+  rewrite /= eqxx /=.
+  admit.
+have : t1 = nth Unit [seq i.2 | i <- [:: (str1, t1), (str2, t2) & g]]
+      (index str1 (dom [:: (str1, t1), (str2, t2) & g])).
+  by rewrite /= eqxx.
+  move=>->.
+have Hexp := (exp_var'E str1 [:: (str1, t1), (str2, t2) & g] (found str1 _ [:: (str1, t1), (str2, t2) & g])).
+have := Hexp R H.
+
+rewrite !exp_var'E /=.
+admit. admit.
+move=> h1 h2.
+have H : nth Unit [seq i.2 | i <- [:: (str2, t2), (str1, t1) & g]]
+         (index str1 (dom [:: (str2, t2), (str1, t1) & g])) =
+       lookup Unit [:: (str2, t2), (str1, t1) & g] str1.
+  admit.
+have Hexec1 := (@execD_varH R [:: (str2, t2), (str1, t1) & g] str1 H).
+have : h2 = H.
+rewrite Hexec1.
+
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (str1 str2 : string)
   (* (str1 := "x") (str2 := "y") *)
