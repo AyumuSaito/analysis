@@ -19,6 +19,11 @@ From mathcomp Require Import ring lra.
 (*   let x := sample (bernoulli 1/2) in                                       *)
 (*   let _ := if x then score (1/3) else score (2/3) in                       *)
 (*   return x)                                                                *)
+(* https://dl.acm.org/doi/pdf/10.1145/2933575.2935313 (Sect.4)                *)
+(* bernoulli14_score52_syntax0 := normalize (                                 *)
+(*   let x := sample (bernoulli 1/4) in                                       *)
+(*   let r := if x then score 5 else score 2 in                               *)
+(*   return x)                                                                *)
 (* hard_constraint := let x := Score {0}:R in return TT                       *)
 (* sample_pair_syntax := normalize (                                          *)
 (*   let x := sample (bernoulli 1/2) in                                       *)
@@ -147,10 +152,10 @@ Local Open Scope lang_scope.
 Import Notations.
 Context {R : realType}.
 
-Definition bernoulli13_score (x := "x") (y := "y") := [Normalize
-  let x := Sample {@exp_bernoulli R [::] (1 / 3%:R)%:nng (p1S 2)} in
-  let y := if #x then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
-  return #x].
+Definition bernoulli13_score (str1 := "x") (str2 := "y") := [Normalize
+  let str1 := Sample {@exp_bernoulli R [::] (1 / 3%:R)%:nng (p1S 2)} in
+  let str2 := if #str1 then Score {(1 / 3)}:R else Score {(2 / 3)}:R in
+  return #str1].
 
 Lemma exec_bernoulli13_score :
   execD (exp_bernoulli (1 / 5%:R)%:nng (p1S 4)) = execD bernoulli13_score.
@@ -235,13 +240,13 @@ rewrite muleDl//; congr (_ + _)%E;
   by rewrite indicE /onem; case: (_ \in _); field.
 Qed.
 
-(* https://dl.acm.org/doi/pdf/10.1145/2933575.2935313 (Sect.4) *)
 Definition bernoulli14_score52_syntax0 := [Normalize
   let "x" := Sample {@exp_bernoulli R [::] (1 / 4%:R)%:nng (p1S 3)} in
   let "r" := if #{"x"} then Score {5}:R else Score {2}:R in
   return #{"x"}].
 
-Axiom p511 : ((5%:R / 11%:R)%:nng%:num <= (1 : R)).
+Lemma p511 : (5%:R / 11%:R)%:nng%:num <= 1 :> R.
+Proof. by rewrite /= lter_pdivr_mulr// mul1r ler_nat. Qed.
 
 Lemma exec_bernoulli14_score52_syntax0 :
   execD bernoulli14_score52_syntax0 = execD (exp_bernoulli (5%:R / 11%:R)%:nng p511).
@@ -315,32 +320,32 @@ Section hard_constraint.
 Local Open Scope ring_scope.
 Local Open Scope lang_scope.
 Import Notations.
-Context {R : realType} {str : string}.
+Context {R : realType}.
 
-Definition hard_constraint g : @exp R _ g _ :=
+Definition hard_constraint g str : @exp R _ g _ :=
   [let str := Score {0}:R in return TT].
 
-Lemma exec_hard_constraint g mg U : execP (hard_constraint g) mg U = fail' (false, tt) U.
+Lemma exec_hard_constraint g mg str U : execP (hard_constraint g str) mg U = fail' (false, tt) U.
 Proof.
 rewrite execP_letin execP_score execD_real execP_return execD_unit/=.
 rewrite letin'E integral_indic//= /mscale/= normr0 mul0e.
 by rewrite /fail' letin'E/= ge0_integral_mscale//= normr0 mul0e.
 Qed.
 
-Lemma exec_score_fail (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
+Lemma exec_score_fail (r : {nonneg R}) (r1 : (r%:num <= 1)%R) (str := "x") :
   execP (g := [::]) [Score {r%:num}:R] =
-  execP [let "x" := Sample {exp_bernoulli r r1} in
-         if #{"x"} then return TT else {hard_constraint _}].
+  execP [let str := Sample {exp_bernoulli r r1} in
+         if #str then return TT else {hard_constraint _ str}].
 Proof.
 rewrite execP_score execD_real /= score_fail'.
 rewrite execP_letin execP_sample/= execD_bernoulli execP_if execP_return.
-rewrite execD_unit/= exp_var'E (execD_var "x")/=.
+rewrite execD_unit/= exp_var'E (execD_var str)/=.
 apply: eq_sfkernel=> /= -[] U.
 rewrite 2!letin'E/=.
 apply: eq_integral => b _.
 rewrite 2!iteE//=.
 case: b => //=.
-by rewrite (@exec_hard_constraint [:: ("x", Bool)]).
+by rewrite (@exec_hard_constraint [:: (str, Bool)]).
 Qed.
 
 End hard_constraint.
@@ -349,12 +354,12 @@ Section sample_pair.
 Local Open Scope lang_scope.
 Local Open Scope ring_scope.
 Import Notations.
-Context {R : realType} {str0 str1 : string}.
+Context {R : realType}.
 
-Definition sample_pair_syntax0 : @exp R _ [::] _ :=
-  [let "x" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
-   let "y" := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S 2)} in
-   return (%{"x"}, %{"y"})].
+Definition sample_pair_syntax0 (str1 := "x") (str2 := "y") : @exp R _ [::] _ :=
+  [let str1 := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
+   let str2 := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S 2)} in
+   return (#str1, #str2)].
 
 Definition sample_pair_syntax : exp _ [::] _ :=
   [Normalize {sample_pair_syntax0}].
@@ -363,7 +368,7 @@ Lemma exec_sample_pair_true_and_true :
   @execP R [::] _ sample_pair_syntax0 tt [set p | p.1 && p.2] = (1 / 6)%:E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
-rewrite execD_pair (execD_var "x") (execD_var "y") /=.
+rewrite execD_pair !exp_var'E (execD_var "x") (execD_var "y") /=.
 rewrite letin'E integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
@@ -379,7 +384,7 @@ Proof.
 rewrite execD_normalize.
 rewrite normalizeE/=.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
-rewrite execD_pair (execD_var "x") (execD_var "y") /=.
+rewrite execD_pair !exp_var'E (execD_var "x") (execD_var "y") /=.
 rewrite !letin'E integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
@@ -397,7 +402,7 @@ Lemma exec_sample_pair_true_and_false :
   @execP R [::] _ sample_pair_syntax0 tt [set (true, false)] = (1 / 3)%:E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
-rewrite execD_pair (execD_var "x") (execD_var "y") /=.
+rewrite execD_pair !exp_var'E (execD_var "x") (execD_var "y") /=.
 rewrite letin'E integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
@@ -413,38 +418,37 @@ Section letinA.
 Local Open Scope lang_scope.
 Variable R : realType.
 
-Lemma letinA g x y t1 t2 t3 (xg : x \notin dom ((y, t2) :: g))
+Lemma letinA g str1 str2 t1 t2 t3 (xg : str1 \notin dom ((str2, t2) :: g))
   (e1 : @exp R P g t1)
-  (e2 : exp P [:: (x, t1) & g] t2)
-  (e3 : exp P [:: (y, t2) & g] t3) :
+  (e2 : exp P [:: (str1, t1) & g] t2)
+  (e3 : exp P [:: (str2, t2) & g] t3) :
   forall U, measurable U ->
-  execP [let x := e1 in
-         let y := e2 in
-         {@exp_weak _ _ [:: (y, t2)] _ _ (x, t1) e3 xg}] ^~ U =
-  execP [let y :=
-           let x := e1 in e2 in
+  execP [let str1 := e1 in
+         let str2 := e2 in
+         {@exp_weak _ _ [:: (str2, t2)] _ _ (str1, t1) e3 xg}] ^~ U =
+  execP [let str2 :=
+           let str1 := e1 in e2 in
          e3] ^~ U.
 Proof.
 move=> U mU; apply/funext=> z1.
 rewrite !execP_letin.
-rewrite (execP_weak [:: (y, t2)]).
+rewrite (execP_weak [:: (str2, t2)]).
 apply: letin'A => //= z2 z3.
 rewrite /kweak /mctx_strong /=.
 by destruct z3.
 Qed.
 
-Corollary letinA12 : forall U, measurable U ->
-  @execP R [::] _ [let "y" := return {1}:R in
-                   let "x" := return {2}:R in
-                   return %{"x"}] ^~ U =
-  @execP R [::] _ [let "x" :=
-                   let "y" := return {1}:R in return {2}:R in
-                   return %{"x"}] ^~ U.
+Corollary letinA12 (str1 := "x") (str2 := "y") : forall U, measurable U ->
+  @execP R [::] _ [let str2 := return {1}:R in
+                   let str1 := return {2}:R in
+                   return #str1] ^~ U =
+  @execP R [::] _ [let str1 :=
+                   let str2 := return {1}:R in return {2}:R in
+                   return #str1] ^~ U.
 Proof.
 move=> U mU.
-rewrite !execP_letin !execP_return !execD_real !execD_var /=.
-apply: funext=> x.
-exact: letin'A.
+rewrite !execP_letin !execP_return !execD_real !exp_var'E !(execD_var str1) /=.
+apply: funext=> ?; exact: letin'A.
 Qed.
 
 End letinA.
@@ -564,17 +568,6 @@ Let kstaton_busA' :=
     (letin' ite_3_10
       score_poisson4)
     (ret macc1of3')).
-(*TODO: Lemma kstaton_bus'E : kstaton_bus' = kstaton_bus _ (measurable_poisson 4).
-Proof.
-apply/eq_sfkernel => -[] U.
-rewrite /kstaton_bus' /kstaton_bus.
-rewrite letin'_letin.
-rewrite /sample_bern.
-congr (letin _ _ tt U).
-
-apply: eq_sfkernel => /= -[[] b] V.
-rewrite /mswap letin'_letin /letin/=.
-rewrite /ite_3_10.*)
 
 Lemma eval_staton_busA0 : staton_busA_syntax0 -P> kstaton_busA'.
 Proof.
