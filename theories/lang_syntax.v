@@ -592,8 +592,8 @@ Inductive evalD : forall g t, exp D g t ->
   e -D> f ; mf ->
   [\pi_2 e] -D> snd \o f ; measurableT_comp measurable_snd mf
 
-| eval_var g str : let i := index str (dom g) in
-  [% str] -D> acc_typ (map snd g) i ; measurable_acc_typ (map snd g) i
+(* | eval_var g str : let i := index str (dom g) in
+  [% str] -D> acc_typ (map snd g) i ; measurable_acc_typ (map snd g) i *)
 
 | eval_varH g str H : let i := index str (dom g) in
   (exp_var str H) -D> acc_typ (map snd g) i ; measurable_acc_typ (map snd g) i
@@ -702,16 +702,16 @@ all: (rewrite {g t e u v mu mv hu}).
   clear H9.
   inj_ex H7; subst e1.
   by rewrite (ih _ _ H4).
-- move=> g str n {}v {}mv.
+(* - move=> g str n {}v {}mv.
   inversion 1; subst g0.
   inj_ex H6; rewrite -H6.
   by inj_ex H7.
   inj_ex H8; rewrite -H8.
-  by inj_ex H9.
+  by inj_ex H9. *)
 - move=> g str H n {}v {}mv.
   inversion 1; subst g0.
-  inj_ex H7; rewrite -H7.
-  by inj_ex H8.
+  (* inj_ex H7; rewrite -H7.
+  by inj_ex H8. *)
   inj_ex H9; rewrite -H9.
   by inj_ex H10.
 - move=> g r r1 {}v {}mv.
@@ -825,16 +825,16 @@ all: rewrite {g t e u v eu}.
   clear H9.
   inj_ex H7; subst e1.
   by rewrite (ih _ _ H4).
-- move=> g str n {}v {}mv.
+(* - move=> g str n {}v {}mv.
   inversion 1; subst g0.
   inj_ex H6; rewrite -H6.
   by inj_ex H7.
   inj_ex H8; rewrite -H8.
-  by inj_ex H9.
+  by inj_ex H9. *)
 - move=> g str H n {}v {}mv.
   inversion 1; subst g0.
-  inj_ex H7; rewrite -H7.
-  by inj_ex H8.
+  (* inj_ex H7; rewrite -H7.
+  by inj_ex H8. *)
   inj_ex H9; rewrite -H9.
   by inj_ex H10.
 - move=> g r r1 {}v {}mv.
@@ -928,7 +928,7 @@ all: rewrite {dp g t}.
   by exists (fst \o f); eexists; exact: eval_proj1.
 - move=> g t1 t2 e [f [mf H]].
   by exists (snd \o f); eexists; exact: eval_proj2.
-- by move=> g x t tE; subst t; eexists; eexists; exact: eval_var.
+- by move=> g x t tE; subst t; eexists; eexists; exact: eval_varH.
 - by move=> r r1; eexists; eexists; exact: eval_bernoulli.
 - move=> g h e [f [mf H]].
   by exists (poisson h \o f); eexists; exact: eval_poisson.
@@ -1061,10 +1061,9 @@ Qed.
 Lemma execD_var g str : let i := index str (dom g) in
   @execD g _ [% str] = existT _ (acc_typ (map snd g) i)
                       (measurable_acc_typ (map snd g) i).
-Proof. by move=> i; apply/execD_evalD; exact: eval_var. Qed.
+Proof. by move=> i; apply/execD_evalD; exact: eval_varH. Qed.
 
-
-Lemma execD_varH g str H : let i := index str (dom g) in
+Lemma execD_varH g str (H : nth Unit (map snd g) (index str (dom g)) = lookup Unit g str) : let i := index str (dom g) in
   @execD g _ (exp_var str H) = existT _ (acc_typ (map snd g) i)
                       (measurable_acc_typ (map snd g) i).
 Proof. by move=> i; apply/execD_evalD; exact: eval_varH. Qed.

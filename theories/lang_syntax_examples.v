@@ -345,10 +345,10 @@ case: b => //=.
 have : projT1 (@execD R _ _ (exp_var str h)) (true, tt) = true.
   set g := [:: (str, Bool)].
   have /= := (@execD_varH R [:: (str, Bool)] str).
-  rewrite eqxx /=.
+  rewrite eqxx.
   move=> H.
     by rewrite (H h).
-    by move=> ->.
+  by move=> ->.
 have : projT1 (@execD R _ _ (exp_var str h)) (false, tt) = false.
   set g := [:: (str, Bool)].
   have /= := (@execD_varH R [:: (str, Bool)] str).
@@ -811,61 +811,6 @@ have -> : measurable_acc_typ [:: t1, t2 & map snd g] 0 = macc0of3' by [].
 by have -> : measurable_acc_typ [:: t1, t2 & map snd g] 1 = macc1of3' by [].
 Qed.
 
-  (* rewrite (_ : execD [% str2 h3] = existT _ (acc_typ (map snd g1) 0)
-                      (measurable_acc_typ (map snd g1) 0))/=; last first.
-  admit.
-  rewrite (_ : execD [% str1 h2] = existT _ (acc_typ (map snd g2) 0)
-                      (measurable_acc_typ (map snd g2) 0))/=; last first.
-  admit.
-  rewrite (_ : execD [% str2 h1] = existT _ (acc_typ (map snd g2) 1)
-                      (measurable_acc_typ (map snd g2) 1))/=; last first.
-  admit.
-  have h4' : nth Unit (map snd g1) (index str1 (dom g1)) = lookup Unit (untag (ctx_of (recurse t2 (found str1 t1 g)))) str1.
-    done.
-  have Htmp : h4 = h4' by done.
-  rewrite (_ : h4 = h4')//.
-  rewrite (@execD_var R g1 str1 (h4' Unit)).
-  have 
-
-  move: h4.
-  rewrite /lookup /= (negbTE H1) eqxx/=.
-
-  rewrite (_ : exp_var str1 h4 = eq_rect _ h4 _ _ (exp_var str1 erefl)).
-  move: (h4).
-  case: t1 / h4.
-  clear -h4.
-  subst t1.
-  rewrite (_ : h4 = erefl).
-  admit.
-  rewrite (_ : execD (exp_var str2 h3) = existT _ (acc_typ (map snd _) 0) (measurable_acc_typ (map snd _) 0)); last first.
-  admit.
-  rewrite /=.
-  have -> : measurable_acc_typ [:: t2, t1 & map snd g] 0 = macc0of3' by [].
-  have -> : measurable_acc_typ [:: t2, t1 & map snd g] 1 = macc1of3' by [].
-  rewrite (letin'C _ _ (execP e2)
-    [the R.-sfker _ ~> _ of @kweak _ [::] _ (str2, t2) _ (execP e1)]);
-    [ |by [] | by [] |by []].
-  rewrite (_ : execD (exp_var str2 h1) = existT _ (acc_typ (map snd _) 1) (measurable_acc_typ (map snd _) 1)); last first.
-  admit.
-  rewrite (_ : execD (exp_var str1 h2) = existT _ (acc_typ (map snd _) 0) (measurable_acc_typ (map snd _) 0)); last first.
-  admit.
-  have -> : measurable_acc_typ [:: t1, t2 & map snd g] 0 = macc0of3' by [].
-  by have -> : measurable_acc_typ [:: t1, t2 & map snd g] 1 = macc1of3' by [].
-Abort. *)
-         
-(* Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
-  (str0 := "x") (str1 := "y") (xl : str0 \notin dom g) (yl : str1 \notin dom g) :
-  let h1 := tmp e1 e2 xl yl in
-  let h2 := tmp e1 e2 xl yl in
-  forall (U : set (mtyp (Pair (untag_typ (typ_of h1)) (untag_typ (typ_of h2))))), measurable U ->
-  execP [let str0 := e1 in
-         let str1 := {exp_weak _ [::] _ (str0, t1) e2 xl} in
-         return (%str0, %str1)] ^~ U =
-  execP [let str1 := e2 in
-         let str0 := {exp_weak _ [::] _ (str1, t2) e1 yl} in
-         return (%str0, %str1)] ^~ U. *)
-
-
 Lemma letinC_xy g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (str1 := "x") (str2 := "y")
   (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
@@ -885,7 +830,7 @@ by move=> U mU; rewrite letinC.
 Qed.
 
 (* version parameterized by any context g *)
-Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
+Lemma letinC_ g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
   (xl : "x" \notin dom g) (yl : "y" \notin dom g) :
   forall U, measurable U ->
   execP [let "x" := e1 in
@@ -924,6 +869,7 @@ Lemma letinC_list (g := [:: ("a", Unit); ("b", Bool)]) t1 t2
          return (%{"x"}, %{"y"})] ^~ U.
 Proof.
 move=> U mU.
+rewrite -!(exp_var'E "x") -!(exp_var'E "y").
 exact: letinC.
 Qed.
 
