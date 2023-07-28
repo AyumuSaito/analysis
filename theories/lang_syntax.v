@@ -387,7 +387,7 @@ Definition exp_var' (str : string) (t : typ) (g : find str t) :=
   @exp_var (untag (ctx_of g)) str t (ctx_prf g).
 Arguments exp_var' str {t} g.
 
-Lemma exp_var'E str t (f : find str t) (H : t = (_ : typ)) :
+Lemma exp_var'E str t (f : find str t) H :
   exp_var' str f = exp_var str H :> (@exp _ _ _).
 Proof. by rewrite /exp_var'; congr exp_var. Qed.
 
@@ -1041,17 +1041,6 @@ Lemma execD_var g str : let i := index str (dom g) in
   @execD g _ [%str] = existT _ (acc_typ (map snd g) i)
                       (measurable_acc_typ (map snd g) i).
 Proof. by move=> i; apply/execD_evalD; exact: eval_var. Qed.
-
-Lemma execD_var' str t (f : find str t) (H : lookup Unit (untag (ctx_of f)) str = t) :
-  [#str] = (@eq_rect _ _ (fun x => @exp R _ _ x) [%str] _ H).
-Proof.
-(* f_equal. *)
-(* rewrite exp_var'E //. *)
-move: H.
-Admitted.
-(* move J : (untag _) => j.
-subst t.
-by move=> i; apply/execD_evalD; exact: eval_var. Qed. *)
 
 Lemma execD_bernoulli g r (r1 : (r%:num <= 1)%R) :
   @execD g _ (exp_bernoulli r r1) =
