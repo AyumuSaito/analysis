@@ -684,6 +684,70 @@ Variable (R : realType).
 
 Require Import Classical_Prop.
 
+(* Lemma __ str1 str2 t1 t2 : t1 = lookup Unit [:: (str2, t2); (str1, t1)] str1.
+Proof.
+rewrite /lookup/=.
+case: ifPn => //=; rewrite (negbTE _). *)
+
+(* Check fun a b z (x : a = b) (y : { z | z <= a}) => match x in _ = c return { z | z <= c } with eq_refl => y end. *)
+
+(* Lemma __ (a b : eqType) : (a = a) -> (a = b). *)
+
+Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str1 str2 : string)
+  (* (str1 := "x") (str2 := "y") *)
+  (H1 : infer (str2 != str1)) (H2 : infer (str1 != str2))
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
+  forall U, measurable U ->
+  execP [
+    let str1 := e1 in
+    let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
+    return #str1] ^~ U =
+  execP [
+    let str2 := e2 in
+    let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
+    return #str1]
+    ^~ U.
+Proof.
+move=> U mU; apply/funext => x.
+rewrite 4!execP_letin.
+rewrite 2!(execP_weak [::]).
+rewrite 2!execP_return/=.
+rewrite !exp_var'E /=.
+- apply/(ctx_prf_tail _ H1)/ctx_prf_head.
+- apply/ctx_prf_head.
+- move=> h1 h2.
+have H := @letin'C _ _ _ _ _ _ R (execP e1) [the R.-sfker _ ~> _ of kweak [::] g (str1, t1) (execP e2)] (execP e2) [the R.-sfker _ ~> _ of kweak [::] g (str2, t2) (execP e1)].
+rewrite /execD/=.
+  case: cid => x0 [mx0 p].
+  case: cid => mx0' p' //=.
+  case: cid => x1 [mx1 p1] /=.
+  case: cid => mx1' p1' /=.
+  have ? : mx0 = mx0'.
+  exact: Prop_irrelevance.
+  have ? : mx1 = mx1'.
+  exact: Prop_irrelevance.
+  subst mx0' mx1'.
+  have ? : x0 = @acc1of3' _ _ _ _ _ _.
+  have : (exp_var str1 h1 : (@exp R D _ _)) -D> @acc0of3' _ _ _ _ _ _ ; macc0of3'.
+  apply/execD_evalD.
+  rewrite /execD/=.
+  rewrite /acc0of3'/acc/=.
+  case: cid.
+  rewrite /dval => x2 [mx2 p2].
+  case: cid.
+  rewrite /dval => mx2' p2'.
+
+  (* have : (sval (cid p2)) = macc0of3'. *)
+  (* have x2fst : x2 = (fst \o pairAArAi).
+    admit.
+  rewrite x2fst.
+
+  congr existT.
+have := Prop_irrelevance h1 erefl. *)
+admit.
+Abort.
+
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (str1 str2 : string)
   (* (str1 := "x") (str2 := "y") *)
@@ -706,19 +770,20 @@ rewrite 4!execP_letin.
 rewrite 2!(execP_weak [::] g).
 rewrite 2!execP_return/=.
 rewrite 2!execD_pair/=.
-rewrite !exp_var'E.
+rewrite execD_var'/=.
+set g1 := [:: (str2, t2), (str1, t1) & g].
+set g2 := [:: (str1, t1), (str2, t2) & g].
+rewrite !exp_var'E /=.
 - apply/(ctx_prf_tail _ H1)/ctx_prf_head.
 - apply/ctx_prf_head.
 - apply/ctx_prf_head.
 - apply/(ctx_prf_tail _ H2)/ctx_prf_head.
 - move=> h1 h2 h3 h4.
   (* set f1 := (found str1 t1 ((str2, t2) :: g)). *)
-  set g1 := [:: (str2, t2), (str1, t1) & g].
-  set g2 := [:: (str1, t1), (str2, t2) & g].
   (*
   rewrite (@execD_var _ g2 str1 h2).
   have : projT2 (execD [% str1 h4]) = macc1of3'. *)
-  have H := (@letin'C _ _ _ _ _ _ R (execP e1) [the R.-sfker _ ~> _ of kweak [::] g (str1, t1) (execP e2)] (execP e2) [the R.-sfker _ ~> _ of kweak [::] g (str2, t2) (execP e1)]).
+  (* have H := @letin'C _ _ _ _ _ _ R (execP e1) [the R.-sfker _ ~> _ of kweak [::] g (str1, t1) (execP e2)] (execP e2) [the R.-sfker _ ~> _ of kweak [::] g (str2, t2) (execP e1)]. *)
   (* have ? := (@execP_weak R [::] g (str1, t1) t2 e2 xl).
   (* rewrite letin'C. *)
   rewrite (@execD_var R g1 str1 h4). *)
@@ -745,6 +810,80 @@ rewrite !exp_var'E.
   exact: Prop_irrelevance.
   subst mx1' mx2' mx3'.
   clear p' p1' p2' p3'.
+  have ? : x0 = @acc1of3' _ _ _ _ _ (projT2 (measurable_of_seq (map snd g))).
+    have : (exp_var str1 h4 : (@exp R D _ _)) -D> (@acc1of3' _ _ _ _ _ (projT2 (measurable_of_seq (map snd g)))) ; macc1of3'.
+      set localg := @untag stype_eqType (@ctx_of stype_eqType Unit str1 t1
+        (@recurse stype_eqType Unit str1 t1 str2 t2 H1 (@found stype_eqType Unit str1 t1 g))).
+
+      set Y : exp D localg t1 := exp_var str1 h4.
+      have K1 := @eval_var R localg str1.
+      pose X : @exp R D localg (lookup Unit localg str1) := [%str1].
+      cbv zeta in K1.
+      rewrite -/X in K1.
+
+      Fail Check X = Y.
+      have ? : t1 = lookup Unit localg str1 by [].
+      pose from_exp_t1 Z := @eq_rect _ t1 (@exp R D localg) Z _ h4.
+      pose to_exp_t1 Z := @eq_rect _ _ (@exp R D localg) Z _ (esym h4).
+      Check X = from_exp_t1 Y.
+
+      have XY : X = from_exp_t1 Y.
+        rewrite /from_exp_t1.
+        clear.
+        rewrite {}/X {}/Y.
+        rewrite {}/localg.
+        move: h4.
+        move H : (untag _) => h.
+        clear H.
+        move=> h4.
+        subst t1.
+        exact: eq_rect_eq.
+
+      have YX : Y = to_exp_t1 X.
+        rewrite /to_exp_t1.
+        clear.
+        rewrite {}/X {}/Y.
+        rewrite {}/localg.
+        move: h4.
+        move H : (untag _) => h.
+        clear H.
+        move=> h4.
+        subst t1.
+        exact: eq_rect_eq.
+
+      rewrite YX.
+
+      Fail Check execD X = execD Y.
+      pose from_semval_t1 Z := (@eq_rect _ _ (fun x => {f : dval R localg x & measurable_fun [set: mctx localg] f}) Z _ h4).
+      Check execD X = from_semval_t1 (execD Y).
+      pose to_semval_t1 Z := (@eq_rect _ _ (fun x => {f : dval R localg x & measurable_fun [set: mctx localg] f}) Z _ (esym h4)).
+
+      set semval0 := (X in _ -D> X; _) in K1.
+      set msemval0 := (X in _ -D> _; X) in K1.
+
+      pose type_of_acc1of3' :=
+        (projT2 (@measurable_of_typ R t2) * (projT2 (@measurable_of_typ R t1) * projT2 (@measurable_of_seq  R [seq i.2 | i <- g])))%type ->
+       projT2 (@measurable_of_typ R t1).
+      set type_of_semval0 := projT2 (@measurable_of_seq R [seq i.2 | i <- localg]) -> projT2 (@measurable_of_typ R (nth Unit [seq i.2 | i <- localg] (index str1 (dom localg)))).
+      have K3 : type_of_semval0 = type_of_acc1of3'.
+        rewrite /type_of_semval0/= /type_of_acc1of3'/=.
+        by rewrite (negbTE H1)//= eqxx//.
+      Fail Check acc1of3' (T2:=projT2 (measurable_of_seq [seq i.2 | i <- g])) = semval0.
+      pose from_type_of_semval0 Z := (@eq_rect _ _ (fun x => x) Z _ K3).
+      Check acc1of3' (T2:=projT2 (measurable_of_seq [seq i.2 | i <- g])) = from_type_of_semval0 semval0.
+
+      have access_function_eq : acc1of3' (T2:=projT2 (measurable_of_seq [seq i.2 | i <- g])) = from_type_of_semval0 semval0.
+        clear.
+        rewrite {}/from_type_of_semval0.
+        rewrite {}/semval0 in K3 *.
+        have K3' : type_of_semval0 = type_of_acc1of3' by done.
+        rewrite (Prop_irrelevance K3 K3').
+
+      Fail apply: eval_var.
+        admit.
+      admit.
+move=> K.
+    exact: (evalD_uniq p K).
   have ? : x0 = @acc1of3' _ _ _ _ _ _.
   have : (exp_var str1 h4 : (@exp R D _ _)) -D> @acc1of3' _ _ _ _ _ _ ; macc1of3'.
   apply/execD_evalD.
