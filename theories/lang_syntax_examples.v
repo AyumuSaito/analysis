@@ -54,7 +54,7 @@ rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
 by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
 Qed.
 
-(* Section letin'_return.
+Section letin'_return.
 Context d d' d3 (X : measurableType d) (Y : measurableType d')
   (Z : measurableType d3) (R : realType).
 
@@ -329,18 +329,34 @@ Qed.
 
 Lemma exec_score_fail (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   execP (g := [::]) [Score {r%:num}:R] =
-  execP [let "x" := Sample {exp_bernoulli r r1} in
-         if #{"x"} then return TT else {hard_constraint _}].
+  execP [let str := Sample {exp_bernoulli r r1} in
+         if #str then return TT else {hard_constraint _}].
 Proof.
 rewrite execP_score execD_real /= score_fail'.
 rewrite execP_letin execP_sample/= execD_bernoulli execP_if execP_return.
-rewrite execD_unit/= exp_var'E (execD_var "x")/=.
+rewrite execD_unit/= exp_var'E /=.
+  apply/ctx_prf_head.
+move=> h.
 apply: eq_sfkernel=> /= -[] U.
 rewrite 2!letin'E/=.
 apply: eq_integral => b _.
 rewrite 2!iteE//=.
 case: b => //=.
-by rewrite (@exec_hard_constraint [:: ("x", Bool)]).
+have : projT1 (@execD R _ _ (exp_var str h)) (true, tt) = true.
+  set g := [:: (str, Bool)].
+  have /= := (@execD_varH R [:: (str, Bool)] str).
+  rewrite eqxx /=.
+  move=> H.
+    by rewrite (H h).
+    by move=> ->.
+have : projT1 (@execD R _ _ (exp_var str h)) (false, tt) = false.
+  set g := [:: (str, Bool)].
+  have /= := (@execD_varH R [:: (str, Bool)] str).
+  rewrite eqxx /=.
+  move=> H.
+    by rewrite (H h).
+    move=> ->.
+by rewrite (@exec_hard_constraint [:: (str, Bool)]).
 Qed.
 
 End hard_constraint.
@@ -354,7 +370,7 @@ Context {R : realType} {str0 str1 : string}.
 Definition sample_pair_syntax0 : @exp R _ [::] _ :=
   [let "x" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
    let "y" := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S 2)} in
-   return (%{"x"} {erefl}, %{"y"} {erefl})].
+   return (%{"x"}, %{"y"})].
 
 Definition sample_pair_syntax : exp _ [::] _ :=
   [Normalize {sample_pair_syntax0}].
@@ -436,10 +452,10 @@ Qed.
 Corollary letinA12 : forall U, measurable U ->
   @execP R [::] _ [let "y" := return {1}:R in
                    let "x" := return {2}:R in
-                   return %{"x"} {erefl}] ^~ U =
+                   return %{"x"}] ^~ U =
   @execP R [::] _ [let "x" :=
                    let "y" := return {1}:R in return {2}:R in
-                   return %{"x"} {erefl}] ^~ U.
+                   return %{"x"}] ^~ U.
 Proof.
 move=> U mU.
 rewrite !execP_letin !execP_return !execD_real !execD_var /=.
@@ -459,7 +475,7 @@ Definition staton_bus_syntax0 : @exp R _ [::] _ :=
   [let "x" := Sample {exp_bernoulli (2 / 7%:R)%:nng p27} in
    let "r" := if #{"x"} then return {3}:R else return {10}:R in
    let "_" := Score {exp_poisson 4 [#{"r"}]} in
-   return %{"x"} {erefl}].
+   return %{"x"}].
 
 Definition staton_bus_syntax := [Normalize {staton_bus_syntax0}].
 
@@ -655,7 +671,7 @@ Lemma exec_staton_busA0' U : execP staton_busA_syntax0 tt U =
   (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U)%E.
 Proof. by rewrite -staton_bus_staton_busA exec_staton_bus0'. Qed.
 
-End staton_busA. *)
+End staton_busA.
 
 Section variables.
 Local Open Scope lang_scope.
@@ -724,7 +740,7 @@ have : t1 = nth Unit [seq i.2 | i <- [:: (str1, t1), (str2, t2) & g]]
       (index str1 (dom [:: (str1, t1), (str2, t2) & g])).
   by rewrite /= eqxx.
   move=>->.
-have Hexp := (exp_var'E str1 [:: (str1, t1), (str2, t2) & g] (found str1 _ [:: (str1, t1), (str2, t2) & g])).
+(* have Hexp := (exp_var'E str1 [:: (str1, t1), (str2, t2) & g] (found str1 _ [:: (str1, t1), (str2, t2) & g])).
 have := Hexp R H.
 
 rewrite !exp_var'E /=.
@@ -736,7 +752,8 @@ have H : nth Unit [seq i.2 | i <- [:: (str2, t2), (str1, t1) & g]]
   admit.
 have Hexec1 := (@execD_varH R [:: (str2, t2), (str1, t1) & g] str1 H).
 have : h2 = H.
-rewrite Hexec1.
+rewrite Hexec1. *)
+Abort.
 
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   (str1 str2 : string)
@@ -766,67 +783,33 @@ rewrite !exp_var'E.
 - apply/ctx_prf_head.
 - apply/(ctx_prf_tail _ H2)/ctx_prf_head.
 - move=> h1 h2 h3 h4.
-  (* set f1 := (found str1 t1 ((str2, t2) :: g)). *)
   set g1 := [:: (str2, t2), (str1, t1) & g].
   set g2 := [:: (str1, t1), (str2, t2) & g].
-  have := (@execD_varH R g1 str1).
-  have := H h4.
-  (*
-  rewrite (@execD_var _ g2 str1 h2).
-  have : projT2 (execD [% str1 h4]) = macc1of3'. *)
-  have H := (@letin'C _ _ _ _ _ _ R (execP e1) [the R.-sfker _ ~> _ of kweak [::] g (str1, t1) (execP e2)] (execP e2) [the R.-sfker _ ~> _ of kweak [::] g (str2, t2) (execP e1)]).
-  (* have ? := (@execP_weak R [::] g (str1, t1) t2 e2 xl).
-  (* rewrite letin'C. *)
-  rewrite (@execD_var R g1 str1 h4). *)
-  (* rewrite (_ : execD [% str1 h4] = existT _ (acc_typ (map snd g1) 1)
-                                    (measurable_acc_typ (map snd g1) 1))/=; last first. *)
-  (* rewrite -exp_var'E. *)
-  rewrite /execD/=.
-  case: cid => x0 [mx0 p].
-  case: cid => mx0' p' //=.
-  case: cid => x1 [mx1 p1] /=.
-  case: cid => mx1' p1' /=.
-  case: cid => x2 [mx2 p2] /=.
-  case: cid => x3 [mx3 p3] /=.
-  case: cid => mx2' p2' /=.
-  case: cid => mx3' p3' /=.
-  have ? : mx0 = mx0'.
-  exact: Prop_irrelevance.
-  subst mx0'.
-  have ? : mx1 = mx1'.
-  exact: Prop_irrelevance.
-  have ? : mx2 = mx2'.
-  exact: Prop_irrelevance.
-  have ? : mx3 = mx3'.
-  exact: Prop_irrelevance.
-  subst mx1' mx2' mx3'.
-  clear p' p1' p2' p3'.
-  have ? : x0 = @acc1of3' _ _ _ _ _ _.
-  have : ([%str1 h4] : (@exp R D _ _)) -D> @acc1of3' _ _ _ _ _ _ ; macc1of3'.
-  apply/execD_evalD.
-  rewrite /execD.
-  admit.
-  admit.
-  subst.
-  have -> : mx0 = @macc1of3' _ _ _ _ _ _.
-  done.
-  have ? : x1 = @acc0of3' _ _ _ _ _ _.
-  admit.
-  subst.
-  have -> : mx1 = @macc0of3' _ _ _ _ _ _.
-  done.
-  have ? : x2 = @acc0of3' _ _ _ _ _ _.
-  admit.
-  subst.
-  have -> : mx2 = @macc0of3' _ _ _ _ _ _.
-  done.
-  have ? : x3 = @acc1of3' _ _ _ _ _ _.
-  admit.
-  subst.
-  have -> : mx3 = @macc1of3' _ _ _ _ _ _.
-  done.
-  exact: H.
-Admitted.
+  have /= := (@execD_varH R g1 str1).
+    rewrite (negbTE H1) eqxx.
+    move=> Hnth1.
+    have -> := Hnth1 h4.
+  have /= := (@execD_varH R g2 str1).
+    rewrite (negbTE H1) eqxx.
+    move=> Hnth2.
+    have -> := Hnth2 h2.
+  have /= := (@execD_varH R g1 str2).
+    rewrite eqxx.
+    move=> Hnth3.
+    have -> := Hnth3 h3.
+  have /= := (@execD_varH R g2 str2).
+    rewrite (negbTE H2) eqxx.
+    move=> Hnth4.
+    have -> := Hnth4 h1.
+  rewrite /=.
+  have -> : measurable_acc_typ [:: t2, t1 & map snd g] 0 = macc0of3' by [].
+  have -> : measurable_acc_typ [:: t2, t1 & map snd g] 1 = macc1of3' by [].
+  rewrite (letin'C _ _ (execP e2)
+    [the R.-sfker _ ~> _ of @kweak _ [::] _ (str2, t2) _ (execP e1)]);
+    [ |by [] | by [] |by []].
+have -> : measurable_acc_typ [:: t1, t2 & map snd g] 0 = macc0of3' by [].
+by have -> : measurable_acc_typ [:: t1, t2 & map snd g] 1 = macc1of3' by [].
+Qed.
 
   (* rewrite (_ : execD [% str2 h3] = existT _ (acc_typ (map snd g1) 0)
                       (measurable_acc_typ (map snd g1) 0))/=; last first.
@@ -881,6 +864,25 @@ Abort. *)
   execP [let str1 := e2 in
          let str0 := {exp_weak _ [::] _ (str1, t2) e1 yl} in
          return (%str0, %str1)] ^~ U. *)
+
+
+Lemma letinC_xy g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
+  (str1 := "x") (str2 := "y")
+  (xl : str1 \notin dom g) (yl : str2 \notin dom g) :
+  forall U, measurable U ->
+  execP [
+    let str1 := e1 in
+    let str2 := {exp_weak _ [::] _ (str1, t1) e2 xl} in
+    return (#str1, #str2)] ^~ U =
+  execP [
+    let str2 := e2 in
+    let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
+    (* return (#str1, #str2)] *)
+    return {@exp_pair R [:: (str1, t1), (str2, t2) & g] _ _ [#str1] [#str2]}]
+    ^~ U.
+Proof.
+by move=> U mU; rewrite letinC.
+Qed.
 
 (* version parameterized by any context g *)
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
