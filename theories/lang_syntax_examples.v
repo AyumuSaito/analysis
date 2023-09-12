@@ -106,7 +106,7 @@ Qed.
 End letin'_ite.
 (* /letin' versions of rewriting laws *)
 
-Local Open Scope lang_scope.
+(* Local Open Scope lang_scope.
 
 Lemma execP_letinL {R : realType} g t1 t2 x (e1 : @exp R P g t1) (e1' : exp P g t1)
    (e2 : exp P ((x, t1) :: g) t2) :
@@ -671,7 +671,7 @@ Lemma exec_staton_busA0' U : execP staton_busA_syntax0 tt U =
   (5%:R / 7%:R)%:E * (poisson4 10%:R)%:E * \d_false U)%E.
 Proof. by rewrite -staton_bus_staton_busA exec_staton_bus0'. Qed.
 
-End staton_busA.
+End staton_busA. *)
 
 Section pending_issue_with_pair_of_variables.
 Local Open Scope lang_scope.
@@ -680,9 +680,12 @@ Context (R : realType).
 
 Definition v1 x : @exp R P [::] _ := [
   let x := return {1}:R in
-  return %x].
+  return #x].
 
-Definition v2 (a b c d : string) (H : infer (b != a)) : @exp R P [::] _ := [
+Definition v2 (a b : string) 
+  (a := "a") (b := "b")
+  (* (H : infer (b != a)) *)
+  : @exp R P [::] _ := [
   let a := return {1}:R in
   let b := return {true}:B in
   (* let c := return {3}:R in
@@ -697,8 +700,7 @@ Definition v3 (a b c d : string) (H1 : infer (b != a)) (H2 : infer (c != a))
   let b := return {2}:R in
   let c := return {3}:R in
   (* let d := return {4}:R in *)
-  (* return (#b, #a)]. *)
-  return {@exp_pair R [:: (c, _); (b, _); (a, _)] _ _ (exp_var' a _) (exp_var' b _)}].
+  return (#b, #a)].
 
 End pending_issue_with_pair_of_variables.
 
@@ -720,9 +722,7 @@ Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   execP [
     let str2 := e2 in
     let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
-    (* return (#str1, #str2)] *)
-    return {@exp_pair R [:: (str1, t1), (str2, t2) & g] _ _ [#str1] [#str2]}]
-    ^~ U.
+    return (#str1, #str2)] ^~ U.
 Proof.
 move=> U mU; apply/funext => x.
 rewrite 4!execP_letin.
@@ -774,9 +774,7 @@ Lemma letinC_xy_with_exp_var' g t1 t2 (e1 : @exp R P g t1) (e2 : @exp R P g t2)
   execP [
     let str2 := e2 in
     let str1 := {exp_weak _ [::] _ (str2, t2) e1 yl} in
-(*    return (#str1, #str2)]*)
-    return {@exp_pair R [:: (str1, t1), (str2, t2) & g] _ _ [#str1] [#str2]}]
-    ^~ U.
+    return (#str1, #str2)] ^~ U.
 Proof.
 by move=> U mU; rewrite letinC.
 Qed.

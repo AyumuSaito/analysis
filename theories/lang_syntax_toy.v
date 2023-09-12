@@ -168,17 +168,37 @@ Section lang_intrinsic_tysc.
 Variable R : realType.
 Implicit Types str : string.
 
+Inductive typ := Real | Unit | Pair : typ -> typ -> typ.
+
+Canonical typ_eqType := Equality.Pack (@gen_eqMixin typ).
+
+Fixpoint mtyp (t : typ) : Type :=
+  match t with
+  | Real => R
+  | Unit => unit
+  | Pair t1 t2 => (mtyp t1 * mtyp t2)
+  end.
+
+Definition ctx := seq (string * typ).
+
+Definition Type_of_ctx (g : ctx) := iter_pair (map (mtyp \o snd) g).
+
+Goal Type_of_ctx [:: ("x", Real); ("y", Real)] = (R * (R * unit))%type.
+Proof. by []. Qed.
+
 Inductive exp : ctx -> typ -> Type :=
 | exp_unit g : exp g Unit
 | exp_real g : R -> exp g Real
 | exp_var g t str : t = lookup Unit g str -> exp g t
 | exp_add g : exp g Real -> exp g Real -> exp g Real
+| exp_pair g t1 t2 : exp g t1 -> exp g t2 -> exp g (Pair t1 t2)
 | exp_letin g t u str : exp g t -> exp ((str, t) :: g) u -> exp g u.
 Arguments exp_unit {g}.
 Arguments exp_real {g}.
 Arguments exp_var {g t}.
-Arguments exp_add {g}.
-Arguments exp_letin {g t u}.
+Arguments exp_add {g} &.
+Arguments exp_pair {g} & {t1 t2}.
+Arguments exp_letin {g} & {t u}.
 
 Example e0 : exp [::] _ := exp_real 1.
 Example letin_once : exp [::] _ :=
@@ -186,7 +206,7 @@ Example letin_once : exp [::] _ :=
 Example letin_twice : exp [::] _ :=
   exp_letin "x" (exp_real 1) (exp_letin "y" (exp_real 2) (exp_var "x" erefl)).
 
-Fail Example letin_plus : exp [::] _ :=
+Example letin_plus : exp [::] _ :=
   exp_letin "x" (exp_real 1)
   (exp_letin "y" (exp_real 2)
    (exp_add (exp_var "x" erefl) (exp_var "y" erefl))).
@@ -200,11 +220,6 @@ Definition exp_var' str (t : typ) (g : find str t) :=
   @exp_var (untag (ctx_of g)) t str (ctx_prf g).
 Arguments exp_var' str {t} g.
 
-Example letin_plus : exp [::] _ :=
-  exp_letin "x" (exp_real 1)
-  (exp_letin "y" (exp_real 2)
-   (exp_add (exp_var' "x" _) (exp_var' "y" _))).
-
 Declare Custom Entry expr.
 
 Notation "[ e ]" := e (e custom expr at level 5).
@@ -213,8 +228,12 @@ Notation "x ':R'" := (exp_real x) (in custom expr at level 1).
 Notation "x" := x (in custom expr at level 0, x ident).
 Notation "% x" := (exp_var x erefl) (in custom expr at level 1).
 Notation "# x" := (exp_var' x%string _) (in custom expr at level 1).
-Notation "x + y" := (exp_add x y)
-  (in custom expr at level 2, left associativity).
+Notation "e1 + e2" := (exp_add e1 e2)
+  (in custom expr at level 2,
+  (* e1 custom expr at level 1, e2 custom expr at level 2, *)
+  left associativity).
+Notation "( e1 , e2 )" := (exp_pair e1 e2)
+  (in custom expr at level 1).
 Notation "'let' x ':=' e1 'in' e2" := (exp_letin x e1 e2)
   (in custom expr at level 3, x constr,
   e1 custom expr at level 2, e2 custom expr at level 3,
@@ -225,20 +244,30 @@ Example letin_plus_custom : exp [::] _ :=
    let "y" := {2}:R in
    #{"x"} + #{"y"}].
 
-Definition issue_with_variables (a b c d : string) (H1 : infer (b != a)) (H2 : infer (c != a))
-  (H3 : infer (c != b)) (H4 : infer (a != b)) (H5 : infer (a != c))
-  (H6 : infer (b != c)) : exp[::] _ := [
+Definition issue_with_variables (a b c d : string)
+(* (a := "a") (b := "b") (c := "c") *)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b)) (H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
   let a := {1}:R in
   let b := {2}:R in
   let c := {3}:R in
-  (* #a + #b]. *)
-  {@exp_add [:: (c, _); (b, _); (a, _)] (exp_var' a _) (exp_var' b _)}].
+  (* (#c , #a)]. *)
+  (* (%c , %a)]. *)
+  (* #a + {@exp_var (untag (ctx_of _)) _ b (ctx_prf _)}]. *)
+  (* #a + {exp_var' b _}]. *)
+  (* %a + %b]. *)
+  (* {exp_var' a (recurse _ (recurse _ (found _ _ _)))} + #b]. *)
+  #c + #a].
+  (* {exp_var' c (found _ _ _)} + #a].
+  {exp_var' c _} + #b].
+  #c + #c].
+  {@exp_add [:: (c, _); (b, _); (a, _)] (exp_var' a _) (exp_var' b _)}]. *)
 
 Section eval.
 
 Fixpoint acc (g : ctx) (i : nat) :
-  Type_of_ctx R g -> @Type_of_typ R (nth Unit (map snd g) i) :=
-  match g return Type_of_ctx R g -> Type_of_typ R (nth Unit (map snd g) i) with
+  Type_of_ctx g -> mtyp (nth Unit (map snd g) i) :=
+  match g return Type_of_ctx g -> mtyp (nth Unit (map snd g) i) with
   | [::] => match i with | O => id | j.+1 => id end
   | _ :: _ => match i with
                | O => fst
@@ -249,7 +278,7 @@ Arguments acc : clear implicits.
 
 Reserved Notation "e '-e->' v" (at level 40).
 
-Inductive eval : forall g t, exp g t -> (Type_of_ctx R g -> Type_of_typ R t) -> Prop :=
+Inductive eval : forall g t, exp g t -> (Type_of_ctx g -> mtyp t) -> Prop :=
 | eval_tt g : (exp_unit : exp g _) -e-> (fun=> tt)
 | eval_real g c : (exp_real c : exp g _) -e-> (fun=> c)
 | eval_plus g (e1 e2 : exp g Real) v1 v2 :
@@ -259,6 +288,10 @@ Inductive eval : forall g t, exp g t -> (Type_of_ctx R g -> Type_of_typ R t) -> 
 | eval_var g str :
     let i := index str (map fst g) in
     exp_var str erefl -e-> acc g i
+| eval_pair g t1 t2 e1 e2 v1 v2 :
+    e1 -e-> v1 ->
+    e2 -e-> v2 ->
+    @exp_pair g t1 t2 e1 e2 -e-> fun x => (v1 x, v2 x)
 | eval_letin g t t' str (e1 : exp g t) (e2 : exp ((str, t) :: g)  t') v1 v2 :
     e1 -e-> v1 ->
     e2 -e-> v2 ->
@@ -270,7 +303,7 @@ Lemma eval_uniq g t (e : exp g t) u v :
 Proof.
 move=> hu.
 apply: (@eval_ind
-  (fun g t (e : exp g t) (u : Type_of_ctx R g -> Type_of_typ R t) =>
+  (fun g t (e : exp g t) (u : Type_of_ctx g -> mtyp t) =>
     forall v, e -e-> v -> u = v)); last exact: hu.
 all: (rewrite {g t e u v hu}).
 - move=> g v.
@@ -287,6 +320,11 @@ all: (rewrite {g t e u v hu}).
 - move=> g x i v.
   inversion 1.
   by inj_ex H6; subst.
+- move=> g t1 t2 e1 e2 v1 v2 ev1 IH1 ev2 IH2 v.
+  inversion 1.
+  inj_ex H3; inj_ex H4; subst.
+  inj_ex H5; subst.
+  by rewrite (IH1 _ H6) (IH2 _ H7).
 - move=> g t t' x0 e0 e1 v1 v2 ev1 IH1 ev2 IH2 v.
   inversion 1.
   inj_ex H5; subst.
@@ -304,11 +342,13 @@ elim: e.
   by eexists; exact: eval_var.
 - move=> {}g e1 [v1] IH1 e2 [v2] IH2.
   by eexists; exact: (eval_plus IH1 IH2).
+- move=> {}g t1 t2 e1 [v1] IH1 e2 [v2] IH2.
+  by eexists; exact: (eval_pair IH1 IH2).
 - move=> {}g {}t u x e1 [v1] IH1 e2 [v2] IH2.
   by eexists; exact: (eval_letin IH1 IH2).
 Qed.
 
-Definition exec g t (e : exp g t) : Type_of_ctx R g -> Type_of_typ R t :=
+Definition exec g t (e : exp g t) : Type_of_ctx g -> mtyp t :=
   proj1_sig (cid (@eval_total g t e)).
 
 Lemma exec_eval g t (e : exp g t) v : exec e = v <-> e -e-> v.
@@ -327,7 +367,7 @@ Proof. exact/exec_eval/eval_real. Qed.
 
 Lemma exec_var g str t H :
   exec (@exp_var  _ t str H) =
-    eq_rect _ (fun a => Type_of_ctx R g -> Type_of_typ R a)
+    eq_rect _ (fun a => Type_of_ctx g -> mtyp a)
       (acc g (index str (map fst g)))
         _ (esym H).
 Proof.

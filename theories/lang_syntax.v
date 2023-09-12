@@ -396,15 +396,15 @@ Arguments exp {R}.
 Arguments exp_unit {R g}.
 Arguments exp_bool {R g}.
 Arguments exp_real {R g}.
-Arguments exp_pair {R g t1 t2}.
+Arguments exp_pair {R g} & {t1 t2}.
 Arguments exp_var {R g} _ {t} H.
 Arguments exp_bernoulli {R g}.
 Arguments exp_poisson {R g}.
 Arguments exp_normalize {R g _}.
-Arguments exp_letin {R g _ _}.
+Arguments exp_letin {R g} & {_ _}.
 Arguments exp_sample {R g t}.
 Arguments exp_score {R g}.
-Arguments exp_return {R g _}.
+Arguments exp_return {R g} & {_}.
 Arguments exp_if {R dp g t}.
 Arguments exp_weak {R} dp g h {t} x.
 Arguments exp_var' {R} str {t} g.
