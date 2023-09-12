@@ -225,6 +225,15 @@ Example letin_plus_custom : exp [::] _ :=
    let "y" := {2}:R in
    #{"x"} + #{"y"}].
 
+Definition issue_with_variables (a b c d : string) (H1 : infer (b != a)) (H2 : infer (c != a))
+  (H3 : infer (c != b)) (H4 : infer (a != b)) (H5 : infer (a != c))
+  (H6 : infer (b != c)) : exp[::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  (* #a + #b]. *)
+  {@exp_add [:: (c, _); (b, _); (a, _)] (exp_var' a _) (exp_var' b _)}].
+
 Section eval.
 
 Fixpoint acc (g : ctx) (i : nat) :
