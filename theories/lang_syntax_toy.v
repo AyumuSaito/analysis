@@ -158,7 +158,6 @@ Goal @eval [::] Real [{1}:R + {2}:R] (fun=> 3).
 Proof. exact/eval_plus/eval_real/eval_real. Qed.
 Goal @eval [:: ("x", Real)] _ [% {"x"}] (acc [:: ("x", Real)] 0).
 Proof. exact: eval_var. Qed.
-Check [let "x" := {1}:R in %{"x"} + {2}:R] : exp [::].
 
 End lang_intrinsic_sc.
 End lang_intrinsic_sc.
@@ -193,31 +192,18 @@ Inductive exp : ctx -> typ -> Type :=
 | exp_add g : exp g Real -> exp g Real -> exp g Real
 | exp_pair g t1 t2 : exp g t1 -> exp g t2 -> exp g (Pair t1 t2)
 | exp_letin g t u str : exp g t -> exp ((str, t) :: g) u -> exp g u.
-Arguments exp_unit {g}.
-Arguments exp_real {g}.
-Arguments exp_var {g t}.
-Arguments exp_add {g} &.
-Arguments exp_pair {g} & {t1 t2}.
-Arguments exp_letin {g} & {t u}.
-
-Example e0 : exp [::] _ := exp_real 1.
-Example letin_once : exp [::] _ :=
-  exp_letin "x" (exp_real 1) (exp_var "x" erefl).
-Example letin_twice : exp [::] _ :=
-  exp_letin "x" (exp_real 1) (exp_letin "y" (exp_real 2) (exp_var "x" erefl)).
-
-Example letin_plus : exp [::] _ :=
-  exp_letin "x" (exp_real 1)
-  (exp_letin "y" (exp_real 2)
-   (exp_add (exp_var "x" erefl) (exp_var "y" erefl))).
-Example letin_plus' : exp [::] _ :=
-  exp_letin "x" (exp_real 1)
-  (exp_letin "y" (exp_real 2)
-   (exp_add (@exp_var [:: ("y", Real); ("x", Real)] Real "x" erefl)
-         (exp_var "y" erefl))).
 
 Definition exp_var' str (t : typ) (g : find str t) :=
   @exp_var (untag (ctx_of g)) t str (ctx_prf g).
+
+Section coq.
+
+Arguments exp_unit {g}.
+Arguments exp_real {g}.
+Arguments exp_var {g t}.
+Arguments exp_add {g}.
+Arguments exp_pair {g t1 t2}.
+Arguments exp_letin {g t u}.
 Arguments exp_var' str {t} g.
 
 Declare Custom Entry expr.
@@ -239,6 +225,137 @@ Notation "'let' x ':=' e1 'in' e2" := (exp_letin x e1 e2)
   e1 custom expr at level 2, e2 custom expr at level 3,
   left associativity).
 
+Fail Definition v3_add_percent (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  %a + %b].
+(* (cannot unify "lookup Unit [:: (c, Real); (b, Real); (a, Real)] a" and
+"Real"). *)
+
+Definition v3_pair_percent (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  (%a , %b)].
+
+Fail Definition v3_add_sharp (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  #a + #b].
+(* The term "[# a + # b]" has type
+ "exp (untag (ctx_of (recurse (str':=b) Real ?f))) Real"
+while it is expected to have type "exp ((c, Real) :: ?g1) ?u1"
+(cannot unify "(b, Real)" and "(c, Real)"). *)
+
+Fail Definition v3_pair_sharp (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  (#a , #b)].
+(* The term "[(# a, # b)]" has type
+ "exp (untag (ctx_of (recurse (str':=b) ?t2 ?f))) (Pair ?s ?t2)"
+while it is expected to have type "exp ((c, Real) :: ?g1) ?u1"
+(cannot unify "b" and "c"). *)
+
+End coq.
+
+Section bidi.
+
+Arguments exp_unit {g}.
+Arguments exp_real {g}.
+Arguments exp_var {g t}.
+Arguments exp_add {g} &.
+Arguments exp_pair {g} & {t1 t2}.
+Arguments exp_letin {g} & {t u}.
+Arguments exp_var' str {t} g.
+
+Declare Custom Entry expr.
+
+Notation "[ e ]" := e (e custom expr at level 5).
+Notation "{ x }" := x (in custom expr, x constr).
+Notation "x ':R'" := (exp_real x) (in custom expr at level 1).
+Notation "x" := x (in custom expr at level 0, x ident).
+Notation "% x" := (exp_var x erefl) (in custom expr at level 1).
+Notation "# x" := (exp_var' x%string _) (in custom expr at level 1).
+Notation "e1 + e2" := (exp_add e1 e2)
+  (in custom expr at level 2,
+  (* e1 custom expr at level 1, e2 custom expr at level 2, *)
+  left associativity).
+Notation "( e1 , e2 )" := (exp_pair e1 e2)
+  (in custom expr at level 1).
+Notation "'let' x ':=' e1 'in' e2" := (exp_letin x e1 e2)
+  (in custom expr at level 3, x constr,
+  e1 custom expr at level 2, e2 custom expr at level 3,
+  left associativity).
+
+Fail Definition v3_add_percent_bidi (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  %a + %b].
+(* (cannot unify "lookup Unit [:: (c, Real); (b, Real); (a, Real)] a" and
+"Real"). *)
+
+Definition v3_pair_percent_bidi (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  (%a , %b)].
+
+Definition v3_add_sharp_bidi (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  #a + #b].
+
+Definition v3_pair_sharp_bidi (a b c d : string)
+(H1 : infer (b != a)) (H2 : infer (c != a)) (H3 : infer (c != b))
+(H4 : infer (a != b)) (H5 : infer (a != c)) (H6 : infer (b != c)) 
+  : exp [::] _ := [
+  let a := {1}:R in
+  let b := {2}:R in
+  let c := {3}:R in
+  (#a , #b)].
+
+Example e0 : exp [::] _ := exp_real 1.
+Example letin_once : exp [::] _ :=
+  exp_letin "x" (exp_real 1) (exp_var "x" erefl).
+Example letin_twice : exp [::] _ :=
+  exp_letin "x" (exp_real 1) (exp_letin "y" (exp_real 2) (exp_var "x" erefl)).
+
+(* Example letin_plus : exp [::] _ :=
+  exp_letin "x" (exp_real 1)
+  (exp_letin "y" (exp_real 2)
+   (exp_add (exp_var "x" erefl) (exp_var "y" erefl))). *)
+Example letin_plus' : exp [::] _ :=
+  exp_letin "x" (exp_real 1)
+  (exp_letin "y" (exp_real 2)
+   (exp_add (@exp_var [:: ("y", Real); ("x", Real)] Real "x" erefl)
+         (exp_var "y" erefl))).
+
 Example letin_plus_custom : exp [::] _ :=
   [let "x" := {1}:R in
    let "y" := {2}:R in
@@ -251,17 +368,7 @@ Definition issue_with_variables (a b c d : string)
   let a := {1}:R in
   let b := {2}:R in
   let c := {3}:R in
-  (* (#c , #a)]. *)
-  (* (%c , %a)]. *)
-  (* #a + {@exp_var (untag (ctx_of _)) _ b (ctx_prf _)}]. *)
-  (* #a + {exp_var' b _}]. *)
-  (* %a + %b]. *)
-  (* {exp_var' a (recurse _ (recurse _ (found _ _ _)))} + #b]. *)
-  #c + #a].
-  (* {exp_var' c (found _ _ _)} + #a].
-  {exp_var' c _} + #b].
-  #c + #c].
-  {@exp_add [:: (c, _); (b, _); (a, _)] (exp_var' a _) (exp_var' b _)}]. *)
+  #a + #b].
 
 Section eval.
 
@@ -406,6 +513,8 @@ by rewrite exp_var'E exec_var/= exec_real.
 Qed.
 
 End eval.
+
+End bidi.
 
 End lang_intrinsic_tysc.
 End lang_intrinsic_tysc.
