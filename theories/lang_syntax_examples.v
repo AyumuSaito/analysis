@@ -175,7 +175,8 @@ Context {R : realType}.
 Lemma exec_normalize_return g x r :
   projT1 (@execD _ g _ [Normalize return r:R]) x = \d_r :> probability _ R.
 Proof.
-by rewrite execD_normalize execP_return execD_real/= normalize_kdirac.
+rewrite execD_normalize_pt execP_return execD_real/=.
+exact: normalize_kdirac.
 Qed.
 
 End trivial_example.
@@ -235,7 +236,7 @@ Qed.
 Lemma exec_sample_pair_TorT :
   (projT1 (execD sample_pair_syntax)) tt [set p | p.1 || p.2] = (2 / 3)%:E.
 Proof.
-rewrite execD_normalize normalizeE/= exec_sample_pair0.
+rewrite execD_normalize_pt normalizeE/= exec_sample_pair0.
 do 4 rewrite mem_set//=.
 rewrite eqe ifF; last by apply/negbTE/negP => /orP[/eqP|//]; lra.
 rewrite exec_sample_pair0; do 3 rewrite mem_set//; rewrite memNset//=.
@@ -259,7 +260,7 @@ Lemma exec_bernoulli13_score :
   execD bernoulli13_score = execD (exp_bernoulli (1 / 5%:R)%:nng (p1S 4)).
 Proof.
 apply: eq_execD.
-rewrite execD_bernoulli/= /bernoulli13_score execD_normalize 2!execP_letin.
+rewrite execD_bernoulli/= /bernoulli13_score execD_normalize_pt 2!execP_letin.
 rewrite execP_sample/= execD_bernoulli/= execP_if /= exp_var'E.
 rewrite (execD_var_erefl "x")/= !execP_return/= 2!execP_score 2!execD_real/=.
 apply: funext=> g; apply: eq_probability => U.
@@ -302,7 +303,7 @@ Lemma exec_bernoulli12_score :
   execD bernoulli12_score = execD (exp_bernoulli (1 / 3%:R)%:nng (p1S 2)).
 Proof.
 apply: eq_execD.
-rewrite execD_bernoulli/= /bernoulli12_score execD_normalize 2!execP_letin.
+rewrite execD_bernoulli/= /bernoulli12_score execD_normalize_pt 2!execP_letin.
 rewrite execP_sample/= execD_bernoulli/= execP_if /= exp_var'E.
 rewrite (execD_var_erefl "x")/= !execP_return/= 2!execP_score 2!execD_real/=.
 apply: funext=> g; apply: eq_probability => U.
@@ -350,7 +351,7 @@ Lemma exec_bernoulli14_score :
   execD bernoulli14_score = execD (exp_bernoulli (5%:R / 11%:R)%:nng p511).
 Proof.
 apply: eq_execD.
-rewrite execD_bernoulli/= execD_normalize 2!execP_letin.
+rewrite execD_bernoulli/= execD_normalize_pt 2!execP_letin.
 rewrite execP_sample/= execD_bernoulli/= execP_if /= !exp_var'E.
 rewrite !execP_return/= 2!execP_score 2!execD_real/=.
 rewrite !(execD_var_erefl "x")/=.
@@ -558,8 +559,8 @@ by rewrite exp_var'E (execD_var_erefl "x") /=; congr ret.
 Qed.
 
 Lemma exec_staton_bus : execD staton_bus_syntax =
-  existT _ (normalize kstaton_bus' point) (measurable_fun_mnormalize _).
-Proof. by rewrite execD_normalize exec_staton_bus0'. Qed.
+  existT _ (normalize_pt kstaton_bus') (measurable_normalize_pt _).
+Proof. by rewrite execD_normalize_pt exec_staton_bus0'. Qed.
 
 Let poisson4 := @poisson R 4%N.
 
@@ -662,8 +663,8 @@ by rewrite exp_var'E (execD_var_erefl "x") /=; congr ret.
 Qed.
 
 Lemma exec_statonA_bus : execD staton_busA_syntax =
-  existT _ (normalize kstaton_busA' point) (measurable_fun_mnormalize _).
-Proof. by rewrite execD_normalize exec_staton_busA0'. Qed.
+  existT _ (normalize_pt kstaton_busA') (measurable_normalize_pt _).
+Proof. by rewrite execD_normalize_pt exec_staton_busA0'. Qed.
 
 (* equivalence between staton_bus and staton_busA *)
 Lemma staton_bus_staton_busA :
@@ -708,8 +709,6 @@ End staton_busA.
 Section letinC.
 Local Open Scope lang_scope.
 Variable (R : realType).
-
-Require Import Classical_Prop.
 
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
   (x y : string)
