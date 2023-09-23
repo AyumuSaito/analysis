@@ -667,6 +667,10 @@ Inductive evalD : forall g t, exp D g t ->
   (exp_binomial n p p1 : exp D g _) -D> cst (binomial_probability n p1) ;
                                         measurable_cst _
 
+| eval_uniform g (a b : R) (ab0 : (0 < b - a)%R) :
+  (exp_uniform a b ab0 : exp D g _) -D> cst (uniform_probability ab0) ;
+                                        measurable_cst _
+
 | eval_poisson g n (e : exp D g _) f mf :
   e -D> f ; mf ->
   exp_poisson n e -D> poisson n \o f ;
