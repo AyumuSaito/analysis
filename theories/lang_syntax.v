@@ -659,7 +659,7 @@ Inductive evalD : forall g t, exp D g t ->
                                        measurable_cst _
 
 | eval_binomial g n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :
-  (exp_binomial n p p1 : exp D g _) -D> cst (binomial n p1) ;
+  (exp_binomial n p p1 : exp D g _) -D> cst (binomial_probability n p1) ;
                                         measurable_cst _
 
 | eval_poisson g n (e : exp D g _) f mf :
@@ -1166,7 +1166,7 @@ Proof. exact/execD_evalD/eval_bernoulli. Qed.
 
 Lemma execD_binomial g n p (p1 : (p%:num <= 1)%R) :
   @execD g _ (exp_binomial n p p1) =
-    existT _ (cst [the probability _ _ of binomial n p1]) (measurable_cst _).
+    existT _ (cst [the probability _ _ of binomial_probability n p1]) (measurable_cst _).
 Proof. exact/execD_evalD/eval_binomial. Qed.
 
 Lemma execD_normalize_pt g t (e : exp P g t) :
