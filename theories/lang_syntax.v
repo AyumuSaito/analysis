@@ -361,10 +361,95 @@ Context {R : realType}.
 
 Inductive flag := D | P.
 
+Section binop.
+
+Inductive binop :=
+| binop_and
+| binop_add.
+
+Lemma measurable_and (d : measure_display) (T : measurableType d) (f : T -> bool) (g : T -> bool) :
+  measurable_fun setT f -> measurable_fun setT g ->
+  measurable_fun setT (fun x => f x && g x).
+Proof.
+Search measurable_fun bool.
+move=> mf mg.
+apply: (@measurable_fun_bool _ _ _ (fun x => f x && g x) true).
+Search setI andb.
+rewrite [X in measurable X](_ : _ = f @^-1` [set true] `&` g @^-1` [set true]).
+apply measurableI.
+rewrite -[X in measurable X]setTI.
+exact: mf.
+rewrite -[X in measurable X]setTI.
+exact: mg.
+apply/seteqP.
+by split; move=> x/andP.
+Qed.
+
+Lemma measurable_add (d : measure_display) (T : measurableType d) (f g : T -> R) :
+  measurable_fun setT f -> measurable_fun setT g ->
+  measurable_fun setT (fun x => (f x + g x)%R).
+Proof.
+move=> mf mg /= _ B mB.
+exact: measurable_funD.
+Qed.
+
+Definition type_of_binop (b : binop) : typ :=
+match b with
+| binop_and => Bool
+| binop_add => Real
+end.
+
+
+Import Notations.
+
+(* Definition fun_of_binop g (b : binop) (f1 : @mctx R g -> @mtyp R (type_of_binop b)) (f2 : @mctx R g -> @mtyp R (type_of_binop b)) : @mctx R g -> @mtyp R (type_of_binop b).
+destruct b.
+exact: (fun x => f1 x && f2 x).
+exact: (fun x => (f1 x + f2 x)%R).
+Show Proof.
+Defined. *)
+ (* := 
+match b as b0 return mctx g -> mtyp (type_of_binop b0) with
+| binop_and => (fun x => f1 x && f2 x : mtyp Bool)
+| binop_add => (fun x => (f1 x + f2 x)%R)
+end. *)
+
+Definition fun_of_binop g (b : binop) : (mctx g -> mtyp (type_of_binop b)) ->
+  (mctx g -> mtyp (type_of_binop b)) -> @mctx R g -> @mtyp R (type_of_binop b) := 
+match b with
+| binop_and => (fun f1 f2 x => f1 x && f2 x : mtyp Bool)
+| binop_add => (fun f1 f2 x => (f1 x + f2 x)%R)
+end.
+
+Definition mfun_of_binop g b 
+  (f1 : @mctx R g -> @mtyp R (type_of_binop b)) (mf1 : measurable_fun setT f1) 
+  (f2 : @mctx R g -> @mtyp R (type_of_binop b)) (mf2 : measurable_fun setT f2) :
+  measurable_fun [set: @mctx R g] (fun_of_binop f1 f2).
+destruct b.
+exact: measurable_and mf1 mf2.
+exact: measurable_add mf1 mf2.
+Show Proof.
+Defined.
+
+   (* := 
+match b 
+as b0 return (forall f3 : @mctx R g -> @mtyp R (type_of_binop b0), 
+  measurable_fun _ f3 -> forall f4 : @mctx R g -> @mtyp R (type_of_binop b0), 
+  measurable_fun _ f4 -> measurable_fun [set: @mctx R g] (fun_of_binop f3 f4)) 
+with
+| binop_and => fun f3 mf3 f4 mf4 => @measurable_and _ _ _ _ mf3 mf4
+| binop_add => fun f3 mf3 f4 mf4 => @measurable_add _ _ _ _ mf3 mf4
+end. *)
+
+End binop.
+
 Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_unit g : exp D g Unit
 | exp_bool g : bool -> exp D g Bool
 | exp_real g : R -> exp D g Real
+(* | exp_and g : exp D g Bool -> exp D g Bool -> exp D g Bool
+| exp_add g : exp D g Real -> exp D g Real -> exp D g Real *)
+| exp_bin g (b : binop) : exp D g (type_of_binop b) -> exp D g (type_of_binop b) -> exp D g (type_of_binop b)
 | exp_pair g t1 t2 : exp D g t1 -> exp D g t2 -> exp D g (Pair t1 t2)
 | exp_proj1 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t1
 | exp_proj2 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t2
@@ -396,6 +481,7 @@ Arguments exp {R}.
 Arguments exp_unit {R g}.
 Arguments exp_bool {R g}.
 Arguments exp_real {R g}.
+Arguments exp_bin {R g}.
 Arguments exp_pair {R g} & {t1 t2}.
 Arguments exp_var {R g} _ {t} H.
 Arguments exp_bernoulli {R g}.
@@ -416,6 +502,10 @@ Notation "b ':B'" := (@exp_bool _ _ b%bool)
   (in custom expr at level 1) : lang_scope.
 Notation "r ':R'" := (@exp_real _ _ r%R)
   (in custom expr at level 1, format "r :R") : lang_scope.
+Notation "e1 && e2" := (exp_bin binop_and e1 e2)
+  (in custom expr at level 1) : lang_scope.
+Notation "e1 + e2" := (exp_bin binop_add e1 e2)
+  (in custom expr at level 1) : lang_scope.
 Notation "'return' e" := (@exp_return _ _ _ e)
   (in custom expr at level 2) : lang_scope.
 (*Notation "% str" := (@exp_var _ _ str%string _ erefl)
@@ -457,6 +547,7 @@ Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   | exp_unit _              => [::]
   | exp_bool _ _            => [::]
   | exp_real _ _            => [::]
+  | exp_bin _ _ e1 e2    => free_vars e1 ++ free_vars e2
   | exp_pair _ _ _ e1 e2    => free_vars e1 ++ free_vars e2
   | exp_proj1 _ _ _ e       => free_vars e
   | exp_proj2 _ _ _ e       => free_vars e
@@ -574,6 +665,16 @@ Inductive evalD : forall g t, exp D g t ->
 
 | eval_real g r : ([r:R] : exp D g _) -D> cst r ; kr r
 
+(* | eval_bin *)
+
+| eval_and g (e1 : exp D g _) f1 mf1 e2 f2 mf2 :
+  e1 -D> f1 ; mf1 -> e2 -D> f2 ; mf2 ->
+  [e1 && e2] -D> fun x => f1 x && f2 x ; measurable_and mf1 mf2
+
+| eval_add g (e1 : exp D g _) f1 mf1 e2 f2 mf2 :
+  e1 -D> f1 ; mf1 -> e2 -D> f2 ; mf2 ->
+  [e1 + e2] -D> fun x => (f1 x + f2 x)%R ; @measurable_add R _ _ _ _ mf1 mf2
+
 | eval_pair g t1 (e1 : exp D g t1) f1 mf1 t2 (e2 : exp D g t2) f2 mf2 :
   e1 -D> f1 ; mf1 -> e2 -D> f2 ; mf2 ->
   [(e1, e2)] -D> fun x => (f1 x, f2 x) ; measurable_fun_prod mf1 mf2
@@ -676,6 +777,20 @@ all: (rewrite {g t e u v mu mv hu}).
 - move=> g r {}v {}mv.
   inversion 1; subst g0 r0.
   by inj_ex H3.
+- move=> g e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+  simple inversion 1 => //; subst g0.
+  inj_ex H4; case: H4 => He1 He2.
+  inj_ex He1; subst e0.
+  inj_ex He2; subst e3.
+  inj_ex H5; subst v.
+  by move=> /IH1 <- /IH2 <-.
+- move=> g e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+  simple inversion 1 => //; subst g0.
+  inj_ex H4; case: H4 => He1 He2.
+  inj_ex He1; subst e0.
+  inj_ex He2; subst e3.
+  inj_ex H5; subst v.
+  by move=> /IH1 <- /IH2 <-.
 - move=> g t1 e1 f1 mf1 t2 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
   simple inversion 1 => //; subst g0.
   case: H3 => ? ?; subst t0 t3.
@@ -798,6 +913,20 @@ all: rewrite {g t e u v eu}.
 - move=> g r {}v {}mv.
   inversion 1; subst g0 r0.
   by inj_ex H3.
+- move=> g e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+  simple inversion 1 => //; subst g0.
+  inj_ex H4; case: H4 => He1 He2.
+  inj_ex He1; subst e0.
+  inj_ex He2; subst e3.
+  inj_ex H5; subst v.
+  by move=> /IH1 <- /IH2 <-.
+- move=> g e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+  simple inversion 1 => //; subst g0.
+  inj_ex H4; case: H4 => He1 He2.
+  inj_ex He1; subst e0.
+  inj_ex He2; subst e3.
+  inj_ex H5; subst v.
+  by move=> /IH1 <- /IH2 <-.
 - move=> g t1 e1 f1 mf1 t2 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
   simple inversion 1 => //; subst g0.
   case: H3 => ? ?; subst t0 t3.
@@ -914,6 +1043,10 @@ all: rewrite {z g t}.
 - by do 2 eexists; exact: eval_unit.
 - by do 2 eexists; exact: eval_bool.
 - by do 2 eexists; exact: eval_real.
+- move=> g b e1 [f1 [mf1 H1]] e2 [f2 [mf2 H2]].
+  induction b.
+  by exists (fun x => f1 x && f2 x); eexists; exact: eval_and.
+  by exists (fun x => (f1 x + f2 x)%R); eexists; exact: eval_add.
 - move=> g t1 t2 e1 [f1 [mf1 H1]] e2 [f2 [mf2 H2]].
   by exists (fun x => (f1 x, f2 x)); eexists; exact: eval_pair.
 - move=> g t1 t2 e [f [mf H]].
@@ -1021,6 +1154,26 @@ Proof. exact/execD_evalD/eval_bool. Qed.
 
 Lemma execD_real g r : @execD g _ [r:R] = existT _ (cst r) (kr r).
 Proof. exact/execD_evalD/eval_real. Qed.
+
+Lemma execD_and g (e1 : exp D g Bool) (e2 : exp D g Bool) :
+  let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in
+  let mf1 := projT2 (execD e1) in let mf2 := projT2 (execD e2) in
+  execD [e1 && e2] =
+  @existT _ _ (fun z => f1 z && f2 z)
+              (@measurable_and R _ (mctx g) f1 f2 mf1 mf2).
+Proof.
+by move=> f1 f2 mf1 mf2; apply/execD_evalD/eval_and; exact: evalD_execD.
+Qed.
+
+Lemma execD_add g (e1 : exp D g _) (e2 : exp D g _) :
+  let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in
+  let mf1 := projT2 (execD e1) in let mf2 := projT2 (execD e2) in
+  execD [e1 + e2] =
+  @existT _ _ (fun z => (f1 z + f2 z)%R)
+              (@measurable_add R _ (mctx g) f1 f2 mf1 mf2).
+Proof.
+by move=> f1 f2 mf1 mf2; apply/execD_evalD/eval_add; exact: evalD_execD.
+Qed.
 
 Lemma execD_pair g t1 t2 (e1 : exp D g t1) (e2 : exp D g t2) :
   let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in
