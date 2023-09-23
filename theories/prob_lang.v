@@ -108,6 +108,20 @@ HB.instance Definition _ :=
 
 End bernoulli.
 
+Section uniform.
+Variables (R : realType) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
+Local Open Scope ring_scope.
+Import Notations.
+
+(* Search (\sum_(_)). *)
+
+Definition uniform3 (U : set \bar R) : \bar R :=
+  \sum_(1 <= i <= n)
+  (1 / 3)%:E * (dirac 1%:E) U + (1 / 3)%:E * (dirac 2%:E) U +
+  (1 / 3)%:E * (dirac 3%:E) U.
+
+End uniform.
+
 Lemma integral_bernoulli {R : realType}
     (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : bool -> set bool -> _) U :
   (forall x y, 0 <= f x y) ->
