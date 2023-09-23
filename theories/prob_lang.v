@@ -4,8 +4,9 @@ From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval finmap.
 From mathcomp Require Import rat.
 From mathcomp.classical Require Import mathcomp_extra boolp classical_sets.
 From mathcomp.classical Require Import functions cardinality fsbigop.
-Require Import reals ereal signed topology normedtype sequences esum measure.
-Require Import lebesgue_measure  numfun lebesgue_integral exp kernel.
+Require Import signed reals ereal signed itv topology normedtype sequences esum measure.
+Require Import lebesgue_measure numfun lebesgue_integral exp kernel.
+From mathcomp Require Import ring lra.
 
 (******************************************************************************)
 (*  Semantics of a probabilistic programming language using s-finite kernels  *)
@@ -40,6 +41,22 @@ Import numFieldTopology.Exports.
 Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
+
+Module Notations.
+
+(*Notation var1of2 := (@measurable_fst _ _ _ _).
+Notation var2of2 := (@measurable_snd _ _ _ _).
+Notation var1of3 := (measurableT_comp (@measurable_fst _ _ _ _)
+                                         (@measurable_fst _ _ _ _)).
+Notation var2of3 := (measurableT_comp (@measurable_snd _ _ _ _)
+                                         (@measurable_fst _ _ _ _)).
+Notation var3of3 := (@measurable_snd _ _ _ _).*)
+
+Notation mR := Real_sort__canonical__measure_Measurable.
+Notation munit := Datatypes_unit__canonical__measure_Measurable.
+Notation mbool := Datatypes_bool__canonical__measure_Measurable.
+
+End Notations.
 
 (* TODO: PR *)
 Lemma onem_nonneg_proof (R : numDomainType) (p : {nonneg R}) :
@@ -84,6 +101,34 @@ subst p2.
 by f_equal.
 Qed.
 
+Section constants.
+Variable R : realType.
+Local Open Scope ring_scope.
+
+Lemma onem1S n : `1- (1 / n.+1%:R) = (n%:R / n.+1%:R)%:nng%:num :> R.
+Proof.
+by rewrite /onem/= -{1}(@divrr _ n.+1%:R) ?unitfE// -mulrBl -natr1 addrK.
+Qed.
+
+Lemma p1S n : (1 / n.+1%:R)%:nng%:num <= 1 :> R.
+Proof. by rewrite ler_pdivr_mulr//= mul1r ler1n. Qed.
+
+Lemma p12 : (1 / 2%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
+
+Lemma p14 : (1 / 4%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
+
+Lemma onem27 : `1- (2 / 7%:R) = (5%:R / 7%:R)%:nng%:num :> R.
+Proof. by apply/eqP; rewrite subr_eq/= -mulrDl -natrD divrr// unitfE. Qed.
+
+Lemma p27 : (2 / 7%:R)%:nng%:num <= 1 :> R.
+Proof. by rewrite /= lter_pdivr_mulr// mul1r ler_nat. Qed.
+
+End constants.
+Arguments p12 {R}.
+Arguments p14 {R}.
+Arguments p27 {R}.
+Arguments p1S {R}.
+
 Section bernoulli.
 Variables (R : realType) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
 Local Open Scope ring_scope.
@@ -118,6 +163,72 @@ move=> f0.
 rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
 by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
 Qed.
+
+Section binomial_probability.
+Context {R : realType} (n : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
+Local Open Scope ring_scope.
+
+(* C(n, k) * p^(n-k) * (1-p)^k *)
+Definition bino_term (k : nat) :{nonneg R} :=
+  (p%:num^+(n-k)%N * (NngNum (onem_ge0 p1))%:num^+k *+ 'C(n, k))%:nng.
+
+Lemma bino_term0 : 
+  bino_term 0 = (p%:num^+n)%:nng.
+Proof.
+rewrite /bino_term bin0 subn0/=.
+apply/val_inj => /=.
+by field.
+Qed.
+
+Lemma bino_term1 : 
+  bino_term 1 = (p%:num^+(n-1)%N * (NngNum (onem_ge0 p1))%:num *+ n)%:nng.
+Proof.
+rewrite /bino_term bin1/=.
+apply/val_inj => /=.
+by rewrite expr1.
+Qed.
+
+(* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
+Definition binomial :=
+  @msum _ (_ R) R 
+    (fun k => [the measure _ _ of mscale (bino_term k)
+    [the measure _ _ of @dirac _ R k%:R R]]) n.+1.
+
+HB.instance Definition _ := Measure.on binomial.
+
+Let binomial_setT : binomial [set: _] = 1%:E.
+Proof.
+rewrite /binomial/msum/mscale/bino_term/=/mscale/=.
+under eq_bigr do rewrite diracT mule1.
+rewrite sumEFin.
+rewrite -exprDn_comm; last by rewrite /GRing.comm mulrC.
+by rewrite add_onemK; congr _%:E; rewrite expr1n.
+Qed.
+
+HB.instance Definition _ :=
+  @Measure_isProbability.Build _ _ R binomial binomial_setT.
+
+End binomial_probability.
+
+Section binomial_example.
+Context {R : realType}.
+Open Scope ring_scope.
+
+Lemma binomial3_2 : @binomial R 3 _ (p1S 1) [set 2%:R] = (3 / 8)%:E.
+Proof. 
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_term0.
+rewrite /mscale/= !diracE /bump/=.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+rewrite mem_set//=.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+congr _%:E.
+rewrite expr0 !mulr1 !mulr0 !add0r !addn0 !add0n /onem.
+by field.
+Qed.
+
+End binomial_example.
 
 Section uniform_probability.
 Context {R : realType}.
@@ -616,22 +727,6 @@ Proof. by rewrite /fail letinE ge0_integral_mscale//= normr0 mul0e. Qed.
 End hard_constraint.
 Arguments fail {d d' X Y R}.
 
-Module Notations.
-
-(*Notation var1of2 := (@measurable_fst _ _ _ _).
-Notation var2of2 := (@measurable_snd _ _ _ _).
-Notation var1of3 := (measurableT_comp (@measurable_fst _ _ _ _)
-                                         (@measurable_fst _ _ _ _)).
-Notation var2of3 := (measurableT_comp (@measurable_snd _ _ _ _)
-                                         (@measurable_fst _ _ _ _)).
-Notation var3of3 := (@measurable_snd _ _ _ _).*)
-
-Notation mR := Real_sort__canonical__measure_Measurable.
-Notation munit := Datatypes_unit__canonical__measure_Measurable.
-Notation mbool := Datatypes_bool__canonical__measure_Measurable.
-
-End Notations.
-
 Section cst_fun.
 Context d (T : measurableType d) (R : realType).
 
@@ -1052,35 +1147,6 @@ Qed.
 End letinC.
 
 (* sample programs *)
-
-Section constants.
-Variable R : realType.
-Local Open Scope ring_scope.
-
-Lemma onem1S n : `1- (1 / n.+1%:R) = (n%:R / n.+1%:R)%:nng%:num :> R.
-Proof.
-by rewrite /onem/= -{1}(@divrr _ n.+1%:R) ?unitfE// -mulrBl -natr1 addrK.
-Qed.
-
-Lemma p1S n : (1 / n.+1%:R)%:nng%:num <= 1 :> R.
-Proof. by rewrite ler_pdivr_mulr//= mul1r ler1n. Qed.
-
-Lemma p12 : (1 / 2%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
-
-Lemma p14 : (1 / 4%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
-
-Lemma onem27 : `1- (2 / 7%:R) = (5%:R / 7%:R)%:nng%:num :> R.
-Proof. by apply/eqP; rewrite subr_eq/= -mulrDl -natrD divrr// unitfE. Qed.
-
-Lemma p27 : (2 / 7%:R)%:nng%:num <= 1 :> R.
-Proof. by rewrite /= lter_pdivr_mulr// mul1r ler_nat. Qed.
-
-End constants.
-Arguments p12 {R}.
-Arguments p14 {R}.
-Arguments p27 {R}.
-Arguments p1S {R}.
-
 Section poisson.
 Variable R : realType.
 Local Open Scope ring_scope.

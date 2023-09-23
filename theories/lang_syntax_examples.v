@@ -264,11 +264,11 @@ Lemma exec_sample_and0 (A : set bool) :
                                              (1 - 1 / 6)%:E * \d_false A)%E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
-rewrite (@execD_bin _ _ binop_and) !exp_var'E (execD_var_erefl "x") (execD_var_erefl "y") /=.
+rewrite !(@execD_bin _ _ binop_and) !exp_var'E (execD_var_erefl "x") (execD_var_erefl "y") /=.
 rewrite letin'E integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
-rewrite !integral_dirac//= !indicE !in_setT/= !mul1e !diracE.
+rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite muleDr// -addeA; congr (_ + _)%E.
   by rewrite !muleA; congr (_%:E); congr (_ * _); field.
 rewrite -muleDl// !muleA -muleDl//.
@@ -298,12 +298,6 @@ rewrite !muleDr// -!addeA.
 by congr (_ + _)%E; rewrite ?addeA !muleA -?muleDl//;
 congr (_ * _)%E; congr (_%:E); field.
 Qed.
-
-Definition sample_add_syntax0 : @exp R _ [::] _ :=
-  [let "x" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
-   let "y" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
-   let "z" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
-   return #{"x"} && #{"y"} && #{"z"}].
 
 End sample_pair.
 
@@ -449,6 +443,55 @@ rewrite muleDl//; congr (_ + _)%E;
 Qed.
 
 End bernoulli_examples.
+
+Section binomial_examples.
+Context {R : realType}.
+Open Scope lang_scope.
+Open Scope ring_scope.
+
+Definition sample_binomial3 : @exp R _ [::] _ :=
+  [let "x" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in
+   return #{"x"}].
+
+Open Scope real_scope.
+
+Lemma exec_sample_binomial3 t U :
+  execP sample_binomial3 t U = ((1 / 8)%:E * @dirac _ R 0%:R R U +
+                                (3 / 8)%:E * @dirac _ R 1%:R R U +
+                                (3 / 8)%:E * @dirac _ R 2%:R R U +
+                                (1 / 8)%:E * @dirac _ R 3%:R R U)%E.
+Proof.
+rewrite /sample_binomial3 execP_letin execP_sample execP_return.
+rewrite exp_var'E (execD_var_erefl "x") !execD_binomial/=.
+rewrite letin'E ge0_integral_measure_sum//=.
+rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//=.
+rewrite !integral_dirac// /bump.
+rewrite indicT !binS/= !bin0 bin1 bin2 bin_small// addn0.
+rewrite expr0 mulr1 mul1r subn0.
+rewrite -2!addeA.
+congr _%E.
+congr (_ + _)%:E.
+congr (_ * _).
+by field.
+by rewrite mul1r.
+congr (_ + _).
+congr (_ * _).
+rewrite expr1 /onem.
+by field.
+by rewrite mul1r.
+congr (_ + _).
+congr (_ * _).
+rewrite /onem/=.
+by field.
+by rewrite mul1r.
+rewrite addr0.
+congr (_ * _).
+rewrite /onem/=.
+by field.
+by rewrite mul1r.
+Admitted.
+
+End binomial_examples.
 
 Section hard_constraint'.
 Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
