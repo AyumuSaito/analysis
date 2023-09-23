@@ -1171,6 +1171,38 @@ have [-> _|-> _|-> _ |-> _] := subset_set2 YT.
 - by rewrite -setT_bool preimage_setT setIT.
 Qed.
 
+Lemma measurable_and (f : T1 -> bool) (g : T1 -> bool) :
+  measurable_fun setT f -> measurable_fun setT g ->
+  measurable_fun setT (fun x => f x && g x).
+Proof.
+move=> mf mg.
+apply: (@measurable_fun_bool _ _ true).
+rewrite [X in measurable X](_ : _ = f @^-1` [set true] `&` g @^-1` [set true]).
+apply: measurableI.
+rewrite -[X in measurable X]setTI.
+exact: mf.
+rewrite -[X in measurable X]setTI.
+exact: mg.
+apply/seteqP.
+by split; move=> x/andP.
+Qed.
+
+Lemma measurable_or (f : T1 -> bool) (g : T1 -> bool) :
+  measurable_fun setT f -> measurable_fun setT g ->
+  measurable_fun setT (fun x => f x || g x).
+Proof.
+move=> mf mg.
+apply: (@measurable_fun_bool _ _ true).
+rewrite [X in measurable X](_ : _ = f @^-1` [set true] `|` g @^-1` [set true]).
+apply: measurableU.
+rewrite -[X in measurable X]setTI.
+exact: mf.
+rewrite -[X in measurable X]setTI.
+exact: mg.
+apply/seteqP.
+split; move=> x => /orP//.
+Qed.
+
 End measurable_fun.
 #[global] Hint Extern 0 (measurable_fun _ (fun=> _)) =>
   solve [apply: measurable_cst] : core.
