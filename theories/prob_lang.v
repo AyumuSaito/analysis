@@ -231,6 +231,26 @@ Qed.
 End binomial_example.
 
 Section uniform_probability.
+Context {R : realType}.
+Open Scope ring_scope.
+
+Lemma binomial3_2 : @binomial_probability R 3 _ (p1S 1) [set 2%:R] = (3 / 8)%:E.
+Proof. 
+rewrite /binomial_probability/msum !big_ord_recl/= big_ord0 adde0 bino_term0.
+rewrite /mscale/= !diracE /bump/=.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+rewrite mem_set//=.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+congr _%:E.
+rewrite expr0 !mulr1 !mulr0 !add0r !addn0 !add0n /onem.
+by field.
+Qed.
+
+End binomial_example.
+
+Section uniform_probability.
 Context (R : realType) (a b : R) (ab0 : (0 < b - a)%R).
 
 Definition uniform_probability : set R -> \bar R
