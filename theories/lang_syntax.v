@@ -413,6 +413,8 @@ Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_var g str t : t = lookup Unit g str -> exp D g t
 | exp_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
     exp D g (Prob Bool)
+| exp_binomial g (n : nat) (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
+    exp D g (Prob Real)
 | exp_poisson g : nat -> exp D g Real -> exp D g Real
 | exp_normalize g t : exp P g t -> exp D g (Prob t)
 | exp_letin g t1 t2 str : exp P g t1 -> exp P ((str, t1) :: g) t2 ->
@@ -442,6 +444,7 @@ Arguments exp_bin {R g} &.
 Arguments exp_pair {R g} & {t1 t2}.
 Arguments exp_var {R g} _ {t} H.
 Arguments exp_bernoulli {R g}.
+Arguments exp_binomial {R g}.
 Arguments exp_poisson {R g}.
 Arguments exp_normalize {R g _}.
 Arguments exp_letin {R g} & {_ _}.
@@ -516,6 +519,7 @@ Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   | exp_proj2 _ _ _ e       => free_vars e
   | exp_var _ x _ _         => [:: x]
   | exp_bernoulli _ _ _     => [::]
+  | exp_binomial _ _ _ _     => [::]
   | exp_poisson _ _ e       => free_vars e
   | exp_normalize _ _ e     => free_vars e
   | exp_letin _ _ _ x e1 e2 => free_vars e1 ++ rem x (free_vars e2)
@@ -620,6 +624,9 @@ Context {R : realType}.
 Implicit Type (g : ctx) (str : string).
 Local Open Scope lang_scope.
 
+Import Notations.
+Check cst (binomial 1 (p1S 1)) [::] : probability _ R.
+
 Inductive evalD : forall g t, exp D g t ->
   forall f : dval R g t, measurable_fun setT f -> Prop :=
 | eval_unit g : ([TT] : exp D g _) -D> cst tt ; ktt
@@ -653,6 +660,10 @@ Inductive evalD : forall g t, exp D g t ->
 | eval_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
   (exp_bernoulli r r1 : exp D g _) -D> cst (bernoulli r1) ;
                                        measurable_cst _
+
+| eval_binomial g n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :
+  (exp_binomial n p p1 : exp D g _) -D> cst (binomial n p1) ;
+                                        measurable_cst _
 
 | eval_poisson g n (e : exp D g _) f mf :
   e -D> f ; mf ->
@@ -776,6 +787,10 @@ all: (rewrite {g t e u v mu mv hu}).
   inversion 1; subst g0 r0.
   inj_ex H3; subst v.
   by have -> : r1 = r3 by [].
+- move=> g n p p1 {}v {}mv.
+  inversion 1; subst g0 n0 p0.
+  inj_ex H2; subst v.
+  by have -> : p1 = p3 by [].
 - move=> g n e0 f mf ev IH {}v {}mv.
   inversion 1; subst g0 n0.
   inj_ex H2; subst e0.
@@ -905,6 +920,10 @@ all: rewrite {g t e u v eu}.
   inversion 1; subst g0 r0.
   inj_ex H3; subst v.
   by have -> : r1 = r3 by [].
+- move=> g n p p1 {}v {}mv.
+  inversion 1; subst g0 n0 p0.
+  inj_ex H2; subst v.
+  by have -> : p1 = p3 by [].
 - move=> g n e f mf ev IH {}v {}mv.
   inversion 1; subst g0 n0.
   inj_ex H2; subst e0.
@@ -994,6 +1013,7 @@ all: rewrite {z g t}.
   by exists (snd \o f); eexists; exact: eval_proj2.
 - by move=> g x t tE; subst t; eexists; eexists; exact: eval_var.
 - by move=> r r1; eexists; eexists; exact: eval_bernoulli.
+- by move=> p p1; eexists; eexists; exact: eval_binomial.
 - move=> g h e [f [mf H]].
   by exists (poisson h \o f); eexists; exact: eval_poisson.
 - move=> g t e [k ek].
@@ -1146,6 +1166,11 @@ Lemma execD_bernoulli g r (r1 : (r%:num <= 1)%R) :
   @execD g _ (exp_bernoulli r r1) =
     existT _ (cst [the probability _ _ of bernoulli r1]) (measurable_cst _).
 Proof. exact/execD_evalD/eval_bernoulli. Qed.
+
+Lemma execD_binomial g n p (p1 : (p%:num <= 1)%R) :
+  @execD g _ (exp_binomial n p p1) =
+    existT _ (cst [the probability _ _ of binomial n p1]) (measurable_cst _).
+Proof. exact/execD_evalD/eval_binomial. Qed.
 
 Lemma execD_normalize_pt g t (e : exp P g t) :
   @execD g _ [Normalize e] =

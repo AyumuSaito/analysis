@@ -444,6 +444,55 @@ Qed.
 
 End bernoulli_examples.
 
+Section binomial_examples.
+Context {R : realType}.
+Open Scope lang_scope.
+Open Scope ring_scope.
+
+Definition sample_binomial3 : @exp R _ [::] _ :=
+  [let "x" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in
+   return #{"x"}].
+
+Open Scope real_scope.
+
+Lemma exec_sample_binomial3 t U :
+  execP sample_binomial3 t U = ((1 / 8)%:E * @dirac _ R 0%:R R U +
+                                (3 / 8)%:E * @dirac _ R 1%:R R U +
+                                (3 / 8)%:E * @dirac _ R 2%:R R U +
+                                (1 / 8)%:E * @dirac _ R 3%:R R U)%E.
+Proof.
+rewrite /sample_binomial3 execP_letin execP_sample execP_return.
+rewrite exp_var'E (execD_var_erefl "x") !execD_binomial/=.
+rewrite letin'E ge0_integral_measure_sum//=.
+rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//=.
+rewrite !integral_dirac// /bump.
+rewrite indicT !binS/= !bin0 bin1 bin2 bin_small// addn0.
+rewrite expr0 mulr1 mul1r subn0.
+rewrite -2!addeA.
+congr _%E.
+congr (_ + _)%:E.
+congr (_ * _).
+by field.
+by rewrite mul1r.
+congr (_ + _).
+congr (_ * _).
+rewrite expr1 /onem.
+by field.
+by rewrite mul1r.
+congr (_ + _).
+congr (_ * _).
+rewrite /onem/=.
+by field.
+by rewrite mul1r.
+rewrite addr0.
+congr (_ * _).
+rewrite /onem/=.
+by field.
+by rewrite mul1r.
+Admitted.
+
+End binomial_examples.
+
 Section hard_constraint'.
 Context d d' (X : measurableType d) (Y : measurableType d') (R : realType).
 

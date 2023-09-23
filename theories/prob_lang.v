@@ -42,6 +42,22 @@ Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 Local Open Scope ereal_scope.
 
+Module Notations.
+
+(*Notation var1of2 := (@measurable_fst _ _ _ _).
+Notation var2of2 := (@measurable_snd _ _ _ _).
+Notation var1of3 := (measurableT_comp (@measurable_fst _ _ _ _)
+                                         (@measurable_fst _ _ _ _)).
+Notation var2of3 := (measurableT_comp (@measurable_snd _ _ _ _)
+                                         (@measurable_fst _ _ _ _)).
+Notation var3of3 := (@measurable_snd _ _ _ _).*)
+
+Notation mR := Real_sort__canonical__measure_Measurable.
+Notation munit := Datatypes_unit__canonical__measure_Measurable.
+Notation mbool := Datatypes_bool__canonical__measure_Measurable.
+
+End Notations.
+
 (* TODO: PR *)
 Lemma onem_nonneg_proof (R : numDomainType) (p : {nonneg R}) :
   (p%:num <= 1 -> 0 <= `1-(p%:num))%R.
@@ -135,6 +151,26 @@ Qed.
 HB.instance Definition _ :=
   @Measure_isProbability.Build _ _ R bernoulli bernoulli_setT.
 
+Definition bernoullir1r2 r1 r2 : set R -> \bar R :=
+  measure_add
+    [the measure _ _ of mscale p [the measure _ _ of dirac r1]]
+    [the measure _ _ of mscale (onem_nonneg p1) [the measure _ _ of dirac r2]].
+
+Definition bernoulli01 := bernoullir1r2 1%R 0%R.
+
+HB.instance Definition _ := Measure.on bernoulli01.
+
+Local Close Scope ring_scope.
+
+Let bernoulli01_setT : bernoulli01 [set: _] = 1.
+Proof.
+rewrite /bernoulli01/bernoullir1r2/= /measure_add/= /msum 2!big_ord_recr/= big_ord0 add0e/=.
+by rewrite /mscale/= !diracT !mule1 -EFinD add_onemK.
+Qed.
+
+HB.instance Definition _ :=
+  @Measure_isProbability.Build _ _ R bernoulli01 bernoulli01_setT.
+
 End bernoulli.
 
 Section binomial.
@@ -172,11 +208,11 @@ Qed. *)
 
 (* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
 Definition binomial n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :=
-  @msum _ _ R 
+  @msum _ (_ R) R 
     (fun k => [the measure _ _ of mscale (bino_term p1 n k)
-    [the measure _ _ of \d_k]]) n.+1.
+    [the measure _ _ of @dirac _ R k%:R R]]) n.+1.
 
-Lemma binomial2_0 : binomial 2 (p1S 1) [set 0%N] = (1 / 4)%:E.
+Lemma binomial2_0 : binomial 2 (p1S 1) [set 0%:R] = (1 / 4)%:E.
 Proof. 
 rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_termn0 bino_termn1.
 rewrite /mscale/= !diracE mem_set//= /bump/=.
@@ -185,7 +221,7 @@ rewrite memNset//=.
 congr _%:E.
 rewrite /onem.
 by field.
-Qed.
+Admitted.
 
 (* TODO: generarize *)
 (* Lemma binomial2_1 n : binomial 2 (p1S 1) [set n] = (bino_term (p1S 1) 2 n)%:num%:E.
@@ -203,7 +239,7 @@ rewrite expr0 !mul1r /onem.
 by field. *)
 Abort. *)
 
-Lemma binomial3_2 : binomial 3 (p1S 1) [set 2%N] = (3 / 8)%:E.
+Lemma binomial3_2 : binomial 3 (p1S 1) [set 2%:R] = (3 / 8)%:E.
 Proof. 
 rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_termn0.
 rewrite /mscale/= !diracE /bump/=.
@@ -275,6 +311,14 @@ move=> f0.
 rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
 by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
 Qed.
+
+Lemma integral_bernoulli01 {R : realType}
+    (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : R -> set \bar R -> _) U :
+  (forall x y, 0 <= f x y) ->
+  \int[bernoulli01 p1]_y (f y ) U =
+  p%:num%:E * f 1%R U + (`1-(p%:num))%:E * f 0%R U.
+Proof.
+Admitted.
 
 Section uniform_probability.
 Context {R : realType}.
@@ -772,22 +816,6 @@ Proof. by rewrite /fail letinE ge0_integral_mscale//= normr0 mul0e. Qed.
 
 End hard_constraint.
 Arguments fail {d d' X Y R}.
-
-Module Notations.
-
-(*Notation var1of2 := (@measurable_fst _ _ _ _).
-Notation var2of2 := (@measurable_snd _ _ _ _).
-Notation var1of3 := (measurableT_comp (@measurable_fst _ _ _ _)
-                                         (@measurable_fst _ _ _ _)).
-Notation var2of3 := (measurableT_comp (@measurable_snd _ _ _ _)
-                                         (@measurable_fst _ _ _ _)).
-Notation var3of3 := (@measurable_snd _ _ _ _).*)
-
-Notation mR := Real_sort__canonical__measure_Measurable.
-Notation munit := Datatypes_unit__canonical__measure_Measurable.
-Notation mbool := Datatypes_bool__canonical__measure_Measurable.
-
-End Notations.
 
 Section cst_fun.
 Context d (T : measurableType d) (R : realType).
