@@ -364,61 +364,29 @@ Inductive flag := D | P.
 Section binop.
 
 Inductive binop :=
-| binop_and
-| binop_add.
-
-Lemma measurable_and (d : measure_display) (T : measurableType d) (f : T -> bool) (g : T -> bool) :
-  measurable_fun setT f -> measurable_fun setT g ->
-  measurable_fun setT (fun x => f x && g x).
-Proof.
-Search measurable_fun bool.
-move=> mf mg.
-apply: (@measurable_fun_bool _ _ _ (fun x => f x && g x) true).
-Search setI andb.
-rewrite [X in measurable X](_ : _ = f @^-1` [set true] `&` g @^-1` [set true]).
-apply measurableI.
-rewrite -[X in measurable X]setTI.
-exact: mf.
-rewrite -[X in measurable X]setTI.
-exact: mg.
-apply/seteqP.
-by split; move=> x/andP.
-Qed.
-
-Lemma measurable_add (d : measure_display) (T : measurableType d) (f g : T -> R) :
-  measurable_fun setT f -> measurable_fun setT g ->
-  measurable_fun setT (fun x => (f x + g x)%R).
-Proof.
-move=> mf mg /= _ B mB.
-exact: measurable_funD.
-Qed.
+| binop_and | binop_or
+| binop_add | binop_minus | binop_mult.
 
 Definition type_of_binop (b : binop) : typ :=
 match b with
 | binop_and => Bool
+| binop_or => Bool
 | binop_add => Real
+| binop_minus => Real
+| binop_mult => Real
 end.
 
 
 Import Notations.
 
-(* Definition fun_of_binop g (b : binop) (f1 : @mctx R g -> @mtyp R (type_of_binop b)) (f2 : @mctx R g -> @mtyp R (type_of_binop b)) : @mctx R g -> @mtyp R (type_of_binop b).
-destruct b.
-exact: (fun x => f1 x && f2 x).
-exact: (fun x => (f1 x + f2 x)%R).
-Show Proof.
-Defined. *)
- (* := 
-match b as b0 return mctx g -> mtyp (type_of_binop b0) with
-| binop_and => (fun x => f1 x && f2 x : mtyp Bool)
-| binop_add => (fun x => (f1 x + f2 x)%R)
-end. *)
-
 Definition fun_of_binop g (b : binop) : (mctx g -> mtyp (type_of_binop b)) ->
   (mctx g -> mtyp (type_of_binop b)) -> @mctx R g -> @mtyp R (type_of_binop b) := 
 match b with
 | binop_and => (fun f1 f2 x => f1 x && f2 x : mtyp Bool)
-| binop_add => (fun f1 f2 x => (f1 x + f2 x)%R)
+| binop_or => (fun f1 f2 x => f1 x || f2 x : mtyp Bool)
+| binop_add => (fun f1 f2 => (f1 \+ f2)%R)
+| binop_minus => (fun f1 f2 => (f1 \- f2)%R)
+| binop_mult => (fun f1 f2 => (f1 \* f2)%R)
 end.
 
 Definition mfun_of_binop g b 
@@ -427,8 +395,10 @@ Definition mfun_of_binop g b
   measurable_fun [set: @mctx R g] (fun_of_binop f1 f2).
 destruct b.
 exact: measurable_and mf1 mf2.
-exact: measurable_add mf1 mf2.
-Show Proof.
+exact: measurable_or mf1 mf2.
+exact: measurable_funD.
+exact: measurable_funB.
+exact: measurable_funM.
 Defined.
 
 End binop.
@@ -492,7 +462,13 @@ Notation "r ':R'" := (@exp_real _ _ r%R)
   (in custom expr at level 1, format "r :R") : lang_scope.
 Notation "e1 && e2" := (exp_bin binop_and e1 e2)
   (in custom expr at level 1) : lang_scope.
+Notation "e1 || e2" := (exp_bin binop_or e1 e2)
+  (in custom expr at level 1) : lang_scope.
 Notation "e1 + e2" := (exp_bin binop_add e1 e2)
+  (in custom expr at level 1) : lang_scope.
+Notation "e1 - e2" := (exp_bin binop_minus e1 e2)
+  (in custom expr at level 1) : lang_scope.
+Notation "e1 * e2" := (exp_bin binop_mult e1 e2)
   (in custom expr at level 1) : lang_scope.
 Notation "'return' e" := (@exp_return _ _ _ e)
   (in custom expr at level 2) : lang_scope.
@@ -1127,22 +1103,6 @@ Lemma execD_bin g bop (e1 : exp D g _) (e2 : exp D g _) :
 Proof.
 by move=> f1 f2 mf1 mf2; apply/execD_evalD/eval_bin; exact: evalD_execD.
 Qed.
-
-Lemma execD_and g (e1 : exp D g Bool) (e2 : exp D g Bool) :
-  let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in
-  let mf1 := projT2 (execD e1) in let mf2 := projT2 (execD e2) in
-  execD [e1 && e2] =
-  @existT _ _ (fun z => f1 z && f2 z)
-              (@measurable_and _ (mctx g) f1 f2 mf1 mf2).
-Proof. exact: execD_bin. Qed.
-
-Lemma execD_add g (e1 : exp D g _) (e2 : exp D g _) :
-  let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in
-  let mf1 := projT2 (execD e1) in let mf2 := projT2 (execD e2) in
-  execD [e1 + e2] =
-  @existT _ _ (fun z => (f1 z + f2 z)%R)
-              (@measurable_add R _ (mctx g) f1 f2 mf1 mf2).
-Proof. exact: execD_bin. Qed.
 
 Lemma execD_pair g t1 t2 (e1 : exp D g t1) (e2 : exp D g t2) :
   let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in

@@ -1202,25 +1202,9 @@ Qed.
 
 End sample_and_branch.
 
-Section bernoulli_and.
+(* Section bernoulli_and.
 Context d (T : measurableType d) (R : realType).
 Import Notations.
-
-Definition mand (x y : T * mbool * mbool -> mbool)
-  (t : T * mbool * mbool) : mbool := x t && y t.
-
-Lemma measurable_fun_mand (x y : T * mbool * mbool -> mbool) :
-  measurable_fun setT x -> measurable_fun setT y ->
-  measurable_fun setT (mand x y).
-Proof.
-move=> /= mx my; apply: (measurable_fun_bool true).
-rewrite [X in measurable X](_ : _ =
-    (x @^-1` [set true]) `&` (y @^-1` [set true])); last first.
-  by rewrite /mand; apply/seteqP; split => z/= /andP.
-apply: measurableI.
-- by rewrite -[X in measurable X]setTI; exact: mx.
-- by rewrite -[X in measurable X]setTI; exact: my.
-Qed.
 
 Definition bernoulli_and : R.-sfker T ~> mbool :=
     (letin (sample_cst [the probability _ _ of bernoulli p12])
@@ -1240,7 +1224,7 @@ have -> : (1 / 2 = 2 / 4%:R :> R)%R.
 by rewrite onem1S// -mulrDl.
 Qed.
 
-End bernoulli_and.
+End bernoulli_and. *)
 
 Section staton_bus.
 Import Notations.
