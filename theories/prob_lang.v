@@ -1202,20 +1202,20 @@ Qed.
 
 End sample_and_branch.
 
-(* Section bernoulli_and.
+Section bernoulli_and.
 Context d (T : measurableType d) (R : realType).
 Import Notations.
 
 Definition bernoulli_and : R.-sfker T ~> mbool :=
     (letin (sample_cst [the probability _ _ of bernoulli p12])
      (letin (sample_cst [the probability _ _ of bernoulli p12])
-        (ret (measurable_fun_mand macc1of3 macc2of3)))).
+        (ret (measurable_and macc1of3 macc2of3)))).
 
 Lemma bernoulli_andE t U :
   bernoulli_and t U =
   sample_cst (bernoulli p14) t U.
 Proof.
-rewrite /bernoulli_and 3!letin_sample_bernoulli/= /mand/= muleDr//= -muleDl//.
+rewrite /bernoulli_and 3!letin_sample_bernoulli/= muleDr//= -muleDl//.
 rewrite !muleA -addeA -muleDl// -!EFinM !onem1S/= -splitr mulr1.
 have -> : (1 / 2 * (1 / 2) = 1 / 4%:R :> R)%R by rewrite mulf_div mulr1// -natrM.
 rewrite /bernoulli/= measure_addE/= /mscale/= -!EFinM; congr( _ + (_ * _)%:E).
@@ -1224,7 +1224,7 @@ have -> : (1 / 2 = 2 / 4%:R :> R)%R.
 by rewrite onem1S// -mulrDl.
 Qed.
 
-End bernoulli_and. *)
+End bernoulli_and.
 
 Section staton_bus.
 Import Notations.
