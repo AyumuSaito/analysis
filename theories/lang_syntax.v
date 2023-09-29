@@ -439,7 +439,7 @@ Arguments exp {R}.
 Arguments exp_unit {R g}.
 Arguments exp_bool {R g}.
 Arguments exp_real {R g}.
-Arguments exp_bin {R g}.
+Arguments exp_bin {R g} &.
 Arguments exp_pair {R g} & {t1 t2}.
 Arguments exp_var {R g} _ {t} H.
 Arguments exp_bernoulli {R g}.
