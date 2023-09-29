@@ -254,14 +254,15 @@ rewrite exec_sample_pair0 !diracE; do 3 rewrite mem_set//; rewrite memNset//=.
 by rewrite !mule1; congr (_%:E); field.
 Qed.
 
-Definition sample_bernoulli_and : @exp R _ [::] _ :=
+Definition sample_and_syntax0 : @exp R _ [::] _ :=
   [let "x" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
-   let "y" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
+   let "y" := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S 2)} in
    return #{"x"} && #{"y"}].
 
-Lemma bernoulli_andE t U :
-  execP sample_bernoulli_and t U =
-  sample_cst (bernoulli p14) t U.
+Lemma exec_sample_and0 (A : set bool) :
+  @execP R [::] _ sample_and_syntax0 tt A =
+  ((1 / 6)%:E * (true \in A)%:R%:E +
+  (1 - 1 / 6)%:E * (false \in A)%:R%:E)%E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
 rewrite (@execD_bin _ _ binop_and) !exp_var'E (execD_var_erefl "x") (execD_var_erefl "y") /=.
@@ -269,25 +270,28 @@ rewrite letin'E integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e !diracE.
-rewrite muleDr// -addeA !muleA -muleDl //.
-rewrite /bernoulli/= measure_addE/= /mscale/= -!EFinM.
-congr (_ + _)%E.
+rewrite muleDr// -addeA; congr (_ + _)%E.
+by rewrite !muleA; congr (_%:E); congr (_ * _); field.
+rewrite -muleDl// !muleA -muleDl//.
 by congr (_%:E); congr (_ * _); field.
-by congr (_%:E); rewrite mulrA -mulrDl /onem; congr (_ * _); field.
 Qed.
 
-Definition sample_and_syntax0 : @exp R _ [::] _ :=
+Definition sample_bernoulli_and3 : @exp R _ [::] _ :=
   [let "x" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
-   let "y" := Sample {exp_bernoulli (1 / 3%:R)%:nng (p1S 2)} in
-   return #{"x"} && #{"y"}].
+   let "y" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
+   let "z" := Sample {exp_bernoulli (1 / 2)%:nng (p1S 1)} in
+   return #{"x"} && #{"y"} && #{"z"}].
 
 Lemma exec_sample_and0 (A : set bool) :
   @execP R [::] _ sample_and_syntax0 tt A = ((1 / 6)%:E * \d_true A +
                                              (1 - 1 / 6)%:E * \d_false A)%E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
-rewrite (@execD_bin _ _ binop_and) !exp_var'E (execD_var_erefl "x") (execD_var_erefl "y") /=.
+rewrite !(@execD_bin _ _ binop_and) !exp_var'E.
+rewrite (execD_var_erefl "x") (execD_var_erefl "y") (execD_var_erefl "z") /=.
 rewrite letin'E integral_measure_add//= !ge0_integral_mscale//= /onem.
+rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
+rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e !diracE.
