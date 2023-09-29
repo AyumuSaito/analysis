@@ -1202,7 +1202,7 @@ Qed.
 
 End sample_and_branch.
 
-Section bernoulli_and.
+(* Section bernoulli_and.
 Context d (T : measurableType d) (R : realType).
 Import Notations.
 
@@ -1224,7 +1224,7 @@ have -> : (1 / 2 = 2 / 4%:R :> R)%R.
 by rewrite onem1S// -mulrDl.
 Qed.
 
-End bernoulli_and.
+End bernoulli_and. *)
 
 Section staton_bus.
 Import Notations.
