@@ -265,7 +265,7 @@ Lemma exec_sample_and0 (A : set bool) :
   (1 - 1 / 6)%:E * (false \in A)%:R%:E)%E.
 Proof.
 rewrite !execP_letin !execP_sample !execD_bernoulli execP_return /=.
-rewrite execD_and !exp_var'E (execD_var_erefl "x") (execD_var_erefl "y") /=.
+rewrite (@execD_bin _ _ binop_and) !exp_var'E (execD_var_erefl "x") (execD_var_erefl "y") /=.
 rewrite letin'E integral_measure_add//= !ge0_integral_mscale//= /onem.
 rewrite !integral_dirac//= !indicE !in_setT/= !mul1e.
 rewrite !letin'E !integral_measure_add//= !ge0_integral_mscale//= /onem.
