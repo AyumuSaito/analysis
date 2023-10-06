@@ -4,8 +4,9 @@ From mathcomp Require Import all_ssreflect ssralg ssrnum ssrint interval finmap.
 From mathcomp Require Import rat.
 From mathcomp.classical Require Import mathcomp_extra boolp classical_sets.
 From mathcomp.classical Require Import functions cardinality fsbigop.
-Require Import reals ereal signed topology normedtype sequences esum measure.
-Require Import lebesgue_measure  numfun lebesgue_integral exp kernel.
+Require Import signed reals ereal signed itv topology normedtype sequences esum measure.
+Require Import lebesgue_measure numfun lebesgue_integral exp kernel.
+From mathcomp Require Import ring lra.
 
 (******************************************************************************)
 (*  Semantics of a probabilistic programming language using s-finite kernels  *)
@@ -106,7 +107,145 @@ Qed.
 HB.instance Definition _ :=
   @Measure_isProbability.Build _ _ R bernoulli bernoulli_setT.
 
+Definition bernoullir1r2 r1 r2 : set R -> \bar R :=
+  measure_add
+    [the measure _ _ of mscale p [the measure _ _ of dirac r1]]
+    [the measure _ _ of mscale (onem_nonneg p1) [the measure _ _ of dirac r2]].
+
+Definition bernoulli01 := bernoullir1r2 1%R 0%R.
+
+HB.instance Definition _ := Measure.on bernoulli01.
+
+Local Close Scope ring_scope.
+
+Let bernoulli01_setT : bernoulli01 [set: _] = 1.
+Proof.
+rewrite /bernoulli01/bernoullir1r2/= /measure_add/= /msum 2!big_ord_recr/= big_ord0 add0e/=.
+by rewrite /mscale/= !diracT !mule1 -EFinD add_onemK.
+Qed.
+
+HB.instance Definition _ :=
+  @Measure_isProbability.Build _ _ R bernoulli01 bernoulli01_setT.
+
 End bernoulli.
+
+Section binomial.
+Context {R : realType}.
+Local Open Scope ring_scope.
+
+(* Local Open Scope real_scope. *)
+(* Check ((1 / 2)%:nng). *)
+
+(* Definition coef (r : {nonneg R}) : {nonneg R} := r. *)
+(* issue: 
+Definition coef (p : {i01 R}) (n k : nat) 
+  : {nonneg R} := 
+  ('C(n, k)%:R * p%:inum^+k * (`1-(p%:inum))%:i01%:inum^+(n-k))%:nng.
+*)
+
+Definition coef12 (n k : nat) : {nonneg R} := ('C(n, k)%:R * (1 / 2)^+k * (1 / 2)^+(n-k)%N)%:nng.
+
+Definition binomial n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) := @msum _ _ R (fun k => [the measure _ _ of mscale (coef12 n k) [the measure _ _ of dirac k]]) (n+1).
+
+Axiom p1 : forall p : {nonneg R}, (p%:num <= 1)%R.
+
+Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 0%N] = (1 / 4)%:E.
+Proof. 
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /mscale/= !diracE mem_set//= /bump/= bin1.
+rewrite memNset//=.
+rewrite memNset//=.
+congr _%:E.
+rewrite expr0 !mul1r.
+field.
+Abort.
+
+Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 1%N] = (1 / 2)%:E.
+Proof.
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /mscale/= !diracE memNset//= /bump/= bin1.
+rewrite mem_set//=.
+rewrite memNset//=.
+congr _%:E.
+rewrite expr0 !mul1r.
+field.
+Abort.
+
+Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 2%N] = (1 / 4)%:E.
+Proof. 
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /mscale/= !diracE /bump/=.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+rewrite memNset//=.
+rewrite memNset//=.
+rewrite mem_set//=.
+congr _%:E.
+rewrite expr0 !mul1r.
+field.
+Abort.
+
+Lemma __ : binomial 3 (p1 (1 / 2)%:nng) [set 2%N] = (3 / 8)%:E.
+Proof. 
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /mscale/= !diracE /bump/=.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+rewrite memNset//=.
+rewrite memNset//=.
+rewrite mem_set//=.
+rewrite memNset//=.
+congr _%:E.
+rewrite expr0 !mul1r.
+field.
+Abort.
+
+(* Lemma ex_binomial83 : binomial 8 (p1 (1 / 2)%:nng) [set 3%N] = (7 / 32)%:E.
+Proof. 
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
+rewrite /mscale/= !diracE /bump/= !addn0 !add1n subn0.
+rewrite binn bin0 bin1.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+rewrite !addn1 !add1n.
+rewrite memNset//=.
+rewrite memNset//=.
+rewrite memNset//=.
+rewrite mem_set//=.
+rewrite memNset//=.
+rewrite memNset//=.
+rewrite memNset//=.
+rewrite memNset//=.
+rewrite memNset//=.
+by congr _%:E; field.
+Qed. *)
+
+Definition binomial12 n := binomial n (p1 (1 / 2)%:nng).
+HB.instance Definition _ := Measure.on (binomial12 2).
+
+(* Local Close Scope ring_scope. *)
+
+Let binomial12_setT : binomial12 5 [set: _] = 1%:E.
+Proof.
+rewrite /binomial12/binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
+rewrite /mscale/= !diracT /bump/= bin0.
+rewrite ?binn ?bin0 ?bin1.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+by congr _%:E; field.
+Qed.
+
+Let binomial_setT n : binomial12 n [set: _] = 1%:E.
+Proof.
+elim: n =>/= [|n].
+rewrite /binomial12/binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
+rewrite /mscale/= !diracT /bump/= bin0.
+by congr _%:E; field.
+rewrite ?binn ?bin0 ?bin1.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+(* by congr _%:E; field. *)
+Admitted.
+
+HB.instance Definition _ :=
+  @Measure_isProbability.Build _ _ R (binomial12 5) binomial12_setT.
+
+End binomial.
 
 Lemma integral_bernoulli {R : realType}
     (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : bool -> set bool -> _) U :
@@ -118,6 +257,14 @@ move=> f0.
 rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
 by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
 Qed.
+
+Lemma integral_bernoulli01 {R : realType}
+    (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : R -> set \bar R -> _) U :
+  (forall x y, 0 <= f x y) ->
+  \int[bernoulli01 p1]_y (f y ) U =
+  p%:num%:E * f 1%R U + (`1-(p%:num))%:E * f 0%R U.
+Proof.
+Admitted.
 
 Section uniform_probability.
 Context {R : realType}.
