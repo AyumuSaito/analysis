@@ -376,8 +376,7 @@ match b with
 | binop_mult => Real
 end.
 
-
-Import Notations.
+(* Import Notations. *)
 
 Definition fun_of_binop g (b : binop) : (mctx g -> mtyp (type_of_binop b)) ->
   (mctx g -> mtyp (type_of_binop b)) -> @mctx R g -> @mtyp R (type_of_binop b) := 
