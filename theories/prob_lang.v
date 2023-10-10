@@ -143,50 +143,54 @@ Definition coef (p : {i01 R}) (n k : nat)
   ('C(n, k)%:R * p%:inum^+k * (`1-(p%:inum))%:i01%:inum^+(n-k))%:nng.
 *)
 
-Definition coef12 (n k : nat) : {nonneg R} := ('C(n, k)%:R * (1 / 2)^+k * (1 / 2)^+(n-k)%N)%:nng.
+(* Let p : 0 <= `1-p. *)
 
-Definition binomial n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) := @msum _ _ R (fun k => [the measure _ _ of mscale (coef12 n k) [the measure _ _ of dirac k]]) (n+1).
+Definition coef (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (n k : nat) : {nonneg R} := ('C(n, k)%:R * p%:num^+(n-k)%N * ((NngNum (onem_ge0 p1))%:num)^+k)%:nng.
+
+(* Definition coef12 (n k : nat) : {nonneg R} := ('C(n, k)%:R * (1 / 2)^+k * (1 / 2)^+(n-k)%N)%:nng. *)
+
+Definition binomial n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) := @msum _ _ R (fun k => [the measure _ _ of mscale (coef p1 n k) [the measure _ _ of dirac k]]) (n.+1).
 
 Axiom p1 : forall p : {nonneg R}, (p%:num <= 1)%R.
 
 Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 0%N] = (1 / 4)%:E.
 Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
 rewrite /mscale/= !diracE mem_set//= /bump/= bin1.
 rewrite memNset//=.
 rewrite memNset//=.
 congr _%:E.
-rewrite expr0 !mul1r.
-field.
+rewrite /onem.
+by field.
 Abort.
 
 Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 1%N] = (1 / 2)%:E.
 Proof.
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
 rewrite /mscale/= !diracE memNset//= /bump/= bin1.
 rewrite mem_set//=.
 rewrite memNset//=.
 congr _%:E.
-rewrite expr0 !mul1r.
-field.
+rewrite expr0 !mul1r /onem.
+by field.
 Abort.
 
 Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 2%N] = (1 / 4)%:E.
 Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
 rewrite /mscale/= !diracE /bump/=.
 repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
 rewrite memNset//=.
 rewrite memNset//=.
 rewrite mem_set//=.
 congr _%:E.
-rewrite expr0 !mul1r.
-field.
+rewrite expr0 !mul1r /onem.
+by field.
 Abort.
 
 Lemma __ : binomial 3 (p1 (1 / 2)%:nng) [set 2%N] = (3 / 8)%:E.
 Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/= !bin0.
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
 rewrite /mscale/= !diracE /bump/=.
 repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
 rewrite memNset//=.
@@ -194,8 +198,8 @@ rewrite memNset//=.
 rewrite mem_set//=.
 rewrite memNset//=.
 congr _%:E.
-rewrite expr0 !mul1r.
-field.
+rewrite expr0 !mul1r /onem.
+by field.
 Abort.
 
 (* Lemma ex_binomial83 : binomial 8 (p1 (1 / 2)%:nng) [set 3%N] = (7 / 32)%:E.
@@ -221,14 +225,36 @@ Definition binomial12 n := binomial n (p1 (1 / 2)%:nng).
 HB.instance Definition _ := Measure.on (binomial12 2).
 
 (* Local Close Scope ring_scope. *)
-
-Let binomial12_setT : binomial12 5 [set: _] = 1%:E.
+(* Lemma binS' n k : 'C(n.+1, k) = ('C(n, k) + 'C(n, k.-1))%N.
 Proof.
-rewrite /binomial12/binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
+elim: k => //.
+rewrite -binS. *)
+
+Lemma PascalR (x y : R) n :
+  (x + y) ^+ n = \sum_(i < n.+1) 'C(n, i)%:R * (x ^+ (n - i) * y ^+ i).
+Proof.
+Admitted.
+
+Let binomial_setT (n : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R) : binomial n p1 [set: _] = 1%:E.
+Proof.
+rewrite /binomial/msum/mscale/coef/=/mscale/=.
+have := (PascalR p%:num (`1-(p%:num)) n).
+Search (\sum_ _ (_ * _)).
+elim: n => [|n IH].
+rewrite /binomial/msum big_ord_recl/= big_ord0 adde0 /coef/=.
+rewrite /mscale/= diracT bin0.
+by congr _%:E; field.
+rewrite /binomial/msum big_ord_recr/= /coef/=.
+rewrite binS binn subnn bin_small /mscale//=.
+have := IH.
+rewrite /binomial/msum/mscale/coef/=/mscale/=.
+rewrite /mscale/= bin0 /bump/=.
+rewrite expr0 subn0 !mul1r.
+
+(* rewrite /binomial12/binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
 rewrite /mscale/= !diracT /bump/= bin0.
 rewrite ?binn ?bin0 ?bin1.
-repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
-by congr _%:E; field.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//. *)
 Qed.
 
 Let binomial_setT n : binomial12 n [set: _] = 1%:E.
