@@ -85,6 +85,34 @@ subst p2.
 by f_equal.
 Qed.
 
+Section constants.
+Variable R : realType.
+Local Open Scope ring_scope.
+
+Lemma onem1S n : `1- (1 / n.+1%:R) = (n%:R / n.+1%:R)%:nng%:num :> R.
+Proof.
+by rewrite /onem/= -{1}(@divrr _ n.+1%:R) ?unitfE// -mulrBl -natr1 addrK.
+Qed.
+
+Lemma p1S n : (1 / n.+1%:R)%:nng%:num <= 1 :> R.
+Proof. by rewrite ler_pdivr_mulr//= mul1r ler1n. Qed.
+
+Lemma p12 : (1 / 2%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
+
+Lemma p14 : (1 / 4%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
+
+Lemma onem27 : `1- (2 / 7%:R) = (5%:R / 7%:R)%:nng%:num :> R.
+Proof. by apply/eqP; rewrite subr_eq/= -mulrDl -natrD divrr// unitfE. Qed.
+
+Lemma p27 : (2 / 7%:R)%:nng%:num <= 1 :> R.
+Proof. by rewrite /= lter_pdivr_mulr// mul1r ler_nat. Qed.
+
+End constants.
+Arguments p12 {R}.
+Arguments p14 {R}.
+Arguments p27 {R}.
+Arguments p1S {R}.
+
 Section bernoulli.
 Variables (R : realType) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
 Local Open Scope ring_scope.
@@ -133,64 +161,71 @@ Section binomial.
 Context {R : realType}.
 Local Open Scope ring_scope.
 
-(* Local Open Scope real_scope. *)
-(* Check ((1 / 2)%:nng). *)
+(* C(n, k) * p^(n-k) * (1-p)^k *)
+Definition bino_term (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (n k : nat) :{nonneg R} :=
+  ('C(n, k)%:R * p%:num^+(n-k)%N * (NngNum (onem_ge0 p1))%:num^+k)%:nng.
 
-(* Definition coef (r : {nonneg R}) : {nonneg R} := r. *)
-(* issue: 
-Definition coef (p : {i01 R}) (n k : nat) 
-  : {nonneg R} := 
-  ('C(n, k)%:R * p%:inum^+k * (`1-(p%:inum))%:i01%:inum^+(n-k))%:nng.
-*)
+Lemma bino_termn0 (p : {nonneg R}) (p1 : (p%:num <= 1)%R) n : 
+  bino_term p1 n 0 = (p%:num^+n)%:nng.
+Proof.
+rewrite /bino_term bin0 subn0/=.
+apply/val_inj => /=.
+by field.
+Qed.
 
-(* Let p : 0 <= `1-p. *)
+Lemma bino_termn1 (p : {nonneg R}) (p1 : (p%:num <= 1)%R) n : 
+  bino_term p1 n 1 = (n%:R * p%:num^+(n-1)%N * (NngNum (onem_ge0 p1))%:num)%:nng.
+Proof.
+rewrite /bino_term bin1/=.
+apply/val_inj => /=.
+by rewrite expr1.
+Qed.
 
-Definition coef (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (n k : nat) : {nonneg R} := ('C(n, k)%:R * p%:num^+(n-k)%N * ((NngNum (onem_ge0 p1))%:num)^+k)%:nng.
+(* Lemma bino_coefSS (p : {nonneg R}) (p1 : (p%:num <= 1)%R) n k : 
+  bino_term p1 n.+1 k.+1 = ((bino_coef p1 n k.+1)%:num + (bino_coef p1 n k)%:num)%:nng.
+Proof.
+rewrite [in LHS]/bino_coef binS.
+apply/val_inj => /=.
+rewrite -addrDr.
+by rewrite expr1.
+Qed. *)
 
-(* Definition coef12 (n k : nat) : {nonneg R} := ('C(n, k)%:R * (1 / 2)^+k * (1 / 2)^+(n-k)%N)%:nng. *)
+(* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
+Definition binomial n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :=
+  @msum _ _ R 
+    (fun k => [the measure _ _ of mscale (bino_term p1 n k)
+    [the measure _ _ of \d_k]]) n.+1.
 
-Definition binomial n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) := @msum _ _ R (fun k => [the measure _ _ of mscale (coef p1 n k) [the measure _ _ of dirac k]]) (n.+1).
-
-Axiom p1 : forall p : {nonneg R}, (p%:num <= 1)%R.
-
-Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 0%N] = (1 / 4)%:E.
+Lemma binomial2_0 : binomial 2 (p1S 1) [set 0%N] = (1 / 4)%:E.
 Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
-rewrite /mscale/= !diracE mem_set//= /bump/= bin1.
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_termn0 bino_termn1.
+rewrite /mscale/= !diracE mem_set//= /bump/=.
 rewrite memNset//=.
 rewrite memNset//=.
 congr _%:E.
 rewrite /onem.
 by field.
-Abort.
+Qed.
 
-Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 1%N] = (1 / 2)%:E.
+(* TODO: generarize *)
+(* Lemma binomial2_1 n : binomial 2 (p1S 1) [set n] = (bino_term (p1S 1) 2 n)%:num%:E.
 Proof.
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
-rewrite /mscale/= !diracE memNset//= /bump/= bin1.
+elim: n => [|n IH]. 
+by rewrite binomial2_0/= bin0; congr (_%:E); field.
+rewrite [in LHS]/binomial/msum/=/mscale/= !big_ord_recl/= big_ord0 adde0.
+rewrite bin0 bin1 binS.
+(* rewrite bino_termn0 bino_termn1.
+rewrite /mscale/= !diracE memNset//= /bump/=.
 rewrite mem_set//=.
 rewrite memNset//=.
 congr _%:E.
 rewrite expr0 !mul1r /onem.
-by field.
-Abort.
+by field. *)
+Abort. *)
 
-Lemma __ : binomial 2 (p1 (1 / 2)%:nng) [set 2%N] = (1 / 4)%:E.
+Lemma binomial3_2 : binomial 3 (p1S 1) [set 2%N] = (3 / 8)%:E.
 Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
-rewrite /mscale/= !diracE /bump/=.
-repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
-rewrite memNset//=.
-rewrite memNset//=.
-rewrite mem_set//=.
-congr _%:E.
-rewrite expr0 !mul1r /onem.
-by field.
-Abort.
-
-Lemma __ : binomial 3 (p1 (1 / 2)%:nng) [set 2%N] = (3 / 8)%:E.
-Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef/= !bin0.
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_termn0.
 rewrite /mscale/= !diracE /bump/=.
 repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
 rewrite memNset//=.
@@ -198,9 +233,9 @@ rewrite memNset//=.
 rewrite mem_set//=.
 rewrite memNset//=.
 congr _%:E.
-rewrite expr0 !mul1r /onem.
+rewrite expr0 !mulr1 !mulr0 !add0r !addn0 !add0n /onem.
 by field.
-Abort.
+Qed.
 
 (* Lemma ex_binomial83 : binomial 8 (p1 (1 / 2)%:nng) [set 3%N] = (7 / 32)%:E.
 Proof. 
@@ -221,55 +256,34 @@ rewrite memNset//=.
 by congr _%:E; field.
 Qed. *)
 
-Definition binomial12 n := binomial n (p1 (1 / 2)%:nng).
-HB.instance Definition _ := Measure.on (binomial12 2).
+HB.instance Definition _ n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) := 
+  Measure.on (binomial n p1).
 
-(* Local Close Scope ring_scope. *)
-(* Lemma binS' n k : 'C(n.+1, k) = ('C(n, k) + 'C(n, k.-1))%N.
-Proof.
-elim: k => //.
-rewrite -binS. *)
-
+(* TODO: remove *)
 Lemma PascalR (x y : R) n :
   (x + y) ^+ n = \sum_(i < n.+1) 'C(n, i)%:R * (x ^+ (n - i) * y ^+ i).
 Proof.
-Admitted.
-
-Let binomial_setT (n : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R) : binomial n p1 [set: _] = 1%:E.
-Proof.
-rewrite /binomial/msum/mscale/coef/=/mscale/=.
-have := (PascalR p%:num (`1-(p%:num)) n).
-Search (\sum_ _ (_ * _)).
-elim: n => [|n IH].
-rewrite /binomial/msum big_ord_recl/= big_ord0 adde0 /coef/=.
-rewrite /mscale/= diracT bin0.
-by congr _%:E; field.
-rewrite /binomial/msum big_ord_recr/= /coef/=.
-rewrite binS binn subnn bin_small /mscale//=.
-have := IH.
-rewrite /binomial/msum/mscale/coef/=/mscale/=.
-rewrite /mscale/= bin0 /bump/=.
-rewrite expr0 subn0 !mul1r.
-
-(* rewrite /binomial12/binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
-rewrite /mscale/= !diracT /bump/= bin0.
-rewrite ?binn ?bin0 ?bin1.
-repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//. *)
+rewrite exprDn_comm//; last first.
+by rewrite /GRing.comm mulrC.
+apply: eq_bigr => i _.
+by rewrite mulr_natl.
 Qed.
 
-Let binomial_setT n : binomial12 n [set: _] = 1%:E.
+Let binomial_setT (n : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R) : 
+  binomial n p1 [set: _] = 1%:E.
 Proof.
-elim: n =>/= [|n].
-rewrite /binomial12/binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
-rewrite /mscale/= !diracT /bump/= bin0.
-by congr _%:E; field.
-rewrite ?binn ?bin0 ?bin1.
-repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
-(* by congr _%:E; field. *)
-Admitted.
+rewrite /binomial/msum/mscale/bino_term/=/mscale/=.
+under eq_bigr do rewrite diracT mule1.
+rewrite sumEFin.
+under eq_bigr do rewrite -mulrA.
+rewrite exprDn_comm.
+rewrite -PascalR add_onemK; congr (_%:E).
+Search (1 ^+ _).
+by rewrite expr1n.
+Qed.
 
-HB.instance Definition _ :=
-  @Measure_isProbability.Build _ _ R (binomial12 5) binomial12_setT.
+HB.instance Definition _ n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :=
+  @Measure_isProbability.Build _ _ R (binomial n p1) (binomial_setT n p1).
 
 End binomial.
 
@@ -1225,35 +1239,6 @@ Qed.
 End letinC.
 
 (* sample programs *)
-
-Section constants.
-Variable R : realType.
-Local Open Scope ring_scope.
-
-Lemma onem1S n : `1- (1 / n.+1%:R) = (n%:R / n.+1%:R)%:nng%:num :> R.
-Proof.
-by rewrite /onem/= -{1}(@divrr _ n.+1%:R) ?unitfE// -mulrBl -natr1 addrK.
-Qed.
-
-Lemma p1S n : (1 / n.+1%:R)%:nng%:num <= 1 :> R.
-Proof. by rewrite ler_pdivr_mulr//= mul1r ler1n. Qed.
-
-Lemma p12 : (1 / 2%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
-
-Lemma p14 : (1 / 4%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
-
-Lemma onem27 : `1- (2 / 7%:R) = (5%:R / 7%:R)%:nng%:num :> R.
-Proof. by apply/eqP; rewrite subr_eq/= -mulrDl -natrD divrr// unitfE. Qed.
-
-Lemma p27 : (2 / 7%:R)%:nng%:num <= 1 :> R.
-Proof. by rewrite /= lter_pdivr_mulr// mul1r ler_nat. Qed.
-
-End constants.
-Arguments p12 {R}.
-Arguments p14 {R}.
-Arguments p27 {R}.
-Arguments p1S {R}.
-
 Section poisson.
 Variable R : realType.
 Local Open Scope ring_scope.
