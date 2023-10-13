@@ -660,7 +660,7 @@ Inductive evalD : forall g t, exp D g t ->
   exp_var x H -D> acc_typ (map snd g) i ; measurable_acc_typ (map snd g) i
 
 | eval_bernoulli g (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
-  (exp_bernoulli r r1 : exp D g _) -D> cst (bernoulli r1) ;
+  (exp_bernoulli r r1 : exp D g _) -D> cst (bernoulli r1 : set bool -> \bar R) ;
                                        measurable_cst _
 
 | eval_binomial g n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :
