@@ -151,155 +151,7 @@ Qed.
 HB.instance Definition _ :=
   @Measure_isProbability.Build _ _ R bernoulli bernoulli_setT.
 
-Definition bernoullir1r2 r1 r2 : set R -> \bar R :=
-  measure_add
-    [the measure _ _ of mscale p [the measure _ _ of dirac r1]]
-    [the measure _ _ of mscale (onem_nonneg p1) [the measure _ _ of dirac r2]].
-
-Definition bernoulli01 := bernoullir1r2 1%R 0%R.
-
-HB.instance Definition _ := Measure.on bernoulli01.
-
-Local Close Scope ring_scope.
-
-Let bernoulli01_setT : bernoulli01 [set: _] = 1.
-Proof.
-rewrite /bernoulli01/bernoullir1r2/= /measure_add/= /msum 2!big_ord_recr/= big_ord0 add0e/=.
-by rewrite /mscale/= !diracT !mule1 -EFinD add_onemK.
-Qed.
-
-HB.instance Definition _ :=
-  @Measure_isProbability.Build _ _ R bernoulli01 bernoulli01_setT.
-
 End bernoulli.
-
-Section binomial.
-Context {R : realType}.
-Local Open Scope ring_scope.
-
-(* C(n, k) * p^(n-k) * (1-p)^k *)
-Definition bino_term (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (n k : nat) :{nonneg R} :=
-  ('C(n, k)%:R * p%:num^+(n-k)%N * (NngNum (onem_ge0 p1))%:num^+k)%:nng.
-
-Lemma bino_termn0 (p : {nonneg R}) (p1 : (p%:num <= 1)%R) n : 
-  bino_term p1 n 0 = (p%:num^+n)%:nng.
-Proof.
-rewrite /bino_term bin0 subn0/=.
-apply/val_inj => /=.
-by field.
-Qed.
-
-Lemma bino_termn1 (p : {nonneg R}) (p1 : (p%:num <= 1)%R) n : 
-  bino_term p1 n 1 = (n%:R * p%:num^+(n-1)%N * (NngNum (onem_ge0 p1))%:num)%:nng.
-Proof.
-rewrite /bino_term bin1/=.
-apply/val_inj => /=.
-by rewrite expr1.
-Qed.
-
-(* Lemma bino_coefSS (p : {nonneg R}) (p1 : (p%:num <= 1)%R) n k : 
-  bino_term p1 n.+1 k.+1 = ((bino_coef p1 n k.+1)%:num + (bino_coef p1 n k)%:num)%:nng.
-Proof.
-rewrite [in LHS]/bino_coef binS.
-apply/val_inj => /=.
-rewrite -addrDr.
-by rewrite expr1.
-Qed. *)
-
-(* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
-Definition binomial n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :=
-  @msum _ (_ R) R 
-    (fun k => [the measure _ _ of mscale (bino_term p1 n k)
-    [the measure _ _ of @dirac _ R k%:R R]]) n.+1.
-
-Lemma binomial2_0 : binomial 2 (p1S 1) [set 0%:R] = (1 / 4)%:E.
-Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_termn0 bino_termn1.
-rewrite /mscale/= !diracE mem_set//= /bump/=.
-rewrite memNset//=.
-rewrite memNset//=.
-congr _%:E.
-rewrite /onem.
-by field.
-Admitted.
-
-(* TODO: generarize *)
-(* Lemma binomial2_1 n : binomial 2 (p1S 1) [set n] = (bino_term (p1S 1) 2 n)%:num%:E.
-Proof.
-elim: n => [|n IH]. 
-by rewrite binomial2_0/= bin0; congr (_%:E); field.
-rewrite [in LHS]/binomial/msum/=/mscale/= !big_ord_recl/= big_ord0 adde0.
-rewrite bin0 bin1 binS.
-(* rewrite bino_termn0 bino_termn1.
-rewrite /mscale/= !diracE memNset//= /bump/=.
-rewrite mem_set//=.
-rewrite memNset//=.
-congr _%:E.
-rewrite expr0 !mul1r /onem.
-by field. *)
-Abort. *)
-
-Lemma binomial3_2 : binomial 3 (p1S 1) [set 2%:R] = (3 / 8)%:E.
-Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_termn0.
-rewrite /mscale/= !diracE /bump/=.
-repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
-rewrite memNset//=.
-rewrite memNset//=.
-rewrite mem_set//=.
-rewrite memNset//=.
-congr _%:E.
-rewrite expr0 !mulr1 !mulr0 !add0r !addn0 !add0n /onem.
-by field.
-Qed.
-
-(* Lemma ex_binomial83 : binomial 8 (p1 (1 / 2)%:nng) [set 3%N] = (7 / 32)%:E.
-Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 /coef12/=.
-rewrite /mscale/= !diracE /bump/= !addn0 !add1n subn0.
-rewrite binn bin0 bin1.
-repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
-rewrite !addn1 !add1n.
-rewrite memNset//=.
-rewrite memNset//=.
-rewrite memNset//=.
-rewrite mem_set//=.
-rewrite memNset//=.
-rewrite memNset//=.
-rewrite memNset//=.
-rewrite memNset//=.
-rewrite memNset//=.
-by congr _%:E; field.
-Qed. *)
-
-HB.instance Definition _ n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) := 
-  Measure.on (binomial n p1).
-
-(* TODO: remove *)
-Lemma PascalR (x y : R) n :
-  (x + y) ^+ n = \sum_(i < n.+1) 'C(n, i)%:R * (x ^+ (n - i) * y ^+ i).
-Proof.
-rewrite exprDn_comm//; last first.
-by rewrite /GRing.comm mulrC.
-apply: eq_bigr => i _.
-by rewrite mulr_natl.
-Qed.
-
-Let binomial_setT (n : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R) : 
-  binomial n p1 [set: _] = 1%:E.
-Proof.
-rewrite /binomial/msum/mscale/bino_term/=/mscale/=.
-under eq_bigr do rewrite diracT mule1.
-rewrite sumEFin.
-under eq_bigr do rewrite -mulrA.
-rewrite -PascalR add_onemK; congr (_%:E).
-by rewrite expr1n.
-Qed.
-
-HB.instance Definition _ n (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :=
-  @Measure_isProbability.Build _ _ R (binomial n p1) (binomial_setT n p1).
-
-End binomial.
 
 Lemma integral_bernoulli {R : realType}
     (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : bool -> set bool -> _) U :
@@ -312,13 +164,71 @@ rewrite ge0_integral_measure_sum// 2!big_ord_recl/= big_ord0 adde0/=.
 by rewrite !ge0_integral_mscale//= !integral_dirac//= indicT 2!mul1e.
 Qed.
 
-Lemma integral_bernoulli01 {R : realType}
-    (p : {nonneg R}) (p1 : (p%:num <= 1)%R) (f : R -> set \bar R -> _) U :
-  (forall x y, 0 <= f x y) ->
-  \int[bernoulli01 p1]_y (f y ) U =
-  p%:num%:E * f 1%R U + (`1-(p%:num))%:E * f 0%R U.
+Section binomial_probability.
+Context {R : realType} (n : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
+Local Open Scope ring_scope.
+
+(* C(n, k) * p^(n-k) * (1-p)^k *)
+Definition bino_term (k : nat) :{nonneg R} :=
+  (p%:num^+(n-k)%N * (NngNum (onem_ge0 p1))%:num^+k *+ 'C(n, k))%:nng.
+
+Lemma bino_term0 : 
+  bino_term 0 = (p%:num^+n)%:nng.
 Proof.
-Admitted.
+rewrite /bino_term bin0 subn0/=.
+apply/val_inj => /=.
+by field.
+Qed.
+
+Lemma bino_term1 : 
+  bino_term 1 = (p%:num^+(n-1)%N * (NngNum (onem_ge0 p1))%:num *+ n)%:nng.
+Proof.
+rewrite /bino_term bin1/=.
+apply/val_inj => /=.
+by rewrite expr1.
+Qed.
+
+(* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
+Definition binomial :=
+  @msum _ (_ R) R 
+    (fun k => [the measure _ _ of mscale (bino_term k)
+    [the measure _ _ of @dirac _ R k%:R R]]) n.+1.
+
+HB.instance Definition _ := Measure.on binomial.
+
+Let binomial_setT : binomial [set: _] = 1%:E.
+Proof.
+rewrite /binomial/msum/mscale/bino_term/=/mscale/=.
+under eq_bigr do rewrite diracT mule1.
+rewrite sumEFin.
+rewrite -exprDn_comm; last by rewrite /GRing.comm mulrC.
+by rewrite add_onemK; congr _%:E; rewrite expr1n.
+Qed.
+
+HB.instance Definition _ :=
+  @Measure_isProbability.Build _ _ R binomial binomial_setT.
+
+End binomial_probability.
+
+Section binomial_example.
+Context {R : realType}.
+Open Scope ring_scope.
+
+Lemma binomial3_2 : @binomial R 3 _ (p1S 1) [set 2%:R] = (3 / 8)%:E.
+Proof. 
+rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_term0.
+rewrite /mscale/= !diracE /bump/=.
+repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+rewrite mem_set//=.
+rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
+congr _%:E.
+rewrite expr0 !mulr1 !mulr0 !add0r !addn0 !add0n /onem.
+by field.
+Qed.
+
+End binomial_example.
 
 Section uniform_probability.
 Context {R : realType}.
