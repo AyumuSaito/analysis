@@ -189,16 +189,16 @@ by rewrite expr1.
 Qed.
 
 (* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
-Definition binomial :=
+Definition binomial_probability :=
   @msum _ (_ R) R 
     (fun k => [the measure _ _ of mscale (bino_term k)
     [the measure _ _ of @dirac _ R k%:R R]]) n.+1.
 
-HB.instance Definition _ := Measure.on binomial.
+HB.instance Definition _ := Measure.on binomial_probability.
 
-Let binomial_setT : binomial [set: _] = 1%:E.
+Let binomial_setT : binomial_probability [set: _] = 1%:E.
 Proof.
-rewrite /binomial/msum/mscale/bino_term/=/mscale/=.
+rewrite /binomial_probability/msum/mscale/bino_term/=/mscale/=.
 under eq_bigr do rewrite diracT mule1.
 rewrite sumEFin.
 rewrite -exprDn_comm; last by rewrite /GRing.comm mulrC.
@@ -206,7 +206,7 @@ by rewrite add_onemK; congr _%:E; rewrite expr1n.
 Qed.
 
 HB.instance Definition _ :=
-  @Measure_isProbability.Build _ _ R binomial binomial_setT.
+  @Measure_isProbability.Build _ _ R binomial_probability binomial_setT.
 
 End binomial_probability.
 
@@ -214,9 +214,9 @@ Section binomial_example.
 Context {R : realType}.
 Open Scope ring_scope.
 
-Lemma binomial3_2 : @binomial R 3 _ (p1S 1) [set 2%:R] = (3 / 8)%:E.
+Lemma binomial3_2 : @binomial_probability R 3 _ (p1S 1) [set 2%:R] = (3 / 8)%:E.
 Proof. 
-rewrite /binomial/msum !big_ord_recl/= big_ord0 adde0 bino_term0.
+rewrite /binomial_probability/msum !big_ord_recl/= big_ord0 adde0 bino_term0.
 rewrite /mscale/= !diracE /bump/=.
 repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
 rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
