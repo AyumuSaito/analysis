@@ -231,15 +231,28 @@ Qed.
 End binomial_example.
 
 Section uniform_probability.
-Context {R : realType}.
-Variables (a b : R) (ab0 : (0 < b - a)%R).
+Context (R : realType) (a b : R) (ab0 : (0 < b - a)%R).
 
-Definition uniform_probability := mscale (invr_nonneg (NngNum (ltW ab0)))
-  (mrestr lebesgue_measure (measurable_itv `[a, b])).
+Import Notations.
+Definition uniform_probability : set R -> \bar R
+  := mscale (invr_nonneg (NngNum (ltW ab0)))
+    (mrestr lebesgue_measure (measurable_itv `[a, b])).
 
-HB.instance Definition _ := Measure.on uniform_probability.
+(* HB.instance Definition _ := Measure.on uniform_probability. *)
 
-Let uniform_probability_setT : uniform_probability [set: _] = 1.
+Let uniform0 : uniform_probability set0 = 0.
+Proof. exact: measure0. Qed.
+
+Let uniform_ge0 U : 0 <= uniform_probability U.
+Proof. exact: measure_ge0. Qed.
+
+Let uniform_sigma_additive : semi_sigma_additive uniform_probability.
+Proof. move=> /= F mF tF mUF; exact: measure_semi_sigma_additive. Qed.
+
+HB.instance Definition _ := isMeasure.Build _ _ _ uniform_probability
+  uniform0 uniform_ge0 uniform_sigma_additive.
+
+Let uniform_probability_setT : uniform_probability [set: _] = 1%:E.
 Proof.
 rewrite /uniform_probability /mscale/= /mrestr/=.
 rewrite setTI lebesgue_measure_itv hlength_itv/= lte_fin.
