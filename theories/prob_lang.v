@@ -233,11 +233,12 @@ End binomial_example.
 Section uniform_probability.
 Context (R : realType) (a b : R) (ab0 : (0 < b - a)%R).
 
-Import Notations.
 Definition uniform_probability : set R -> \bar R
   := mscale (invr_nonneg (NngNum (ltW ab0)))
     (mrestr lebesgue_measure (measurable_itv `[a, b])).
 
+(** TODO: set R -> \bar R を書くとMeasure.onが通らない **)
+(**  **)
 (* HB.instance Definition _ := Measure.on uniform_probability. *)
 
 Let uniform0 : uniform_probability set0 = 0.
