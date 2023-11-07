@@ -563,7 +563,7 @@ Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   | exp_bernoulli_trunc _ e     => free_vars e
   | exp_binomial _ _ _ _     => [::]
   | exp_uniform _ _ _ _     => [::]
-  | exp_binomial_trunc _ e     => free_vars e
+  | exp_binomial_trunc _ _ e     => free_vars e
   | exp_poisson _ _ e       => free_vars e
   | exp_normalize _ _ e     => free_vars e
   | exp_letin _ _ _ x e1 e2 => free_vars e1 ++ rem x (free_vars e2)
@@ -1147,6 +1147,7 @@ all: rewrite {z g t}.
 - move=> g e [p [mp H]].
   by exists (bernoulli_trunc \o p); eexists; exact: eval_bernoulli_trunc.
 - by move=> p p1; eexists; eexists; exact: eval_binomial.
+- by eexists; eexists; exact: eval_uniform.
 - move=> g n e [p [mp H]].
   by exists (binomial_probability_trunc n \o p); eexists; exact: eval_binomial_trunc.
 - move=> g h e [f [mf H]].
