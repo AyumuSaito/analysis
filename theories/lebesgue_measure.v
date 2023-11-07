@@ -1594,6 +1594,33 @@ move=> mf mg mD Y mY; have [| | |] := set_bool Y => /eqP ->.
 - by rewrite preimage_setT setIT.
 Qed.
 
+Lemma measurable_fun_ler D f g : measurable_fun D f -> measurable_fun D g ->
+  measurable_fun D (fun x => f x <= g x).
+Proof.
+move=> mf mg mD Y mY; have [| | |] := set_bool Y => /eqP ->.
+- under eq_fun do rewrite -subr_ge0.
+  rewrite preimage_true -preimage_itv_c_infty.
+  by apply: (measurable_funB mg mf) => //; exact: measurable_itv.
+- under eq_fun do rewrite leNgt -subr_gt0.
+  rewrite preimage_false set_predC setCK -preimage_itv_o_infty.
+  by apply: (measurable_funB mf mg) => //; exact: measurable_itv.
+- by rewrite preimage_set0 setI0.
+- by rewrite preimage_setT setIT.
+Qed.
+
+(* setT should be D? (derived from measurable_and) *)
+Lemma measurable_fun_eqr D f g : measurable_fun D f -> measurable_fun D g ->
+  measurable_fun D (fun x => f x == g x).
+Proof.
+move=> mf mg.
+rewrite (_ : (fun x : T => f x == g x) = (fun x : T => (f x <= g x) && (g x <= f x))).
+apply: (@measurable_and _ _ _ (fun x => f x <= g x) (fun x => g x <= f x)); exact: measurable_fun_ler.
+apply: funext => x.
+apply/eqP/idP => [->|/andP[Hfg Hgf]].
+by apply/andP.
+by apply/le_anti/andP.
+Qed.
+
 Lemma measurable_maxr D f g :
   measurable_fun D f -> measurable_fun D g -> measurable_fun D (f \max g).
 Proof.

@@ -506,6 +506,71 @@ Proof. by rewrite /fail' letin'E ge0_integral_mscale//= normr0 mul0e. Qed.
 End hard_constraint'.
 Arguments fail' {d d' X Y R}.
 
+Section casino_example.
+Open Scope lang_scope.
+Open Scope ring_scope.
+Context (R : realType).
+
+Lemma a01 : 0 < 1 - 0 :> R. Proof. by []. Qed.
+
+Definition binomial_le : @exp R _ [::] Bool :=
+  [let "a2" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in
+   return {1}:R <= #{"a2"}].
+
+Lemma exec_binomial_le t U :
+  execP binomial_le t U = ((7 / 8)%:E * @dirac _ _ true R U +
+                          (1 / 8)%:E * @dirac _ _ false R U)%E.
+Proof.
+rewrite /binomial_le execP_letin execP_sample execP_return execD_rel execD_real.
+rewrite exp_var'E (execD_var_erefl "a2") execD_binomial.
+rewrite letin'E//= /binomial_probability ge0_integral_measure_sum//=.
+rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//=.
+rewrite !integral_dirac// /bump.
+rewrite indicT !binS/= !bin0 bin1 bin2 bin_small// addn0 !mul1e.
+rewrite addeC adde0.
+congr (_ + _)%:E.
+have -> : (1 <= 1)%R. admit.
+have -> : (1 <= 2)%R. admit.
+have -> : (1 <= 3)%R. admit.
+rewrite -!mulrDl.
+congr (_ * _).
+rewrite /onem addn0 add0n.
+by field.
+congr (_ * _).
+by field.
+by rewrite ler10.
+Admitted.
+
+Definition binomial_guard : @exp R _ [::] Real :=
+  [let "a1" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in
+   let "_" := if #{"a1"} == {1}:R then return TT else Score {0}:R in
+   return #{"a1"}].
+
+Lemma exec_binomial_guard t U :
+  execP binomial_guard t U = ((7 / 8)%:E * @dirac _ R 1%R R U +
+                          (1 / 8)%:E * @dirac _ R 0%R R U)%E.
+Proof.
+rewrite /binomial_guard !execP_letin execP_sample execP_return execP_if.
+rewrite !exp_var'E execD_rel !(execD_var_erefl "a1") execP_return execD_unit execD_binomial execD_real execP_score execD_real.
+rewrite !letin'E//= /binomial_probability ge0_integral_measure_sum//=.
+rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//=.
+rewrite !integral_dirac// /bump.
+rewrite indicT !binS/= !bin0 bin1 bin2 bin_small// addn0 !mul1e.
+rewrite !letin'E//= !iteE/= !diracE/=.
+have -> : (0 == 1)%R = false; first by admit.
+have -> : (1 == 1)%R; first by admit.
+have -> : (2 == 1)%R = false; first by admit.
+have -> : (3 == 1)%R = false; first by admit.
+rewrite addeC adde0.
+Admitted.
+
+(* Definition casino : exp _ [::] _ := 
+  [let "p" := Sample {exp_uniform 0 1 a01} in
+   let "a1" := Sample {exp_binomial 8 [#{"p"}]} in
+   return #{"p"}]. *)
+
+End casino_example.
+
 (* hard constraints to express score below 1 *)
 Lemma score_fail' d (X : measurableType d) {R : realType}
     (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
@@ -846,6 +911,9 @@ Section letinC.
 Local Open Scope lang_scope.
 Variable (R : realType).
 
+Let weak_head g {t1 t2} x (e : @exp R P g t2) (xg : x \notin dom g) := 
+  exp_weak P [::] _ (x, t1) e xg.
+
 Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
   (x y : string)
   (xy : infer (x != y)) (yx : infer (y != x))
@@ -853,11 +921,11 @@ Lemma letinC g t1 t2 (e1 : @exp R P g t1) (e2 : exp P g t2)
   forall U, measurable U ->
   execP [
     let x := e1 in
-    let y := {exp_weak _ [::] _ (x, t1) e2 xg} in
+    let y := {weak_head e2 xg} in
     return (#x, #y)] ^~ U =
   execP [
     let y := e2 in
-    let x := {exp_weak _ [::] _ (y, t2) e1 yg} in
+    let x := {weak_head e1 yg} in
     return (#x, #y)] ^~ U.
 Proof.
 move=> U mU; apply/funext => z.

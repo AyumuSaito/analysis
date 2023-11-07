@@ -402,11 +402,38 @@ Defined.
 
 End binop.
 
+Section relop.
+Inductive relop :=
+| relop_le | relop_lt | relop_eq .
+
+Definition fun_of_relop g (r : relop) : (@mctx R g -> @mtyp R Real) ->
+  (mctx g -> mtyp Real) -> @mctx R g -> @mtyp R Bool := 
+match r with
+| relop_le => (fun f1 f2 x => (f1 x <= f2 x)%R)
+| relop_lt => (fun f1 f2 x => (f1 x < f2 x)%R)
+| relop_eq => (fun f1 f2 x => (f1 x == f2 x)%R)
+end.
+
+Definition mfun_of_relop g r 
+  (f1 : @mctx R g -> @mtyp R Real) (mf1 : measurable_fun setT f1) 
+  (f2 : @mctx R g -> @mtyp R Real) (mf2 : measurable_fun setT f2) :
+  measurable_fun [set: @mctx R g] (fun_of_relop r f1 f2).
+destruct r.
+exact: measurable_fun_ler.
+exact: measurable_fun_ltr.
+exact: measurable_fun_eqr.
+Defined.
+
+End relop.
+
 Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_unit g : exp D g Unit
 | exp_bool g : bool -> exp D g Bool
 | exp_real g : R -> exp D g Real
-| exp_bin g (b : binop) : exp D g (type_of_binop b) -> exp D g (type_of_binop b) -> exp D g (type_of_binop b)
+| exp_bin g (b : binop) : exp D g (type_of_binop b) -> 
+    exp D g (type_of_binop b) -> exp D g (type_of_binop b)
+| exp_rel g (b : relop) : exp D g Real -> 
+    exp D g Real -> exp D g Bool
 | exp_pair g t1 t2 : exp D g t1 -> exp D g t2 -> exp D g (Pair t1 t2)
 | exp_proj1 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t1
 | exp_proj2 g t1 t2 : exp D g (Pair t1 t2) -> exp D g t2
@@ -442,6 +469,7 @@ Arguments exp_unit {R g}.
 Arguments exp_bool {R g}.
 Arguments exp_real {R g}.
 Arguments exp_bin {R g} &.
+Arguments exp_rel {R g} &.
 Arguments exp_pair {R g} & {t1 t2}.
 Arguments exp_var {R g} _ {t} H.
 Arguments exp_bernoulli {R g}.
@@ -474,8 +502,12 @@ Notation "e1 - e2" := (exp_bin binop_minus e1 e2)
   (in custom expr at level 1) : lang_scope.
 Notation "e1 * e2" := (exp_bin binop_mult e1 e2)
   (in custom expr at level 1) : lang_scope.
-Notation "'return' e" := (@exp_return _ _ _ e)
+Notation "e1 <= e2" := (exp_rel relop_le e1 e2)
   (in custom expr at level 2) : lang_scope.
+Notation "e1 == e2" := (exp_rel relop_eq e1 e2)
+  (in custom expr at level 2) : lang_scope.
+Notation "'return' e" := (@exp_return _ _ _ e)
+  (in custom expr at level 3) : lang_scope.
 (*Notation "% str" := (@exp_var _ _ str%string _ erefl)
   (in custom expr at level 1, format "% str") : lang_scope.*)
 (* Notation "% str H" := (@exp_var _ _ str%string _ H)
@@ -516,6 +548,7 @@ Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   | exp_bool _ _            => [::]
   | exp_real _ _            => [::]
   | exp_bin _ _ e1 e2    => free_vars e1 ++ free_vars e2
+  | exp_rel _ _ e1 e2    => free_vars e1 ++ free_vars e2
   | exp_pair _ _ _ e1 e2    => free_vars e1 ++ free_vars e2
   | exp_proj1 _ _ _ e       => free_vars e
   | exp_proj2 _ _ _ e       => free_vars e
@@ -641,6 +674,10 @@ Inductive evalD : forall g t, exp D g t ->
   e1 -D> f1 ; mf1 -> e2 -D> f2 ; mf2 ->
   exp_bin bop e1 e2 -D> fun_of_binop f1 f2 ; mfun_of_binop mf1 mf2
 
+| eval_rel g rop (e1 : exp D g _) f1 mf1 e2 f2 mf2 :
+  e1 -D> f1 ; mf1 -> e2 -D> f2 ; mf2 ->
+  exp_rel rop e1 e2 -D> fun_of_relop rop f1 f2 ; mfun_of_relop rop mf1 mf2
+
 | eval_pair g t1 (e1 : exp D g t1) f1 mf1 t2 (e2 : exp D g t2) f2 mf2 :
   e1 -D> f1 ; mf1 -> e2 -D> f2 ; mf2 ->
   [(e1, e2)] -D> fun x => (f1 x, f2 x) ; measurable_fun_prod mf1 mf2
@@ -757,6 +794,12 @@ all: (rewrite {g t e u v mu mv hu}).
   inj_ex H5; subst e1.
   inj_ex H6; subst e5.
   by move: H4 H11 => /IH1 <- /IH2 <-.
+- move=> g rop e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+  inversion 1; subst g0 rop0.
+  inj_ex H5; subst v.
+  inj_ex H1; subst e1.
+  inj_ex H3; subst e3.
+  by move: H6 H7 => /IH1 <- /IH2 <-.
 - move=> g t1 e1 f1 mf1 t2 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
   simple inversion 1 => //; subst g0.
   case: H3 => ? ?; subst t0 t3.
@@ -777,16 +820,8 @@ all: (rewrite {g t e u v mu mv hu}).
   clear H9.
   inj_ex H7; subst e1.
   by rewrite (ih _ _ H4).
-(* - move=> g str n {}v {}mv.
-  inversion 1; subst g0.
-  inj_ex H6; rewrite -H6.
-  by inj_ex H7.
-  inj_ex H8; rewrite -H8.
-  by inj_ex H9. *)
 - move=> g str H n {}v {}mv.
   inversion 1; subst g0.
-  (* inj_ex H7; rewrite -H7.
-  by inj_ex H8. *)
   inj_ex H9; rewrite -H9.
   by inj_ex H10.
 - move=> g r r1 {}v {}mv.
@@ -893,6 +928,12 @@ all: rewrite {g t e u v eu}.
   inj_ex H5; subst e1.
   inj_ex H6; subst e5.
   by move: H4 H11 => /IH1 <- /IH2 <-.
+- move=> g rop e1 f1 mf1 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
+  inversion 1; subst g0 rop0.
+  inj_ex H5; subst v.
+  inj_ex H1; subst e1.
+  inj_ex H3; subst e3.
+  by move: H6 H7 => /IH1 <- /IH2 <-.
 - move=> g t1 e1 f1 mf1 t2 e2 f2 mf2 ev1 IH1 ev2 IH2 {}v {}mv.
   simple inversion 1 => //; subst g0.
   case: H3 => ? ?; subst t0 t3.
@@ -1011,6 +1052,8 @@ all: rewrite {z g t}.
 - by do 2 eexists; exact: eval_real.
 - move=> g b e1 [f1 [mf1 H1]] e2 [f2 [mf2 H2]].
   by exists (fun_of_binop f1 f2); eexists; exact: eval_bin.
+- move=> g r e1 [f1 [mf1 H1]] e2 [f2 [mf2 H2]].
+  by exists (fun_of_relop r f1 f2); eexists; exact: eval_rel.
 - move=> g t1 t2 e1 [f1 [mf1 H1]] e2 [f2 [mf2 H2]].
   by exists (fun x => (f1 x, f2 x)); eexists; exact: eval_pair.
 - move=> g t1 t2 e [f [mf H]].
@@ -1128,6 +1171,15 @@ Lemma execD_bin g bop (e1 : exp D g _) (e2 : exp D g _) :
   @existT _ _ (fun_of_binop f1 f2) (mfun_of_binop mf1 mf2).
 Proof.
 by move=> f1 f2 mf1 mf2; apply/execD_evalD/eval_bin; exact: evalD_execD.
+Qed.
+
+Lemma execD_rel g rop (e1 : exp D g _) (e2 : exp D g _) :
+  let f1 := projT1 (execD e1) in let f2 := projT1 (execD e2) in
+  let mf1 := projT2 (execD e1) in let mf2 := projT2 (execD e2) in
+  execD (exp_rel rop e1 e2) =
+  @existT _ _ (fun_of_relop rop f1 f2) (mfun_of_relop rop mf1 mf2).
+Proof.
+by move=> f1 f2 mf1 mf2; apply/execD_evalD/eval_rel; exact: evalD_execD.
 Qed.
 
 Lemma execD_pair g t1 t2 (e1 : exp D g t1) (e2 : exp D g t2) :

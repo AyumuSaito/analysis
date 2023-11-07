@@ -1173,28 +1173,62 @@ have [-> _|-> _|-> _ |-> _] := subset_set2 YT.
 - by rewrite -setT_bool preimage_setT setIT.
 Qed.
 
-Lemma measurable_and (f : T1 -> bool) (g : T1 -> bool) :
-  measurable_fun setT f -> measurable_fun setT g ->
-  measurable_fun setT (fun x => f x && g x).
+Lemma measurable_fun_TF D (f : T1 -> bool) :
+  measurable (D `&` f @^-1` [set true]) -> 
+  measurable (D `&` f @^-1` [set false]) -> measurable_fun D f.
 Proof.
-move=> mf mg; apply: (@measurable_fun_bool _ _ true).
-rewrite [X in measurable X](_ : _ = f @^-1` [set true] `&` g @^-1` [set true]).
-  apply: measurableI.
-  - rewrite -[X in measurable X]setTI; exact: mf.
-  - rewrite -[X in measurable X]setTI; exact: mg.
-by apply/seteqP; split => x /andP.
+move=> mT mF mD /= Y mY.
+have := @subsetT _ Y; rewrite setT_bool => YT.
+move: mY; have [-> _|-> _|-> _ |-> _] := subset_set2 YT.
+- by rewrite preimage0 ?setI0.
+apply: mT.
+apply: mF.
+- by rewrite -setT_bool preimage_setT setIT.
 Qed.
 
-Lemma measurable_or (f : T1 -> bool) (g : T1 -> bool) :
-  measurable_fun setT f -> measurable_fun setT g ->
-  measurable_fun setT (fun x => f x || g x).
+Lemma measurable_and D (f : T1 -> bool) (g : T1 -> bool) :
+  measurable_fun D f -> measurable_fun D g ->
+  measurable_fun D (fun x => f x && g x).
 Proof.
-move=> mf mg; apply: (@measurable_fun_bool _ _ true).
-rewrite [X in measurable X](_ : _ = f @^-1` [set true] `|` g @^-1` [set true]).
+move=> mf mg mD.
+apply: measurable_fun_TF => //.
+rewrite [X in measurable X](_ : _ = D `&` f @^-1` [set true] `&` (D `&` g @^-1` [set true])); last first.
+rewrite setICA !setIA setIid.
+rewrite -setIA.
+congr (_ `&` _).
+apply/seteqP; split => x /andP //=.
+apply: measurableI.
+apply: mf => //. apply: mg => //.
+rewrite [X in measurable X](_ : _ = D `&` f @^-1` [set false] `|` (D `&` g @^-1` [set false])); last first.
+rewrite -setIUr.
+congr (_ `&` _).
+apply/seteqP; split => x /=.
+by case: (f x); case: (g x); [|right|left|left].
+case: (f x); case: (g x) => //=; by case.
+apply: measurableU.
+exact: mf.
+exact: mg.
+Qed.
+
+Lemma measurable_or D (f g : T1 -> bool) :
+  measurable_fun D f -> measurable_fun D g ->
+  measurable_fun D (fun x => f x || g x).
+Proof.
+move=> mf mg mD; apply: measurable_fun_TF => //.
+rewrite [X in measurable X](_ : _ = D `&` f @^-1` [set true] `|` D `&` g @^-1` [set true]).
   apply: measurableU.
-  - rewrite -[X in measurable X]setTI; exact: mf.
-  - rewrite -[X in measurable X]setTI; exact: mg.
-by apply/seteqP; split=> x /orP.
+  apply: mf => //.
+  apply: mg => //.
+  rewrite -setIUr.
+  congr (_ `&` _).
+  by apply/seteqP; split=> x /orP.
+rewrite [X in measurable X](_ : _ = D `&` f @^-1` [set false] `&` (D `&` g @^-1` [set false])).
+  apply: measurableI.
+  apply: mf => //.
+  apply: mg => //.
+  rewrite setICA !setIA setIid -setIA.
+  congr (_ `&` _).
+  apply/seteqP; split => x //=; case: (f x); case: (g x) => //; by case.
 Qed.
 
 End measurable_fun.
