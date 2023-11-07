@@ -445,6 +445,8 @@ Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_binomial g (n : nat) (r : {nonneg R}) (r1 : (r%:num <= 1)%R) :
     exp D g (Prob Real)
 | exp_uniform g (a b : R) (ab0 : (0 < b - a)%R) : exp D g (Prob Real)
+| exp_binomial_trunc g (n : nat) :
+    exp D g Real -> exp D g (Prob Real)
 | exp_poisson g : nat -> exp D g Real -> exp D g Real
 | exp_normalize g t : exp P g t -> exp D g (Prob t)
 | exp_letin g t1 t2 str : exp P g t1 -> exp P ((str, t1) :: g) t2 ->
@@ -478,6 +480,7 @@ Arguments exp_bernoulli {R g}.
 Arguments exp_bernoulli_trunc {R g}.
 Arguments exp_binomial {R g}.
 Arguments exp_uniform {R g}.
+Arguments exp_binomial_trunc {R g}.
 Arguments exp_poisson {R g}.
 Arguments exp_normalize {R g _}.
 Arguments exp_letin {R g} & {_ _}.
@@ -560,6 +563,7 @@ Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   | exp_bernoulli_trunc _ e     => free_vars e
   | exp_binomial _ _ _ _     => [::]
   | exp_uniform _ _ _ _     => [::]
+  | exp_binomial_trunc _ e     => free_vars e
   | exp_poisson _ _ e       => free_vars e
   | exp_normalize _ _ e     => free_vars e
   | exp_letin _ _ _ x e1 e2 => free_vars e1 ++ rem x (free_vars e2)
@@ -664,8 +668,6 @@ Context {R : realType}.
 Implicit Type (g : ctx) (str : string).
 Local Open Scope lang_scope.
 
-Check sumbool.
-
 Set Printing All.
 Lemma sumbool_ler (x y : R) : {(x <= y)%R} + {(x > y)%R}.
 Proof.
@@ -679,15 +681,15 @@ Definition bernoulli0 := @bernoulli R 0%R%:nng ler01.
 
 HB.instance Definition _ := Probability.on bernoulli0.
 
-Definition bernoulli_trunc (r : R) := match (sumbool_ler 0%R r) with
-| left l0r => match (sumbool_ler (NngNum l0r)%:num 1%R) with
-  | left lr1 => [the probability _ _ of @bernoulli R (NngNum l0r) lr1]
+Definition bernoulli_trunc (p : R) := match (sumbool_ler 0%R p) with
+| left l0p => match (sumbool_ler (NngNum l0p)%:num 1%R) with
+  | left lp1 => [the probability _ _ of @bernoulli R (NngNum l0p) lp1]
   | right _ => [the probability _ _ of bernoulli0]
   end
 | right _ => [the probability _ _ of bernoulli0]
 end.
 
-HB.instance Definition _ (r : R) := Probability.on (bernoulli_trunc r).
+HB.instance Definition _ (p : R) := Probability.on (bernoulli_trunc p).
 
 Lemma measurable_bernoulli_trunc : measurable_fun setT (bernoulli_trunc : _ -> pprobability _ _).
 Proof.
@@ -698,6 +700,19 @@ apply: (@measurability _ _ _ _ _ _
 move=> _ -[_ [r r01] [Ys mYs <-]] <-.
 apply: emeasurable_fun_infty_o => //.
 (* exact: (measurable_kernel (knormalize f point) Ys). *)
+Admitted.
+
+Definition binomial_probability0 := @binomial_probability R 0 0%R%:nng ler01.
+
+Definition binomial_probability_trunc n (p : R) := match (sumbool_ler 0%R p) with
+| left l0p => match (sumbool_ler (NngNum l0p)%:num 1%R) with
+  | left lp1 => [the probability _ _ of @binomial_probability R n (NngNum l0p) lp1]
+  | right _ => [the probability _ _ of binomial_probability0]
+  end
+| right _ => [the probability _ _ of binomial_probability0]
+end.
+
+Lemma measurable_binomial_probability_trunc n : measurable_fun setT (binomial_probability_trunc n : _ -> pprobability _ _).
 Admitted.
 
 Inductive evalD : forall g t, exp D g t ->
@@ -750,6 +765,10 @@ Inductive evalD : forall g t, exp D g t ->
 | eval_uniform g (a b : R) (ab0 : (0 < b - a)%R) :
   (exp_uniform a b ab0 : exp D g _) -D> cst (uniform_probability ab0) ;
                                         measurable_cst _
+| eval_binomial_trunc g n e r mr :
+  e -D> r ; mr ->
+  (exp_binomial_trunc n e : exp D g _) -D> binomial_probability_trunc n \o r ;
+  measurableT_comp (measurable_binomial_probability_trunc n) mr
 
 | eval_poisson g n (e : exp D g _) f mf :
   e -D> f ; mf ->
@@ -885,6 +904,11 @@ all: (rewrite {g t e u v mu mv hu}).
   inj_ex H2; subst v.
   by have -> : ab0 = ab2.
 - move=> g n e0 f mf ev IH {}v {}mv.
+  inversion 1; subst g0 n0.
+  inj_ex H2; subst e0.
+  inj_ex H4; subst v.
+  by rewrite (IH _ _ H3).
+- move=> g n e f mf ev IH {}v {}mv.
   inversion 1; subst g0 n0.
   inj_ex H2; subst e0.
   inj_ex H4; subst v.
@@ -1030,6 +1054,11 @@ all: rewrite {g t e u v eu}.
   inj_ex H4; subst v.
   inj_ex H5; subst mv.
   by rewrite (IH _ _ H3).
+- move=> g n e f mf ev IH {}v {}mv.
+  inversion 1; subst g0 n0.
+  inj_ex H2; subst e0.
+  inj_ex H4; subst v.
+  by rewrite (IH _ _ H3).
 - move=> g t e k ev IH {}v {}mv.
   inversion 1; subst g0 t0.
   inj_ex H2; subst e0.
@@ -1115,9 +1144,11 @@ all: rewrite {z g t}.
   by exists (snd \o f); eexists; exact: eval_proj2.
 - by move=> g x t tE; subst t; eexists; eexists; exact: eval_var.
 - by move=> r r1; eexists; eexists; exact: eval_bernoulli.
-- move=> g e [r [mr H]].
-  by exists (bernoulli_trunc \o r); eexists; exact: eval_bernoulli_trunc.
+- move=> g e [p [mp H]].
+  by exists (bernoulli_trunc \o p); eexists; exact: eval_bernoulli_trunc.
 - by move=> p p1; eexists; eexists; exact: eval_binomial.
+- move=> g n e [p [mp H]].
+  by exists (binomial_probability_trunc n \o p); eexists; exact: eval_binomial_trunc.
 - move=> g h e [f [mf H]].
   by exists (poisson h \o f); eexists; exact: eval_poisson.
 - move=> g t e [k ek].
@@ -1294,6 +1325,12 @@ Lemma execD_uniform g a b ab0 :
   @execD g _ (exp_uniform a b ab0) =
     existT _ (cst [the probability _ _ of uniform_probability ab0]) (measurable_cst _).
 Proof. exact/execD_evalD/eval_uniform. Qed.
+
+Lemma execD_binomial_trunc g n e :
+  @execD g _ (exp_binomial_trunc n e) =
+    existT _ (binomial_probability_trunc n \o projT1 (execD e))
+    (measurableT_comp (measurable_binomial_probability_trunc n) (projT2 (execD e))).
+Proof. exact/execD_evalD/eval_binomial_trunc/evalD_execD. Qed.
 
 Lemma execD_normalize_pt g t (e : exp P g t) :
   @execD g _ [Normalize e] =
