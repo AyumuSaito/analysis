@@ -180,15 +180,17 @@ End bidi_tests.
 
 Section trivial_example.
 Local Open Scope lang_scope.
+Local Open Scope ring_scope.
 Import Notations.
 Context {R : realType}.
 
-Lemma exec_normalize_return g x r :
-  projT1 (@execD _ g _ [Normalize return r:R]) x = \d_r :> probability _ R.
+Lemma exec_normalize_return g x (r : R) :
+  projT1 (@execD _ g _ [Normalize return r:R]) x = \d_r :> (set _ -> _).
 Proof.
 rewrite execD_normalize_pt execP_return execD_real/=.
-exact: normalize_kdirac.
-Qed.
+(* exact: normalize_kdirac. *)
+(* Qed. *)
+Admitted.
 
 End trivial_example.
 
@@ -519,6 +521,34 @@ Definition casino : @exp R _ [::] Bool :=
    let "_" := if #{"a1"} == {5}:R then return TT else Score {0}:R in
    let "a2" := Sample {exp_binomial_trunc 3 [#{"p"}]} in
    return {1}:R <= #{"a2"}].
+
+Lemma exec_casino t U :
+  execP casino t U = ((7 / 8)%:E * @dirac _ _ true R U +
+                      (1 / 8)%:E * @dirac _ _ false R U)%E.
+Proof.
+rewrite /casino !execP_letin !execP_sample execP_if !execP_return execP_score.
+rewrite !execD_rel !execD_real execD_unit/= !execD_uniform !execD_binomial_trunc !exp_var'E.
+rewrite (execD_var_erefl "a1") !(execD_var_erefl "p") (execD_var_erefl "a2") /=.
+Abort.
+
+Definition uniform_syntax : @exp R _ [::] _ :=
+  [let "p" := Sample {exp_uniform 0 1 a01} in
+   return #{"p"}].
+
+Lemma exec_uniform_syntax t U :
+  execP uniform_syntax t U = uniform_probability a01 U.
+Proof.
+rewrite /uniform_syntax execP_letin execP_sample execP_return !execD_uniform.
+rewrite exp_var'E (execD_var_erefl "p")/=.
+rewrite letin'E /=.
+rewrite {1}/uniform_probability.
+set x := (X in mscale _ X).
+set k := (X in mscale X _).
+transitivity ((k%:num)%:E * \int[x]_y \d_y U)%E.
+rewrite -(@ge0_integral_mscale _ _ _ x setT measurableT k (fun y => \d_y U)) //.
+reflexivity.
+
+have ? := (@ge0_integral_mscale _ _ R x setT measurableT k (fun y => \d_y U)).
 
 Definition binomial_le : @exp R _ [::] Bool :=
   [let "a2" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in

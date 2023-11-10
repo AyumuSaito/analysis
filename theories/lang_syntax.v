@@ -277,7 +277,12 @@ Fixpoint measurable_of_typ (t : typ) : {d & measurableType d} :=
   match t with
   | Unit => existT _ _ munit
   | Bool => existT _ _ mbool
-  | Real => existT _ _ (mR R)
+  | Real => existT _ _ 
+  (* xxx *)
+  (@measure_salgebraType__canonical__measure_Measurable
+  (topology.numFieldTopology.real_pointedType R)
+           (@measurable (ocitv_display (Real.sort R))
+              (lebesgue_measure_ocitv_type__canonical__measure_SemiRingOfSets R)))
   | Pair A B => existT _ _
       [the measurableType (projT1 (measurable_of_typ A),
                            projT1 (measurable_of_typ B)).-prod%mdisp of
@@ -715,6 +720,17 @@ end.
 Lemma measurable_binomial_probability_trunc n : measurable_fun setT (binomial_probability_trunc n : _ -> pprobability _ _).
 Admitted.
 
+Lemma __ : Measurable.sort
+                 (pprobability
+                    [the measurableType (R.-ocitv.-measurable).-sigma of 
+                    salgebraType (R.-ocitv.-measurable)] R) = 
+Measurable.sort (@mtyp R (Prob Real)).
+rewrite /=.
+Set Printing All.
+(* done. *)
+Abort.
+
+Import Notations.
 Inductive evalD : forall g t, exp D g t ->
   forall f : dval R g t, measurable_fun setT f -> Prop :=
 | eval_unit g : ([TT] : exp D g _) -D> cst tt ; ktt
@@ -763,7 +779,12 @@ Inductive evalD : forall g t, exp D g t ->
                                         measurable_cst _
 
 | eval_uniform g (a b : R) (ab0 : (0 < b - a)%R) :
-  (exp_uniform a b ab0 : exp D g _) -D> cst (uniform_probability ab0) ;
+  (exp_uniform a b ab0 : exp D g _) -D> cst (uniform_probability ab0)
+   (* : @mctx R g -> (_ : pprobability _ R) *)
+  (* set
+    [the measurableType (R.-ocitv.-measurable).-sigma of 
+    salgebraType (R.-ocitv.-measurable)] -> \bar R *) 
+    ;
                                         measurable_cst _
 | eval_binomial_trunc g n e r mr :
   e -D> r ; mr ->

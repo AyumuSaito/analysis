@@ -52,7 +52,10 @@ Notation var2of3 := (measurableT_comp (@measurable_snd _ _ _ _)
                                          (@measurable_fst _ _ _ _)).
 Notation var3of3 := (@measurable_snd _ _ _ _).*)
 
-Notation mR := Real_sort__canonical__measure_Measurable.
+(* Notation mR := Real_sort__canonical__measure_Measurable. *)
+(* Notation mR R := (@measure_salgebraType__canonical__measure_Measurable (topology.numFieldTopology.real_pointedType R)
+           (@measurable (ocitv_display (Real.sort R))
+              (lebesgue_measure_ocitv_type__canonical__measure_SemiRingOfSets R))). *)
 Notation munit := Datatypes_unit__canonical__measure_Measurable.
 Notation mbool := Datatypes_bool__canonical__measure_Measurable.
 
@@ -189,16 +192,33 @@ by rewrite expr1.
 Qed.
 
 (* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
-Definition binomial_probability :=
-  @msum _ (_ R) R 
+Definition binomial_probability : set 
+ [the measurableType (R.-ocitv.-measurable).-sigma of 
+  salgebraType (R.-ocitv.-measurable)]
+   -> \bar _ :=
+  @msum _ _ R 
     (fun k => [the measure _ _ of mscale (bino_term k)
-    [the measure _ _ of @dirac _ R k%:R R]]) n.+1.
+    [the measure _ _ of @dirac _ R k%:R _]]) n.+1.
 
-HB.instance Definition _ := Measure.on binomial_probability.
+Local Close Scope ring_scope.
+
+(* HB.instance Definition _ := Measure.on binomial_probability. *)
+
+Let binomial0 : binomial_probability set0 = 0.
+Proof. exact: measure0. Qed.
+
+Let binomial_ge0 U : 0 <= binomial_probability U.
+Proof. exact: measure_ge0. Qed.
+
+Let binomial_sigma_additive : semi_sigma_additive binomial_probability.
+Proof. move=> /= F mF tF mUF; exact: measure_semi_sigma_additive. Qed.
+
+HB.instance Definition _ := isMeasure.Build _ _ _ binomial_probability
+  binomial0 binomial_ge0 binomial_sigma_additive.
 
 Let binomial_setT : binomial_probability [set: _] = 1%:E.
 Proof.
-rewrite /binomial_probability/msum/mscale/bino_term/=/mscale/=.
+rewrite /binomial_probability/=/msum/mscale/bino_term/=/mscale/=.
 under eq_bigr do rewrite diracT mule1.
 rewrite sumEFin.
 rewrite -exprDn_comm; last by rewrite /GRing.comm mulrC.
@@ -206,7 +226,7 @@ by rewrite add_onemK; congr _%:E; rewrite expr1n.
 Qed.
 
 HB.instance Definition _ :=
-  @Measure_isProbability.Build _ _ R binomial_probability binomial_setT.
+  @Measure_isProbability.Build _ _ _ binomial_probability binomial_setT.
 
 End binomial_probability.
 
@@ -216,7 +236,7 @@ Open Scope ring_scope.
 
 Lemma binomial3_2 : @binomial_probability R 3 _ (p1S 1) [set 2%:R] = (3 / 8)%:E.
 Proof. 
-rewrite /binomial_probability/msum !big_ord_recl/= big_ord0 adde0 bino_term0.
+rewrite /binomial_probability/=/msum !big_ord_recl/= big_ord0 adde0 bino_term0.
 rewrite /mscale/= !diracE /bump/=.
 repeat rewrite ?binS ?bin0 ?bin1 ?bin_small//.
 rewrite memNset//=; last by move/eqP; rewrite eqr_nat.
@@ -229,19 +249,20 @@ by field.
 Qed.
 
 End binomial_example.
-
+Import Notations.
 Section uniform_probability.
 Context (R : realType) (a b : R) (ab0 : (0 < b - a)%R).
 
-Definition uniform_probability : set R -> \bar R
+Definition uniform_probability 
+: set _ -> \bar R
   := mscale (invr_nonneg (NngNum (ltW ab0)))
     (mrestr lebesgue_measure (measurable_itv `[a, b])).
 
 (** TODO: set R -> \bar R を書くとMeasure.onが通らない **)
 (**  **)
-(* HB.instance Definition _ := Measure.on uniform_probability. *)
+HB.instance Definition _ := Measure.on uniform_probability.
 
-Let uniform0 : uniform_probability set0 = 0.
+(* Let uniform0 : uniform_probability set0 = 0.
 Proof. exact: measure0. Qed.
 
 Let uniform_ge0 U : 0 <= uniform_probability U.
@@ -251,7 +272,7 @@ Let uniform_sigma_additive : semi_sigma_additive uniform_probability.
 Proof. move=> /= F mF tF mUF; exact: measure_semi_sigma_additive. Qed.
 
 HB.instance Definition _ := isMeasure.Build _ _ _ uniform_probability
-  uniform0 uniform_ge0 uniform_sigma_additive.
+  uniform0 uniform_ge0 uniform_sigma_additive. *)
 
 Let uniform_probability_setT : uniform_probability [set: _] = 1%:E.
 Proof.
@@ -1250,11 +1271,14 @@ Section sample_and_branch.
 Import Notations.
 Context d (T : measurableType d) (R : realType).
 
+Locate Real_sort__canonical__measure_Measurable.
+Locate pprobability.
+
 (* let x = sample (bernoulli (2/7)) in
    let r = case x of {(1, _) => return (k3()), (2, _) => return (k10())} in
    return r *)
 
-Definition sample_and_branch : R.-sfker T ~> mR R :=
+Definition sample_and_branch : R.-sfker T ~> _ R :=
   letin
     (sample_cst [the probability _ _ of bernoulli p27]) (* T -> B *)
     (ite macc1of2 (ret k3) (ret k10)).
@@ -1317,8 +1341,10 @@ Context d (T : measurableType d) (R : realType).
 Let poisson4 := @poisson R 4%N.
 Let mpoisson4 := @measurable_poisson R 4%N.
 
-Definition kstaton_bus_poisson : R.-sfker (mR R) ~> mbool :=
-  kstaton_bus _ mpoisson4.
+Definition kstaton_bus_poisson : R.-sfker R
+(* xxx (Real_sort__canonical__measure_Measurable R)  *)
+~> mbool :=
+  @kstaton_bus _ _ R _ mpoisson4.
 
 Let kstaton_bus_poissonE t U : kstaton_bus_poisson t U =
   (2 / 7%:R)%:E * (poisson4 3%:R)%:E * \d_true U +
@@ -1367,7 +1393,7 @@ Let mexp1560 := @mexp_density R (ratr (15%:Q / 60%:Q)).
 
 (* 15/60 = 0.25 *)
 
-Definition kstaton_bus_exponential : R.-sfker (mR R) ~> mbool :=
+Definition kstaton_bus_exponential : R.-sfker R ~> mbool := (*xxx*)
   kstaton_bus _ mexp1560.
 
 Let kstaton_bus_exponentialE t U : kstaton_bus_exponential t U =
