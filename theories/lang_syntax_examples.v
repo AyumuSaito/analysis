@@ -513,6 +513,13 @@ Context (R : realType).
 
 Lemma a01 : 0 < 1 - 0 :> R. Proof. by []. Qed.
 
+Definition casino : @exp R _ [::] Bool :=
+  [let "p" := Sample {exp_uniform 0 1 a01} in
+   let "a1" := Sample {exp_binomial_trunc 8 [#{"p"}]} in
+   let "_" := if #{"a1"} == {5}:R then return TT else Score {0}:R in
+   let "a2" := Sample {exp_binomial_trunc 3 [#{"p"}]} in
+   return {1}:R <= #{"a2"}].
+
 Definition binomial_le : @exp R _ [::] Bool :=
   [let "a2" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in
    return {1}:R <= #{"a2"}].
