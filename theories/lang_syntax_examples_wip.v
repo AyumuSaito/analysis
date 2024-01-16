@@ -266,17 +266,20 @@ Abort.
 Lemma letin'_sample_uniform d d' (T : measurableType d)
     (T' : measurableType d') (a b : R) (ab0 : (0 < b - a)%R)
     (u : R.-sfker [the measurableType _ of (_ * T)%type] ~> T') x y :
+  measurable y ->
   letin' (sample_cst (uniform_probability ab0)) u x y =
-  (((b - a)^-1)%:E * \int[lebesgue_measure]_(x0 in `[a, b]) u (x0, x) y)%E.
+  ((b - a)^-1%:E * \int[lebesgue_measure]_(x0 in `[a, b]) u (x0, x) y)%E.
 Proof.
-rewrite letin'E/=.
-rewrite ge0_integral_mscale//=; last admit.
-transitivity (
-(((b - a)^-1)%:E * \int[lebesgue_measure]_(x0 in `[a, b]) u (x0, x) y)%E
-).
-  admit.
-by [].
-Admitted.
+move=> my; rewrite letin'E/=.
+rewrite integral_uniform//= => _ /= Y mY /=.
+have /= := measurable_kernel u _ my measurableT _ mY.
+move/measurable_ysection => /(_ R x) /=.
+set A := (X in measurable X).
+set B := (X in _ -> measurable X).
+suff : A = B by move=> ->.
+rewrite {}/A {}/B !setTI /ysection/= (*TODO: lemma?*) /preimage/=.
+by apply/seteqP; split => [z|z] /=; rewrite inE/=.
+Qed.
 
 Let weak_head fl g {t1 t2} x (e : @exp R fl g t2) (xg : x \notin dom g) :=
   exp_weak fl [::] _ (x, t1) e xg.
@@ -293,12 +296,14 @@ Proof.
 move=> s01.
 rewrite !execP_letin execP_sample execD_uniform/=.
 apply: eq_sfkernel => x U.
-rewrite 2!letin'_sample_uniform.
+rewrite !letin'_sample_uniform//.
 congr (_ * _)%E.
 apply: eq_integral => t t01.
 apply: s01.
 by rewrite inE in t01.
-Qed.
+admit.
+admit.
+Admitted.
 
 (* Lemma casino01 : execP casino0 = execP casino1.
 Proof.

@@ -422,7 +422,7 @@ Definition mfun_of_relop g r
   (f2 : @mctx R g -> @mtyp R Nat) (mf2 : measurable_fun setT f2) :
   measurable_fun [set: @mctx R g] (fun_of_relop r f1 f2).
 destruct r.
-exact: measurable_fun_len.
+exact: measurable_fun_leq.
 exact: measurable_fun_ltn.
 exact: measurable_fun_eqn.
 Defined.
