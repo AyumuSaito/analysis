@@ -433,33 +433,22 @@ move=> mU.
 rewrite /uniform_syntax execP_letin execP_sample execP_return !execD_uniform.
 rewrite exp_var'E (execD_var_erefl "p")/=.
 rewrite letin'E /=.
+rewrite integral_uniform//=; last exact: measurable_fun_dirac.
+rewrite subr0 invr1 mul1e.
 rewrite {1}/uniform_probability.
-set x := (X in mscale _ X).
-set k := (X in mscale X _).
-transitivity ((k%:num)%:E * \int[x]_y \d_y U)%E.
-  rewrite -ge0_integral_mscale //.
-  exact: measurable_fun_dirac.
-rewrite /uniform_probability /mscale /=.
-congr (_ * _)%E.
-under eq_integral do rewrite diracE.
-rewrite /=.
-rewrite /lebesgue_measure/=.
-rewrite -integral_cst.
-set f := (mrestr lebesgue_measure (measurable_itv `[0%R, 1%R])).
-admit.
-rewrite -(@ge0_integral_mscale _ _ _ x setT measurableT k (fun y => \d_y U)) //.
-rewrite /uniform_probability/mscale/=/integral//=.
-Admitted.
+rewrite /mscale/= subr0 invr1 mul1e.
+by rewrite integral_indic.
+Qed.
 
 Definition binomial_le : @exp R _ [::] Bool :=
   [let "a2" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in
-   return {1}:R <= #{"a2"}].
+   return {1}:N <= #{"a2"}].
 
 Lemma exec_binomial_le t U :
   execP binomial_le t U = ((7 / 8)%:E * \d_true U +
                           (1 / 8)%:E * \d_false U)%E.
 Proof.
-rewrite /binomial_le execP_letin execP_sample execP_return execD_rel execD_real.
+rewrite /binomial_le execP_letin execP_sample execP_return execD_rel execD_nat.
 rewrite exp_var'E (execD_var_erefl "a2") execD_binomial.
 rewrite letin'E//= /binomial_probability ge0_integral_measure_sum//=.
 rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//=.
@@ -467,39 +456,39 @@ rewrite !integral_dirac// /bump.
 rewrite !binS/= !bin0 bin1 bin2 bin_small// addn0.
 rewrite addeC adde0.
 congr (_ + _)%:E.
-have -> : (1 <= 1)%R. admit.
-have -> : (1 <= 2)%R. admit.
-have -> : (1 <= 3)%R. admit.
-rewrite -!mulrDl indicT !mul1r.
-congr (_ * _).
-rewrite /onem addn0 add0n.
-by field.
-congr (_ * _).
-by field.
-(* by rewrite ler10. *)
-Admitted.
+  rewrite !indicT !(mul0n,add0n,lt0n,mul1r)/=.
+  rewrite -!mulrDl; congr (_ * _).
+  rewrite /onem.
+  lra.
+rewrite !expr0 ltnn indicT/= !(mul1r,mul1e) /onem.
+lra.
+Qed.
 
-Definition binomial_guard : @exp R _ [::] Real :=
+Definition binomial_guard : @exp R _ [::] Nat :=
   [let "a1" := Sample {exp_binomial 3 (1 / 2)%:nng (p1S 1)} in
-   let "_" := if #{"a1"} == {1}:R then return TT else Score {0}:R in
+   let "_" := if #{"a1"} == {1}:N then return TT else Score {0}:R in
    return #{"a1"}].
 
 Lemma exec_binomial_guard t U :
-  execP binomial_guard t U = ((7 / 8)%:E * \d_1%R U +
-                          (1 / 8)%:E * \d_0%R U)%E.
+  execP binomial_guard t U = ((3 / 8)%:E * \d_1%N U(* +
+                             (1 / 8)%:E * \d_0%N U*))%E.
 Proof.
 rewrite /binomial_guard !execP_letin execP_sample execP_return execP_if.
-rewrite !exp_var'E execD_rel !(execD_var_erefl "a1") execP_return execD_unit execD_binomial execD_real execP_score execD_real.
+rewrite !exp_var'E execD_rel !(execD_var_erefl "a1") execP_return.
+rewrite execD_unit execD_binomial execD_nat execP_score execD_real.
 rewrite !letin'E//= /binomial_probability ge0_integral_measure_sum//=.
 rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//=.
-rewrite !integral_dirac// /bump.
-rewrite (* indicT *) !binS/= !bin0 bin1 bin2 bin_small// addn0 (* !mul1e *).
+rewrite !integral_dirac//.
+rewrite /bump/=.
+rewrite !binS/= !bin0 bin1 bin2 bin_small//.
+rewrite !diracT !addn0 !expr0 !subn0 !mulr1n !mul1r !expr1 !mul1e.
 rewrite !letin'E//= !iteE/= !diracE/=.
-have -> : (0 == 1)%R = false; first by admit.
-have -> : (1 == 1)%R; first by admit.
-have -> : (2 == 1)%R = false; first by admit.
-have -> : (3 == 1)%R = false; first by admit.
-rewrite addeC adde0.
-Admitted.
+rewrite !ge0_integral_mscale//=.
+rewrite !integral_dirac// !diracT//.
+rewrite !(normr0,mul0e,mule0,add0e,add0n,mul1e,adde0).
+rewrite /onem.
+congr (_%:E * _)%E.
+lra.
+Qed.
 
 End casino_example.
