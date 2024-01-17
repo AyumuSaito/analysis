@@ -290,20 +290,18 @@ Lemma execP_letin_uniform g u p
   (s0 s1 : exp P ((p, Real) :: g) u) :
   (forall (t : R) x U, 0 <= t <= 1 ->
     execP s0 (t, x) U = execP s1 (t, x) U) ->
-  execP [let p := Sample {@exp_uniform _ g 0 1 a01} in {s0}] = 
-  execP [let p := Sample {@exp_uniform _ g 0 1 a01} in {s1}].
+  forall x U, measurable U ->
+  execP [let p := Sample {@exp_uniform _ g 0 1 a01} in {s0}] x U =
+  execP [let p := Sample {@exp_uniform _ g 0 1 a01} in {s1}] x U.
 Proof.
-move=> s01.
+move=> s01 x U mU.
 rewrite !execP_letin execP_sample execD_uniform/=.
-apply: eq_sfkernel => x U.
 rewrite !letin'_sample_uniform//.
 congr (_ * _)%E.
 apply: eq_integral => t t01.
 apply: s01.
 by rewrite inE in t01.
-admit.
-admit.
-Admitted.
+Qed.
 
 (* Lemma casino01 : execP casino0 = execP casino1.
 Proof.
@@ -358,8 +356,9 @@ rewrite !letin'E/=.
 by apply/binomial_le1/andP.
 Qed. *)
 
-Lemma casino01' : execP casino0 = execP casino1'.
+Lemma casino01' y V : measurable V -> execP casino0 y V = execP casino1' y V.
 Proof.
+move=> mV.
 rewrite /casino0 /casino1.
 pose s0 := 
   [let "a1" := Sample {exp_binomial_trunc 8 [#{"p"}]} in 
@@ -371,7 +370,7 @@ pose s0 :=
    let "_" := if #{"a1"} == {5}:N then return TT else Score {0}:R in
    return {exp_bernoulli_trunc [{1}:R - {[{1}:R - #{"p"}]} ^+ {3%N}]}]. *)
 have := (@execP_letin_uniform [::] Bool "p" (s0 R (found "p" Real [::]) _ _) _).
-apply.
+apply => //.
 move=> p x U r01.
 rewrite /s0/=.
 rewrite !execP_letin !execP_sample !execD_binomial_trunc /=.
@@ -400,7 +399,7 @@ Definition test_guard : @exp R _ [::] _ := [
   return #{"p"}
 ].
 
-Lemma exec_guard t U : execP test_guard t U = ((1 / 3)%:E * @dirac _ _ true R U)%E.
+Lemma exec_guard t U : execP test_guard t U = ((1 / 3)%:E * \d_true U)%E.
 Proof.
 rewrite /test_guard 2!execP_letin execP_sample execD_bernoulli execP_if/=.
 rewrite !execP_return !exp_var'E !(execD_var_erefl "p") execD_unit execP_score execD_real/=.
@@ -411,8 +410,7 @@ by rewrite normr0 mul0e !mule0 !adde0 !diracT !mul1e.
 Qed.
 
 Lemma exec_casino t U :
-  execP casino0 t U = ((10 / 99)%:E * @dirac _ _ true R U +
-                       (1 / 99)%:E * @dirac _ _ false R U)%E .
+  execP casino0 t U = ((10 / 99)%:E * \d_true U + (1 / 99)%:E * \d_false U)%E .
 Proof.
 rewrite /casino0 !execP_letin !execP_sample execD_uniform/=.
 rewrite !execD_binomial_trunc execP_if !execP_return !execP_score/=.
@@ -422,14 +420,11 @@ rewrite (execD_var_erefl "p") (execD_var_erefl "a2")/=.
 rewrite letin'E/= /uniform_probability ge0_integral_mscale//=.
 rewrite subr0 invr1 mul1e.
 under eq_integral.
-
 Admitted.
 
 Definition uniform_syntax : @exp R _ [::] _ :=
   [let "p" := Sample {exp_uniform 0 1 a01} in
    return #{"p"}].
-
-About integralT_nnsfun.
 
 Lemma exec_uniform_syntax t U : measurable U ->
   execP uniform_syntax t U = uniform_probability a01 U.
@@ -461,8 +456,8 @@ Definition binomial_le : @exp R _ [::] Bool :=
    return {1}:R <= #{"a2"}].
 
 Lemma exec_binomial_le t U :
-  execP binomial_le t U = ((7 / 8)%:E * @dirac _ _ true R U +
-                          (1 / 8)%:E * @dirac _ _ false R U)%E.
+  execP binomial_le t U = ((7 / 8)%:E * \d_true U +
+                          (1 / 8)%:E * \d_false U)%E.
 Proof.
 rewrite /binomial_le execP_letin execP_sample execP_return execD_rel execD_real.
 rewrite exp_var'E (execD_var_erefl "a2") execD_binomial.
@@ -490,8 +485,8 @@ Definition binomial_guard : @exp R _ [::] Real :=
    return #{"a1"}].
 
 Lemma exec_binomial_guard t U :
-  execP binomial_guard t U = ((7 / 8)%:E * @dirac _ R 1%R R U +
-                          (1 / 8)%:E * @dirac _ R 0%R R U)%E.
+  execP binomial_guard t U = ((7 / 8)%:E * \d_1%R U +
+                          (1 / 8)%:E * \d_0%R U)%E.
 Proof.
 rewrite /binomial_guard !execP_letin execP_sample execP_return execP_if.
 rewrite !exp_var'E execD_rel !(execD_var_erefl "a1") execP_return execD_unit execD_binomial execD_real execP_score execD_real.
