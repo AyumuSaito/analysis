@@ -8,6 +8,10 @@ Require Import lebesgue_measure numfun lebesgue_integral kernel prob_lang.
 Require Import lang_syntax_util lang_syntax.
 From mathcomp Require Import ring lra.
 
+(******************************************************************************)
+(*  Casino example                                                            *)
+(*  some steps *)
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -24,6 +28,23 @@ Open Scope ring_scope.
 Open Scope lang_scope.
 Context (R : realType).
 Lemma a01 : 0 < 1 - 0 :> R. Proof. by []. Qed.
+
+(* guard test *)
+Definition test_guard : @exp R _ [::] _ := [
+  let "p" := Sample {exp_bernoulli (1 / 3)%:nng (p1S 2)} in
+  let "_" := if #{"p"} then return TT else Score {0}:R in
+  return #{"p"}
+].
+
+Lemma exec_guard t U : execP test_guard t U = ((1 / 3)%:E * \d_true U)%E.
+Proof.
+rewrite /test_guard 2!execP_letin execP_sample execD_bernoulli execP_if/=.
+rewrite !execP_return !exp_var'E !(execD_var_erefl "p") execD_unit execP_score execD_real/=.
+rewrite letin'E ge0_integral_measure_sum//.
+rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//= !integral_dirac//.
+rewrite !letin'E !iteE/= integral_dirac// ge0_integral_mscale//=.
+by rewrite normr0 mul0e !mule0 !adde0 !diracT !mul1e.
+Qed.
 
 (* Definition ex : exp _ [::] _ := @exp_bernoulli R [::] (1 / 2)%:nng (p1S 1).
 Example ex1 : projT1 (execD ex) tt = 1%:E. *)
@@ -390,23 +411,6 @@ congr (\int[_]_y _)%E.
 apply: funext => x0.
 rewrite !letin'E/=.
 by apply/binomial_le1'/andP.
-Qed.
-
-(* guard test *)
-Definition test_guard : @exp R _ [::] _ := [
-  let "p" := Sample {exp_bernoulli (1 / 3)%:nng (p1S 2)} in
-  let "_" := if #{"p"} then return TT else Score {0}:R in
-  return #{"p"}
-].
-
-Lemma exec_guard t U : execP test_guard t U = ((1 / 3)%:E * \d_true U)%E.
-Proof.
-rewrite /test_guard 2!execP_letin execP_sample execD_bernoulli execP_if/=.
-rewrite !execP_return !exp_var'E !(execD_var_erefl "p") execD_unit execP_score execD_real/=.
-rewrite letin'E ge0_integral_measure_sum//.
-rewrite !big_ord_recl big_ord0 !ge0_integral_mscale//= !integral_dirac//.
-rewrite !letin'E !iteE/= integral_dirac// ge0_integral_mscale//=.
-by rewrite normr0 mul0e !mule0 !adde0 !diracT !mul1e.
 Qed.
 
 Lemma exec_casino t U :
