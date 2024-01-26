@@ -192,9 +192,9 @@ HB.instance Definition _ := Probability.on bernoulli0.
 Definition bernoulli_trunc (p : R) := match sumbool_ler 0%R p with
 | inl l0p => match sumbool_ler (NngNum l0p)%:num 1%R with
   | inl lp1 => [the probability _ _ of @bernoulli R (NngNum l0p) lp1]
-  | inr _ => [the probability _ _ of bernoulli0]
+  | inr _ => bernoulli0
   end
-| inr _ => [the probability _ _ of bernoulli0]
+| inr _ => bernoulli0
 end.
 
 (*HB.instance Definition _ (p : R) := Probability.on (bernoulli_trunc p).*)
@@ -311,9 +311,7 @@ Import Notations.
     [the measure _ _ of \d_k]]). *)
 (* \sum_(k < n.+1) (bino_coef p n k) * \d_k. *)
 Definition binomial_probability : set nat -> \bar R :=
-  @msum _ _ R
-    (fun k => [the measure _ _ of mscale (bino_term k)
-    [the measure _ _ of \d_k]]) n.+1.
+  @msum _ _ R (fun k => mscale (bino_term k) \d_k) n.+1.
 
 HB.instance Definition _ := Measure.on binomial_probability.
 
@@ -610,6 +608,23 @@ apply/ereal_nondecreasing_is_cvgn => ? ? ab; apply: ge0_le_integral => //=.
 Qed.
 
 End integral_uniform.
+
+Section beta_probability.
+Context {R : realType}.
+Local Open Scope ring_scope.
+
+Definition beta a b : R :=
+  \int[lebesgue_measure]_(t in `[0, 1]) (t^+(a-1) * (1-t)^+(b-1)).
+
+Lemma beta_ge0 a b : beta a b >= 0.
+Admitted.
+
+Definition beta_probability (a b : nat) (p : {nonneg R}) (p1 : p%:num <= 1) (* : set _ -> \bar R *) :=  
+  @mscale _ _ R (p%:num^+(a-1) * (NngNum (onem_ge0 p1))%:num^+(b-1) *
+  (invr_nonneg (NngNum (beta_ge0 a b)))%:num)%:nng
+    (mrestr lebesgue_measure (measurable_itv `[0, 1])).
+
+End beta_probability.
 
 Section mscore.
 Context d (T : measurableType d) (R : realType).
