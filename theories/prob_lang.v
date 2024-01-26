@@ -624,6 +624,18 @@ Definition beta_probability (a b : nat) (p : {nonneg R}) (p1 : p%:num <= 1) (* :
   (invr_nonneg (NngNum (beta_ge0 a b)))%:num)%:nng
     (mrestr lebesgue_measure (measurable_itv `[0, 1])).
 
+(* Lemma __ : beta_probability 6 4 (p1S 2) `[0, 1] = 1%:E.
+Proof.
+rewrite /beta_probability/beta/= /mscale/=.
+rewrite lebesgue_measure_itv. *)
+
+Let H01 : (0 <= 1 :> R).
+Proof. lra. Qed.
+
+Lemma uniform_beta : (\int[uniform_probability H01]_x
+    \int[mscale (NngNum (normr_ge0 (56 * x ^+ 5 * (1 - x) ^+ 3)%R)) (measure_dirac__canonical__measure_Measure tt R)]__
+       bernoulli_trunc (1 - (1 - x) ^+ 3) U)%E = 1.
+       
 End beta_probability.
 
 Section mscore.
