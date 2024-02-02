@@ -613,12 +613,19 @@ Section beta_probability.
 Context {R : realType}.
 Local Open Scope ring_scope.
 
-Definition beta a b : R :=
-  \int[lebesgue_measure]_(t in `[0, 1]) (t^+(a-1) * (1-t)^+(b-1)).
+Definition beta a b : \bar R :=
+  \int[lebesgue_measure]_(t in `[0, 1])
+    (t%:E^+(a-1) * (1-t)%:E^+(b-1))%E.
 
-Lemma beta_ge0 a b : beta a b >= 0.
-Admitted.
+Lemma beta_ge0 a b : (0 <= beta a b)%E.
+Proof.
+rewrite /beta.
+apply: integral_ge0 => x x01.
+have /andP[x0 x1] : (0 <= x <= 1) by apply: x01.
+apply: mule_ge0; rewrite -EFin_expe; apply/exprn_ge0; lra.
+Qed.
 
+(* TODO: beta_ge0 a b : is_true (0 <= beta a b) (to remove %E) *)
 Definition beta_probability (a b : nat) (p : {nonneg R}) (p1 : p%:num <= 1) (* : set _ -> \bar R *) :=  
   @mscale _ _ R (p%:num^+(a-1) * (NngNum (onem_ge0 p1))%:num^+(b-1) *
   (invr_nonneg (NngNum (beta_ge0 a b)))%:num)%:nng
