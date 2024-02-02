@@ -629,12 +629,12 @@ Proof.
 rewrite /beta_probability/beta/= /mscale/=.
 rewrite lebesgue_measure_itv. *)
 
-Let H01 : (0 <= 1 :> R).
+Let H01 : (0 < 1 - 0 :> R).
 Proof. lra. Qed.
 
-Lemma uniform_beta : (\int[uniform_probability H01]_x
+Lemma uniform_beta U : (\int[uniform_probability H01]_x
     \int[mscale (NngNum (normr_ge0 (56 * x ^+ 5 * (1 - x) ^+ 3)%R)) (measure_dirac__canonical__measure_Measure tt R)]__
-       bernoulli_trunc (1 - (1 - x) ^+ 3) U)%E = 1.
+       bernoulli_trunc (1 - (1 - x) ^+ 3) U)%E = 1%:E.
        
 End beta_probability.
 
