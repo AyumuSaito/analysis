@@ -452,6 +452,7 @@ Inductive exp : flag -> ctx -> typ -> Type :=
 | exp_binomial_trunc g (n : nat) :
     exp D g Real -> exp D g (Prob Nat)
 | exp_uniform g (a b : R) (ab0 : (0 < b - a)%R) : exp D g (Prob Real)
+| exp_beta g (a b : nat) : exp D g (Prob Real)
 | exp_poisson g : nat -> exp D g Real -> exp D g Real
 | exp_normalize g t : exp P g t -> exp D g (Prob t)
 | exp_letin g t1 t2 str : exp P g t1 -> exp P ((str, t1) :: g) t2 ->
@@ -487,6 +488,7 @@ Arguments exp_bernoulli {R g}.
 Arguments exp_bernoulli_trunc {R g} &.
 Arguments exp_binomial {R g}.
 Arguments exp_uniform {R g} &.
+Arguments exp_beta {R g} &.
 Arguments exp_binomial_trunc {R g} &.
 Arguments exp_poisson {R g}.
 Arguments exp_normalize {R g _}.
@@ -576,6 +578,7 @@ Fixpoint free_vars k g t (e : @exp R k g t) : seq string :=
   | exp_bernoulli_trunc _ e     => free_vars e
   | exp_binomial _ _ _ _     => [::]
   | exp_uniform _ _ _ _     => [::]
+  | exp_beta _ _ _ => [::]
   | exp_binomial_trunc _ _ e     => free_vars e
   | exp_poisson _ _ e       => free_vars e
   | exp_normalize _ _ e     => free_vars e
@@ -756,6 +759,10 @@ Inductive evalD : forall g t, exp D g t ->
 | eval_uniform g (a b : R) (ab0 : (0 < b - a)%R) :
   (exp_uniform a b ab0 : exp D g _) -D> cst (uniform_probability ab0) ;
                                         measurable_cst _
+
+| eval_beta g (a b : nat) (p : R) :
+  
+  (exp_beta a b : exp D g _) -D> beta a b p ; measurable_cst _
 
 | eval_poisson g n (e : exp D g _) f mf :
   e -D> f ; mf ->

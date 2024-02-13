@@ -612,24 +612,59 @@ End integral_uniform.
 Section beta_probability.
 Context {R : realType}.
 Local Open Scope ring_scope.
+Variables (a b : nat).
 
-Definition beta a b : \bar R :=
-  \int[lebesgue_measure]_(t in `[0, 1])
-    (t%:E^+(a-1) * (1-t)%:E^+(b-1))%E.
+Definition Beta t : R :=
+  t^+(a-1) * (1-t)^+(b-1).
 
-Lemma beta_ge0 a b : (0 <= beta a b)%E.
+Definition B : R :=
+  \int[lebesgue_measure]_(t in `[0%R, 1%R]) Beta t.
+
+Set Printing All.
+
+Lemma beta_ge0 : 0 <= B.
 Proof.
-rewrite /beta.
+rewrite /B.
+apply: fine_ge0.
 apply: integral_ge0 => x x01.
 have /andP[x0 x1] : (0 <= x <= 1) by apply: x01.
-apply: mule_ge0; rewrite -EFin_expe; apply/exprn_ge0; lra.
+rewrite lee_fin.
+apply: mulr_ge0; apply/exprn_ge0; lra.
+Qed.
+
+Definition betaPDF (p : R) :=
+  if 0 <= p <= 1 then Beta p / B else 0.
+
+Lemma measurable_beta : measurable_fun setT betaPDF.
+Proof.
+rewrite /betaPDF; apply: measurable_fun_if => //.
+  apply: (measurable_fun_bool true).
+  by rewrite (_ : _ @^-1` _ = `[0, 1]%classic).
+apply: measurable_funM=> //; apply /measurable_funM => //.
+apply/measurable_fun_pow/measurable_funB => //.
 Qed.
 
 (* TODO: beta_ge0 a b : is_true (0 <= beta a b) (to remove %E) *)
-Definition beta_probability (a b : nat) (p : {nonneg R}) (p1 : p%:num <= 1) (* : set _ -> \bar R *) :=  
+Definition beta (p : {nonneg R}) (p1 : p%:num <= 1)
+: set _ -> \bar R :=  
   @mscale _ _ R (p%:num^+(a-1) * (NngNum (onem_ge0 p1))%:num^+(b-1) *
-  (invr_nonneg (NngNum (beta_ge0 a b)))%:num)%:nng
+  (invr_nonneg (NngNum beta_ge0))%:num)%:nng
     (mrestr lebesgue_measure (measurable_itv `[0, 1])).
+
+HB.instance Definition _ (p : {nonneg R}) (p1 : p%:num <= 1)
+  := Measure.on (beta p1).
+
+Let beta_setT (p : {nonneg R}) (p1 : p%:num <= 1)
+  : beta p1 [set: _] = 1%:E.
+Proof.
+rewrite /beta /mscale/= /mrestr/=.
+rewrite setTI lebesgue_measure_itv/= lte_fin.
+rewrite ltr01 oppr0 adde0 mule1 /B /Beta.
+rewrite -subr_gt0 -EFinD . -EFinM mulVf// gt_eqF// subr_gt0.
+Qed.
+
+HB.instance Definition _ := @Measure_isProbability.Build _ _ R
+  uniform_probability uniform_probability_setT.
 
 (* Lemma __ : beta_probability 6 4 (p1S 2) `[0, 1] = 1%:E.
 Proof.
@@ -639,9 +674,9 @@ rewrite lebesgue_measure_itv. *)
 Let H01 : (0 < 1 - 0 :> R).
 Proof. lra. Qed.
 
-Lemma uniform_beta U : (\int[uniform_probability H01]_x
+(* Lemma uniform_beta U : (\int[uniform_probability H01]_x
     \int[mscale (NngNum (normr_ge0 (56 * x ^+ 5 * (1 - x) ^+ 3)%R)) (measure_dirac__canonical__measure_Measure tt R)]__
-       bernoulli_trunc (1 - (1 - x) ^+ 3) U)%E = 1%:E.
+       bernoulli_trunc (1 - (1 - x) ^+ 3) U)%E = 1%:E. *)
        
 End beta_probability.
 
