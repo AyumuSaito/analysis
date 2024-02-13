@@ -285,7 +285,7 @@ Section binomial_probability.
 Context {R : realType} (n : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R).
 Local Open Scope ring_scope.
 
-(* C(n, k) * p^(n-k) * (1-p)^k *)
+(* C(n, k) * p^k * (1-p)^(n-k) *)
 Definition bino_term (k : nat) : {nonneg R} :=
   (p%:num^+k * (NngNum (onem_ge0 p1))%:num^+(n-k)%N *+ 'C(n, k))%:nng.
 
@@ -618,21 +618,25 @@ Definition Beta t : R :=
   t^+(a-1) * (1-t)^+(b-1).
 
 Definition B : R :=
-  \int[lebesgue_measure]_(t in `[0%R, 1%R]) Beta t.
+  (a-1)`!%:R * (b-1)`!%:R / (a+b-1)`!%:R.
+  (* \int[lebesgue_measure]_(t in `[0%R, 1%R]) Beta t. *)
+
+Axiom beta1 : \int[lebesgue_measure]_(x in `[0, 1]) (x^+(a-1) * (1-x)^+(b-1)) = B.
+
+(* apply: fine_ge0.
+apply: integral_ge0 => x x01.
+have /andP[x0 x1] : (0 <= x <= 1) by apply: x01.
+rewrite lee_fin.
+apply: mulr_ge0; apply/exprn_ge0; lra. *)
 
 Set Printing All.
 
 Lemma beta_ge0 : 0 <= B.
 Proof.
 rewrite /B.
-apply: fine_ge0.
-apply: integral_ge0 => x x01.
-have /andP[x0 x1] : (0 <= x <= 1) by apply: x01.
-rewrite lee_fin.
-apply: mulr_ge0; apply/exprn_ge0; lra.
-Qed.
+Admitted.
 
-Definition betaPDF (p : R) :=
+(* Definition betaPDF (p : R) :=
   if 0 <= p <= 1 then Beta p / B else 0.
 
 Lemma measurable_beta : measurable_fun setT betaPDF.
@@ -642,14 +646,28 @@ rewrite /betaPDF; apply: measurable_fun_if => //.
   by rewrite (_ : _ @^-1` _ = `[0, 1]%classic).
 apply: measurable_funM=> //; apply /measurable_funM => //.
 apply/measurable_fun_pow/measurable_funB => //.
-Qed.
+Qed. *)
 
 (* TODO: beta_ge0 a b : is_true (0 <= beta a b) (to remove %E) *)
-Definition beta (p : {nonneg R}) (p1 : p%:num <= 1)
-: set _ -> \bar R :=  
-  @mscale _ _ R (p%:num^+(a-1) * (NngNum (onem_ge0 p1))%:num^+(b-1) *
+Let p01 : 0 < 1 - 0 :> R.
+Proof. lra. Qed.
+
+(* 1/B(a, b) * \int_U p^(a-1) * (1-p)^(b-1) dx = beta *)
+Definition beta (U : set _) : \bar R :=
+  (1 / B)%:E * \int[uniform_probability p01]_(t in U) (t^+(a-1) * (1-t)^+(b-1))%:E.
+  (* \int[lebesgue_measure]_(t in U)
+  @mscale _ _ R (t^+(a-1)
+  (* * (NngNum (onem_ge0 p1))%:num^+(b-1) *)
+  *
   (invr_nonneg (NngNum beta_ge0))%:num)%:nng
-    (mrestr lebesgue_measure (measurable_itv `[0, 1])).
+    (mrestr lebesgue_measure (measurable_itv `[0, 1])) U. *)
+
+Example __ : beta `[0, 1] = 1%:E.
+Proof.
+rewrite /beta integral_mkcond.
+rewrite integral_uniform//=.
+rewrite oppr0 addr0 invr1 mul1e.
+Admitted.
 
 HB.instance Definition _ (p : {nonneg R}) (p1 : p%:num <= 1)
   := Measure.on (beta p1).
@@ -660,11 +678,11 @@ Proof.
 rewrite /beta /mscale/= /mrestr/=.
 rewrite setTI lebesgue_measure_itv/= lte_fin.
 rewrite ltr01 oppr0 adde0 mule1 /B /Beta.
-rewrite -subr_gt0 -EFinD . -EFinM mulVf// gt_eqF// subr_gt0.
-Qed.
+(* rewrite -subr_gt0 -EFinD . -EFinM mulVf// gt_eqF// subr_gt0. *)
+Admitted.
 
-HB.instance Definition _ := @Measure_isProbability.Build _ _ R
-  uniform_probability uniform_probability_setT.
+HB.instance Definition _ (p : {nonneg R}) (p1 : p%:num <= 1) := @Measure_isProbability.Build _ _ R
+  (beta p1) (beta_setT p1).
 
 (* Lemma __ : beta_probability 6 4 (p1S 2) `[0, 1] = 1%:E.
 Proof.

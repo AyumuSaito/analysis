@@ -760,9 +760,8 @@ Inductive evalD : forall g t, exp D g t ->
   (exp_uniform a b ab0 : exp D g _) -D> cst (uniform_probability ab0) ;
                                         measurable_cst _
 
-| eval_beta g (a b : nat) (p : R) :
-  
-  (exp_beta a b : exp D g _) -D> beta a b p ; measurable_cst _
+| eval_beta g (a b : nat) (p : {nonneg R}) (p1 : (p%:num <= 1)%R) :
+  (exp_beta a b : exp D g _) -D> cst (beta a b p1) ; measurable_cst _
 
 | eval_poisson g n (e : exp D g _) f mf :
   e -D> f ; mf ->
@@ -911,11 +910,11 @@ all: (rewrite {g t e u v mu mv hu}).
   inversion 1; subst g0 a0 b0.
   inj_ex H2; subst v.
   by have -> : ab0 = ab2.
-- move=> g n e0 f mf ev IH {}v {}mv.
-  inversion 1; subst g0 n0.
-  inj_ex H2; subst e0.
-  inj_ex H4; subst v.
-  by rewrite (IH _ _ H3).
+- move=> g a b p p1 {}v {}mv.
+  inversion 1. subst g0 a0 b0.
+  inj_ex H2; subst v.
+  inj_ex H4.
+  have -> : p1 = p2 by [].
 - move=> g t e0 k ev IH {}v {}mv.
   inversion 1; subst g0 t0.
   inj_ex H2; subst e0.
