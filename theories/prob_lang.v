@@ -45,7 +45,7 @@ Local Open Scope ereal_scope.
 
 (* Definition mR (R : realType) : Type := R.
 HB.instance Definition _ (R : realType) := Measurable.on (mR R).
-(* [the measurableType (R.-ocitv.-measurable).-sigma of 
+(* [the measurableType (R.-ocitv.-measurable).-sigma of
                  salgebraType (R.-ocitv.-measurable)]. *) *)
 
 Module Notations.
@@ -57,7 +57,7 @@ Notation var2of3 := (measurableT_comp (@measurable_snd _ _ _ _)
                                          (@measurable_fst _ _ _ _)).
 Notation var3of3 := (@measurable_snd _ _ _ _).*)
 
-(* Definition mR R := [the measurableType (R.-ocitv.-measurable).-sigma of 
+(* Definition mR R := [the measurableType (R.-ocitv.-measurable).-sigma of
                  salgebraType (R.-ocitv.-measurable)]. *)
 Notation munit := Datatypes_unit__canonical__measure_Measurable.
 Notation mbool := Datatypes_bool__canonical__measure_Measurable.
@@ -117,7 +117,7 @@ by rewrite /onem/= -{1}(@divrr _ n.+1%:R) ?unitfE// -mulrBl -natr1 addrK.
 Qed.
 
 Lemma p1S n : (1 / n.+1%:R)%:nng%:num <= 1 :> R.
-Proof. by rewrite ler_pdivr_mulr//= mul1r ler1n. Qed.
+Proof. by rewrite ler_pdivrMr//= mul1r ler1n. Qed.
 
 Lemma p12 : (1 / 2%:R)%:nng%:num <= 1 :> R. Proof. by rewrite p1S. Qed.
 
@@ -127,7 +127,7 @@ Lemma onem27 : `1- (2 / 7%:R) = (5%:R / 7%:R)%:nng%:num :> R.
 Proof. by apply/eqP; rewrite subr_eq/= -mulrDl -natrD divrr// unitfE. Qed.
 
 Lemma p27 : (2 / 7%:R)%:nng%:num <= 1 :> R.
-Proof. by rewrite /= lter_pdivr_mulr// mul1r ler_nat. Qed.
+Proof. by rewrite /= lter_pdivrMr// mul1r ler_nat. Qed.
 
 End constants.
 Arguments p12 {R}.
@@ -548,7 +548,7 @@ move=> mE m.
 by rewrite !integral_indic//= /uniform_probability/= /mscale/= /mrestr setIT.
 Qed.
 
-Let integral_uniform_nnsfun (f : {nnsfun measurableTypeR R >-> R})
+Let integral_uniform_nnsfun (f : {nnsfun _ >-> R})
     (a b : R) (ab0 : (0 < b - a)%R) : let m := uniform_probability ab0 in
   \int[m]_x (f x)%:E =
   (b - a)^-1%:E * \int[lebesgue_measure]_(x in `[a, b]) (f x)%:E.
@@ -577,7 +577,7 @@ apply: eq_fsbigr => r _; rewrite ge0_integralZl//.
 - by rewrite lee_fin invr_ge0// ltW.
 Qed.
 
-Lemma integral_uniform (f : measurableTypeR R -> \bar R) (a b : R)
+Lemma integral_uniform (f : _ -> \bar R) (a b : R)
     (ab0 : (0 < b - a)%R) : measurable_fun setT f -> (forall x, 0 <= f x) ->
   let m := uniform_probability ab0 in
   \int[m]_x f x =
@@ -612,39 +612,50 @@ Qed.
 
 End integral_uniform.
 
+(* definition of the beta probability specialized to natural numbers *)
 Section beta_probability.
 Local Open Scope ring_scope.
 Context {R : realType}.
 Variables a b : nat.
 
 (* unnormalized pdf for beta specialized to nat *)
-Definition ubeta_nat_pdf t : R := t ^+ a.-1 * (`1- t) ^+ b.-1.
+Definition ubeta_nat_pdf (t : R) := t ^+ a.-1 * (`1- t) ^+ b.-1.
 
 Lemma ubeta_nat_pdf_ge0 t : 0 <= t <= 1 -> 0 <= ubeta_nat_pdf t.
+Proof. by move=> /andP[t0 t1]; rewrite mulr_ge0// exprn_ge0// onem_ge0. Qed.
+
+Lemma ubeta_nat_pdf_le1 t : 0 <= t <= 1 -> ubeta_nat_pdf t <= 1.
 Proof.
-move=> /andP[t0 t1].
-by rewrite /ubeta_nat_pdf mulr_ge0// exprn_ge0// onem_ge0.
+move=> /andP[t0 t1]; rewrite /ubeta_nat_pdf.
+by rewrite mulr_ile1// ?(exprn_ge0,onem_ge0,exprn_ile1,onem_le1).
+Qed.
+
+Lemma measurable_ubeta_nat_pdf : measurable_fun setT ubeta_nat_pdf.
+Proof.
+by apply /measurable_funM => //; exact/measurable_fun_pow/measurable_funB.
 Qed.
 
 (* normalization constant *)
-Definition beta_nat_norm : R :=  a.-1`!%:R * b.-1`!%:R / (a + b).-1`!%:R.
+Definition beta_nat_norm : R := a.-1`!%:R * b.-1`!%:R / (a + b).-1`!%:R.
 
 Lemma beta_nat_normE :
   beta_nat_norm = \int[lebesgue_measure]_(x in `[0, 1]) ubeta_nat_pdf x.
 Proof.
 Admitted.
 
+Lemma beta_nat_norm_gt0 : 0 < beta_nat_norm.
+Proof.
+by rewrite /beta_nat_norm divr_gt0// ?mulr_gt0 ?ltr0n ?fact_gt0.
+Qed.
+
 Lemma beta_nat_norm_ge0 : 0 <= beta_nat_norm.
-Proof. by rewrite /beta_nat_norm divr_ge0. Qed.
+Proof. exact/ltW/beta_nat_norm_gt0. Qed.
 
 (* normalized pdf for beta specialized to nat *)
-Definition beta_nat_pdf t : R := ubeta_nat_pdf t / beta_nat_norm.
+Definition beta_nat_pdf t := ubeta_nat_pdf t / beta_nat_norm.
 
 Lemma measurable_beta_nat_pdf : measurable_fun setT beta_nat_pdf.
-Proof.
-apply: measurable_funM => //; apply /measurable_funM => //.
-exact/measurable_fun_pow/measurable_funB.
-Qed.
+Proof. by apply: measurable_funM => //; exact: measurable_ubeta_nat_pdf. Qed.
 
 Lemma beta_nat_pdf_ge0 t : 0 <= t <= 1 -> 0 <= beta_nat_pdf t.
 Proof.
@@ -656,8 +667,8 @@ Qed.
 Local Notation mu := lebesgue_measure.
 
 (* unnormalized beta specialized to nat *)
-Definition ubeta_nat U : \bar R :=
-  \int[mu]_(x in U `&` `[0, 1]) (ubeta_nat_pdf x)%:E.
+Definition ubeta_nat (U : set (measurableTypeR R)) : \bar R :=
+  \int[mu]_(x in U `&` `[0, 1](*NB: is this correct?*)) (ubeta_nat_pdf x)%:E.
 (* TODO: define as \int[uniform_probability p01]_(t in U) (ubeta_nat_pdf t)%:E ? *)
 
 Let ubeta_nat0 : ubeta_nat set0 = 0%:E.
@@ -688,10 +699,22 @@ Admitted.
 HB.instance Definition _ := isMeasure.Build _ _ _ ubeta_nat
   ubeta_nat0 ubeta_nat_ge0 ubeta_nat_sigma_additive.
 
-Definition beta_nat : set _ -> \bar R :=
-  @mscale _ _ R (invr_nonneg (NngNum beta_nat_norm_ge0)) ubeta_nat.
+Definition beta_nat (*: set [the measurableType (R.-ocitv.-measurable).-sigma of
+  salgebraType R.-ocitv.-measurable] -> \bar R*) :=
+  @mscale _ _ _ (invr_nonneg (NngNum beta_nat_norm_ge0)) ubeta_nat.
 
 HB.instance Definition _ := Measure.on beta_nat.
+
+(*Let beta_nat0 : beta_nat set0 = 0.
+Proof. exact: measure0. Qed.
+
+Let beta_nat_ge0 U : (0 <= beta_nat U)%E.
+Proof. exact: measure_ge0. Qed.
+
+Let beta_nat_sigma_additive : semi_sigma_additive beta_nat.
+Proof. move=> /= F mF tF mUF; exact: measure_semi_sigma_additive. Qed.
+
+HB.instance Definition _ := isMeasure.Build _ _ _ beta_nat beta_nat0 beta_nat_ge0 beta_nat_sigma_additive.*)
 
 Let beta_nat_setT : beta_nat setT = 1%:E.
 Proof.
@@ -702,7 +725,8 @@ rewrite beta_nat_normE /ubeta_nat setTI.
 (* TODO: doable *)
 Admitted.
 
-HB.instance Definition _ := @Measure_isProbability.Build _ _ R
+HB.instance Definition _ := @Measure_isProbability.Build _ _ _
+
   beta_nat beta_nat_setT.
 
 Lemma beta_nat01 : beta_nat `[0, 1] = 1%:E.
@@ -713,6 +737,30 @@ rewrite beta_nat_normE setIid.
 Admitted.
 
 End beta_probability.
+
+Section beta_probability11.
+Local Open Scope ring_scope.
+Context {R : realType}.
+
+Lemma ubeta_nat_pdf11 : ubeta_nat_pdf 1 1 = @cst R _ 1.
+Proof. by apply/funext => r; rewrite /ubeta_nat_pdf/= !expr0 mulr1. Qed.
+
+Lemma beta_nat_norm11 : beta_nat_norm 1 1 = 1 :> R.
+Proof. by rewrite /beta_nat_norm/= fact0 mulr1/= divff. Qed.
+
+Let a01 : 0 < 1 - 0 :> R. Proof. by []. Qed.
+
+Lemma beta11_uniform U : measurable U ->
+  beta_nat 1 1 U = uniform_probability a01 U.
+Proof.
+move=> mU; rewrite /beta_nat /uniform_probability.
+rewrite /mscale/= beta_nat_norm11 subr0 invr1 !mul1e.
+rewrite /ubeta_nat /mrestr/=.
+rewrite ubeta_nat_pdf11/= integral_cst/= ?mul1e//.
+exact: measurableI.
+Qed.
+
+End beta_probability11.
 
 Section mscore.
 Context d (T : measurableType d) (R : realType).
