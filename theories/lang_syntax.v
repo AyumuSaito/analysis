@@ -347,15 +347,15 @@ End accessor_functions.
 Arguments acc_typ {R} s n.
 Arguments measurable_acc_typ {R} s n.
 
-
 Section beta.
 Context {R : realType}.
 (* Check sample_cst (beta 6 4) : R.-sfker _ ~> R. *)
 (* Check sample_cst (beta 6 4) : R.-ker _ ~> measurableTypeR R. *)
 Check sample_cst (uniform_probability _) : R.-ker _ ~> measurableTypeR R.
+Variables a b a' b' : nat.
 
 Open Scope ring_scope.
-Lemma a01 : 0 < 1 - 0 :> R. Proof. by []. Qed.
+Let a01 : 0 < 1 - 0 :> R. Proof. by []. Qed.
 Import Notations.
 
 (* Lemma beta11_uniform :
@@ -368,27 +368,58 @@ admit.
 rewrite /mscale.
 apply: funext=> x. *)
 
-Definition beta_bern : R.-sfker munit ~> mbool := 
+Definition pa'1pb' (p : R) := ubeta_nat_pdf a'.+1 b'.+1 p.
+
+Lemma mpa'1pb' : measurable_fun setT pa'1pb'.
+Proof.
+apply: measurable_funM => //.
+by apply: measurable_fun_pow; exact: measurable_funB.
+Qed.
+
+Program Definition beta_bern : R.-sfker munit ~> mbool := 
   @letin' _ _ _ munit _ mbool R
-  (sample_cst (beta 6 4))
+  (sample_cst (beta_nat a b))
   (* (sample_cst (uniform_probability a01)) *)
-  (sample (bernoulli_trunc \o (@fst (measurableTypeR R) _)) (measurableT_comp measurable_bernoulli_trunc (measurable_acc_typ [:: Real] 0))).
+  (sample (bernoulli_trunc \o (pa'1pb' \o (@fst (measurableTypeR R) _)))
+          (measurableT_comp measurable_bernoulli_trunc _)).
+Next Obligation.
+apply: measurableT_comp.
+  exact: mpa'1pb'.
+exact: (measurable_acc_typ [:: Real] 0).
+Qed.
 
 Lemma letin'_sample_uniform d d' (T : measurableType d)
-    (T' : measurableType d') (a b : R) (ab0 : (0 < b - a)%R)
+    (T' : measurableType d') (c e : R) (ab0 : (0 < e - c)%R)
     (u : R.-sfker [the measurableType _ of (_ * T)%type] ~> T') x y :
   measurable y ->
   letin' (sample_cst (uniform_probability ab0)) u x y =
-  ((b - a)^-1%:E * \int[lebesgue_measure]_(x0 in `[a, b]) u (x0, x) y)%E.
+  ((e - c)^-1%:E * \int[lebesgue_measure]_(x0 in `[c, e]) u (x0, x) y)%E.
 Admitted.
 
-Definition uni_bern : R.-sfker munit ~> mbool := 
+Program Definition uni_bern : R.-sfker munit ~> mbool := 
   @letin' _ _ _ munit (measurableTypeR R) mbool R
   (sample_cst (uniform_probability a01))
   (* (sample_cst (uniform_probability a01)) *)
-  (sample (bernoulli_trunc \o (@fst (measurableTypeR R) _)) (measurableT_comp measurable_bernoulli_trunc (measurable_acc_typ [:: Real] 0))).
+  (sample (bernoulli_trunc \o (pa'1pb' \o (@fst (measurableTypeR R) _)))
+          (measurableT_comp measurable_bernoulli_trunc _)).
+Next Obligation.
+apply: measurableT_comp.
+  exact: mpa'1pb'.
+exact: (measurable_acc_typ [:: Real] 0).
+Qed.
 
-Lemma ex_beta_bern : beta_bern tt [set true] = (6 / 10)%:E.
+Definition Baa'bb'Bab : R := (B (a + a') (b + b')) / B a b.
+
+Lemma Baa'bb'Bab_ge0 : 0 <= Baa'bb'Bab.
+Admitted.
+
+Definition Baa'bb'Bab_nneg : {nonneg R}  := NngNum Baa'bb'Bab_ge0.
+
+Lemma Baa'bb'Bab_le1 : Baa'bb'Bab_nneg%:num <= 1.
+Admitted.
+
+Lemma ex_beta_bern : beta_bern tt [set true] =
+  sample_cst (bernoulli Baa'bb'Bab_le1) tt [set true].
 Proof.
 rewrite /beta_bern /uni_bern.
 rewrite [LHS]letin'E.
@@ -415,6 +446,73 @@ Search integral lebesgue_measure. *)
 Abort.
 
 End beta.
+
+Section beta64.
+Context {R : realType}.
+(* Check sample_cst (beta 6 4) : R.-sfker _ ~> R. *)
+(* Check sample_cst (beta 6 4) : R.-ker _ ~> measurableTypeR R. *)
+Check sample_cst (uniform_probability _) : R.-ker _ ~> measurableTypeR R.
+
+Open Scope ring_scope.
+Let a01 : 0 < 1 - 0 :> R. Proof. by []. Qed.
+Import Notations.
+
+(* Lemma beta11_uniform :
+  beta 1 1 `[0, 1] = uniform_probability a01 `[0, 1].
+Proof.
+rewrite /beta /uniform_probability.
+congr mscale.
+congr invr_nonneg.
+admit.
+rewrite /mscale.
+apply: funext=> x. *)
+
+Definition beta64_bern : R.-sfker munit ~> mbool := 
+  @letin' _ _ _ munit _ mbool R
+  (sample_cst (beta 6 4))
+  (* (sample_cst (uniform_probability a01)) *)
+  (sample (bernoulli_trunc \o (@fst (measurableTypeR R) _)) (measurableT_comp measurable_bernoulli_trunc (measurable_acc_typ [:: Real] 0))).
+
+Lemma letin'_sample_uniform64 d d' (T : measurableType d)
+    (T' : measurableType d') (a b : R) (ab0 : (0 < b - a)%R)
+    (u : R.-sfker [the measurableType _ of (_ * T)%type] ~> T') x y :
+  measurable y ->
+  letin' (sample_cst (uniform_probability ab0)) u x y =
+  ((b - a)^-1%:E * \int[lebesgue_measure]_(x0 in `[a, b]) u (x0, x) y)%E.
+Admitted.
+
+Definition uni_bern64 : R.-sfker munit ~> mbool := 
+  @letin' _ _ _ munit (measurableTypeR R) mbool R
+  (sample_cst (uniform_probability a01))
+  (* (sample_cst (uniform_probability a01)) *)
+  (sample (bernoulli_trunc \o (@fst (measurableTypeR R) _)) (measurableT_comp measurable_bernoulli_trunc (measurable_acc_typ [:: Real] 0))).
+
+Lemma ex_beta_bern64 : beta64_bern tt [set true] = (6 / 10)%:E.
+Proof.
+rewrite /beta_bern /uni_bern.
+rewrite [LHS]letin'E.
+rewrite /beta.
+rewrite ge0_integral_mscale//.
+rewrite /mscale/=/B.
+rewrite /prebeta/=.
+
+(* rewrite ge0_integral_mscale//=.
+rewrite EFinM.
+congr (_ * _)%E.
+rewrite /prebeta/=.
+Search "pow".
+rewrite subn1/=.
+transitivity (\int[(integral (uniform_probability p01))^~ (@cst R _ 1%:E)]_x bernoulli_trunc x U)%E.
+  admit.
+rewrite /bernoulli_trunc/=.
+rewrite integral_bernoulli_trunc.
+(* rewrite /B invr1 !mulr1 fact0 invr1 mul1e. *)
+rewrite /prebeta/=.
+under eq_integral.
+Search integral lebesgue_measure. *)
+Abort.
+
+End beta64.
 
 Section context.
 Variables (R : realType).
@@ -966,7 +1064,7 @@ all: (rewrite {g t e u v mu mv hu}).
   by rewrite (IH _ _ H2).
 - move=> g n p p1 {}v {}mv.
   inversion 1; subst g0 n0 p0.
-  inj_ex H2; subst v.
+  inj_ex H4; subst v.
   by have -> : p1 = p3 by [].
 - move=> g n e f mf ev IH {}v {}mv.
   inversion 1; subst g0 n0.
@@ -976,11 +1074,11 @@ all: (rewrite {g t e u v mu mv hu}).
   by rewrite (IH _ _ H3).
 - move=> g a b ab0 {}v {}mv.
   inversion 1; subst g0 a0 b0.
-  inj_ex H2; subst v.
+  inj_ex H4; subst v.
   by have -> : ab0 = ab2.
-- move=> g a b {}v {}mv.
-  inversion 1. subst g0 a0 b0.
-  by inj_ex H2; subst v. (* TODO: beta *)
+- (* TODO: beta *) move=> g a b {}v {}mv.
+  inversion 1; subst g0 a0 b0.
+  by inj_ex H4; subst v.
 - move=> g t e k mk ev IH {}v {}mv.
   inversion 1; subst g0 t.
   inj_ex H2; subst e0.
@@ -1124,7 +1222,7 @@ all: rewrite {g t e u v eu}.
   by rewrite (IH _ _ H2).
 - move=> g n p p1 {}v {}mv.
   inversion 1; subst g0 n0 p0.
-  inj_ex H2; subst v.
+  inj_ex H4; subst v.
   by have -> : p1 = p3 by [].
 - move=> g n e f mf ev IH {}v {}mv.
   inversion 1; subst g0 n0.
@@ -1134,11 +1232,11 @@ all: rewrite {g t e u v eu}.
   by rewrite (IH _ _ H3).
 - move=> g a b ab0 {}v {}mv.
   inversion 1; subst g0 a0 b0.
-  inj_ex H2; subst v.
+  inj_ex H4; subst v.
   by have -> : ab0 = ab2.
-- move=> g a b {}v {}mv.
+- (* TODO: beta case*) move=> g a b {}v {}mv.
   inversion 1; subst g0 a0 b0.
-  by inj_ex H2; subst v.
+  by inj_ex H4; subst v.
 - move=> g n e f mf ev IH {}v {}mv.
   inversion 1; subst g0 n0.
   inj_ex H2; subst e0.
