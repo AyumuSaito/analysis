@@ -5,6 +5,7 @@ From mathcomp.classical Require Import mathcomp_extra boolp classical_sets.
 From mathcomp.classical Require Import functions cardinality fsbigop.
 Require Import signed reals ereal topology normedtype sequences esum measure.
 Require Import lebesgue_measure numfun lebesgue_integral kernel prob_lang.
+Require Import charge.
 Require Import lang_syntax_util lang_syntax.
 From mathcomp Require Import ring lra.
 
@@ -66,13 +67,15 @@ Let p610 : ((6 / 10%:R)%:nng : {nonneg R})%:num <= 1.
 Proof. admit. Admitted.
 
 Lemma beta_bernoulli :
-  @execP R [::] _ [let "p" := Sample {exp_beta 6 4} in Sample {exp_bernoulli_trunc [#{"p"}]}] =
+  @execP R [::] _ 
+  [let "p" := Sample {exp_beta 6 4} in Sample {exp_bernoulli_trunc [#{"p"}]}] =
   execP [Sample {@exp_bernoulli _ _ (6 / 10%:R)%:nng p610}].
 Proof.
 rewrite execP_letin !execP_sample !execD_beta_nat !execD_bernoulli/=.
 rewrite execD_bernoulli_trunc exp_var'E !(execD_var_erefl "p")/=.
 apply: eq_sfkernel=> x U.
 rewrite letin'E/=.
+rewrite integral_beta_nat_f.
 rewrite /beta_nat/mscale/=.
 transitivity (bernoulli_trunc ((@beta_nat_norm R 7 4) / (@beta_nat_norm R 6 4)) U); last first.
   (* congr (bernoulli_trunc _ _). *)
@@ -238,6 +241,18 @@ congr (_ * _)%E.
 apply: eq_integral => p p01.
 apply: s01.
 by rewrite inE in p01.
+Qed.
+
+Lemma congr_letin1 g t1 t2 str (e1 e2 : @exp _ _ g t1)
+(e : @exp _ _ (_ :: g) t2) :
+  (forall y V, execP e1 y V = execP e2 y V) ->
+  forall x U, measurable U ->
+  @execP R g t2 [let str := e1 in e] x U =
+  @execP R g t2 [let str := e2 in e] x U.
+Proof.
+move=> He.
+apply eq_sfkernel in He.
+by rewrite !execP_letin He.
 Qed.
 
 Lemma congr_letin g t1 t2 str (e : @exp _ _ _ t1) (e1 e2 : @exp _ _ (_ :: g) t2) x U :
@@ -431,11 +446,188 @@ apply/exprn_ge0.
 by rewrite subr_ge0.
 Qed.
 
+Definition casino2' : @exp R _ [::] _ :=
+  [Normalize
+   let "p" := Sample {exp_beta 1 1} in 
+   let "_" := Score
+    {[{56}:R * #{"p"} ^+ {5%nat} * {[{1}:R - #{"p"}]} ^+ {3%nat}]} in
+   Sample {exp_bernoulli_trunc [{1}:R - {[{1}:R - #{"p"}]} ^+ {3%nat}]}].
+
+Lemma uniform_beta11 U :
+  uniform_probability a01 U = beta_nat 1 1 U.
+Proof.
+(* move=> mU. *)
+rewrite /uniform_probability /mscale/= subr0 invr1 mul1e.
+rewrite /beta_nat /ubeta_nat.
+rewrite /mscale/= /beta_nat_norm/=.
+rewrite factE/= !mul1r !invr1 mul1e.
+rewrite /ubeta_nat /ubeta_nat_pdf /ubeta_nat_pdf'.
+under eq_integral do rewrite !expr0 mulr1.
+rewrite integral_cst.
+  by rewrite mul1e.
+apply: measurableI.
+admit.
+Admitted.
+
+Lemma casino22' :
+  @execD R [::] _ casino2 = @execD R [::] _ casino2'.
+Proof.
+apply: eq_execD.
+f_equal.
+apply: congr_normalize => x U.
+apply: congr_letin1 => // y V.
+rewrite !execP_sample execD_uniform execD_beta_nat/=.
+apply: uniform_beta11.
+Qed.
+
 Definition casino3 : @exp R _ [::] _ :=
   [Normalize
    let "_" := Score {1 / 9}:R in
    let "p" := Sample {exp_beta 6 4} in
    Sample {exp_bernoulli_trunc [{1}:R - {[{1}:R - #{"p"}]} ^+ {3%nat}]}].
+
+Local Notation mu := lebesgue_measure.
+(* 
+Lemma ubeta_nat_dom_mu a b : @ubeta_nat R a b `<< mu.
+Proof.
+rewrite /measure_dominates/=. *)
+
+Lemma integral_ubeta_nat_cst a b U :
+  measurable U ->
+  @ubeta_nat R a b `<< mu ->
+  (ubeta_nat a b).-integrable U (cst 1%E) ->
+  (\int[ubeta_nat a b]_(x in U) (cst 1 x) =
+  \int[mu]_(x in U `&` `[0%R, 1%R]) ((ubeta_nat_pdf a b x)%:E) :> \bar R)%E.
+Proof.
+move=> mU Bdom Binte.
+rewrite -(Radon_Nikodym_change_of_variables Bdom mU Binte).
+under eq_integral do rewrite mul1e.
+by rewrite -Radon_Nikodym_integral.
+Qed.
+
+Lemma integral_ubeta_nat_f a b f U :
+  measurable U ->
+  (@ubeta_nat R a b `<< mu) ->
+  (* (forall x, (0 <= f x)%E) -> *)
+  (\int[ubeta_nat a b]_(x in U) f x =
+  \int[mu]_(x in U `&` `[0%R, 1%R])
+    (f x * (x ^+ a.-1 * `1-x ^+ b.-1)%:E) :> \bar R)%E.
+Proof.
+move=> mU Bdom.
+rewrite -(Radon_Nikodym_change_of_variables Bdom mU).
+under eq_integral => x _.
+  rewrite /Radon_Nikodym.
+  case: pselect => ? //.
+  rewrite -Radon_NikodymE.
+  over.
+rewrite //=.
+(* integral (_ * _)%E *)
+Admitted.
+
+Lemma integral_beta_nat_f a b f U :
+  measurable U ->
+  (@beta_nat R a b `<< mu) ->
+  (\int[beta_nat a b]_(x in U) f x =
+  \int[mu]_(x in U `&` `[0%R, 1%R])
+    (f x * (beta_nat_pdf a b x)%:E) :> \bar R)%E.
+Proof.
+move=> mU Bdom.
+rewrite -(Radon_Nikodym_change_of_variables Bdom mU).
+under eq_integral => x _.
+  rewrite /Radon_Nikodym.
+  case: pselect => ? //.
+  rewrite -Radon_NikodymE.
+  over.
+rewrite //=.
+(* integral (_ * _)%E *)
+Admitted.
+
+Lemma beta_bern610 :
+  @execP R [::] _ 
+  [let "p" := Sample {exp_beta 6 4} in Sample {exp_bernoulli_trunc [#{"p"}]}] =
+  execP [Sample {exp_bernoulli_trunc [{6 / 10}:R]}].
+Proof.
+rewrite execP_letin !execP_sample !execD_beta_nat !execD_bernoulli_trunc/=.
+rewrite execD_real exp_var'E !(execD_var_erefl "p")/=.
+apply: eq_sfkernel=> x U.
+rewrite letin'E/=.
+rewrite integral_beta_nat_f.
+under eq_integral => y _.
+  rewrite bernoulli_truncE.
+  rewrite muleC muleDr// !muleA muleC [X in _ + X]muleC.
+  over.
+  admit.
+rewrite /= bernoulli_truncE.
+rewrite integralD.
+congr (_ + _)%E.
+rewrite integralZl.
+rewrite muleC.
+congr (_ * _)%E.
+rewrite /= setTI.
+
+rewrite /beta_nat_pdf /ubeta_nat_pdf/=.
+
+integral (_ + _)
+  rewrite /beta_nat_pdf/ubeta_nat_pdf/ubeta_nat_pdf'/=.
+rewrite /beta_nat/mscale/=.
+transitivity (bernoulli_trunc ((@beta_nat_norm R 7 4) / (@beta_nat_norm R 6 4)) U); last first.
+  (* congr (bernoulli_trunc _ _). *)
+  (* rewrite /beta_nat_norm/= factE/=; lra. *)
+(* apply: beta_nat_bern_bern. *)
+Admitted.
+
+Lemma casino23 :
+  @execD R [::] _ casino2' = @execD R [::] _ casino3.
+Proof.
+apply: eq_execD.
+f_equal.
+apply: congr_normalize => x U.
+rewrite !execP_letin !execP_sample !execP_score !execD_beta_nat.
+rewrite !execD_bernoulli_trunc/= !(@execD_bin _ _ binop_mult).
+rewrite !execD_pow !(@execD_bin _ _ binop_minus) !execD_real/=.
+rewrite !execD_pow !(@execD_bin _ _ binop_minus) !execD_real/=.
+rewrite !exp_var'E !(execD_var_erefl "p")/=.
+rewrite !letin'E !ge0_integral_mscale//=.
+rewrite /beta_nat_norm/= fact0 !mul1r !invr1 mul1e.
+under eq_integral => y _.
+  rewrite letin'E/= ge0_integral_mscale//=.
+  rewrite integral_dirac// diracE mem_set//= mul1e.
+  over.
+rewrite integral_dirac// diracT/= mul1e.
+rewrite letin'E ge0_integral_mscale//=.
+rewrite /beta_nat_norm/= ger0_norm//.
+rewrite !muleA.
+under eq_integral => y _.
+  rewrite -mulrA normrM ger0_norm; last by lra.
+  over.
+rewrite /=.
+transitivity ((56%:E * \int[ubeta_nat 1 1]_y ((normr (y ^+ 5 * (1 - y) ^+ 3))%:E * bernoulli_trunc (1 - (1 - y) ^+ 3) U))%E :> \bar R).
+  admit.
+congr (_ * _)%E.
+congr _%:E.
+  rewrite factE/=; lra.
+under eq_integral => y _.
+  rewrite ger0_norm.
+  over.
+  admit.
+rewrite /=.
+rewrite integral_ubeta_nat_f/=.
+transitivity ((\int[mu]_(x0 in `[0%R, 1%R]) ((x0 ^+ 5 * `1-x0 ^+ 3)%:E * bernoulli_trunc (1 - (1 - x0) ^+ 3) U))%E :> \bar R).
+rewrite !setTI.
+apply: eq_integral => y _.
+rewrite !expr0 mulr1 mule1 /onem.
+congr (_ * _)%E.
+rewrite integral_ubeta_nat_f.
+rewrite setTI.
+under eq_integral do rewrite muleC.
+rewrite //.
+admit.
+admit.
+by [].
+admit.
+admit.
+rewrite /=.
+Admitted.
 
 Lemma casino34' U :
   @execP R [::] _ [let "p" := Sample {exp_beta 6 4} in
@@ -453,7 +645,11 @@ transitivity (beta_nat_bern 6 4 0 3 tt U : \bar R).
   rewrite expr0.
   by rewrite mul1r.
 rewrite bernoulli_truncE; last by lra.
-rewrite beta_nat_bern_bern/= /bernoulli/=.
+rewrite /beta_nat_bern letin'E/=.
+rewrite integral_beta_nat_f//.
+rewrite /ubeta_nat_pdf /beta_nat_pdf/=.
+under eq_integral => x _.
+  rewrite bernoulli_truncE.
 rewrite measure_addE/= /mscale/=.
 congr (_ * _ + _ * _)%:E; rewrite /onem.
   rewrite /Baa'bb'Bab /beta_nat_norm/=.

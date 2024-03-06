@@ -731,6 +731,15 @@ Qed.
 HB.instance Definition _ := isMeasure.Build _ _ _ ubeta_nat
   ubeta_nat0 ubeta_nat_ge0 ubeta_nat_sigma_additive.
 
+Let ubeta_nat_setT : ubeta_nat setT = 1%:E.
+Proof.
+rewrite /ubeta_nat /ubeta_nat_pdf /ubeta_nat_pdf'.
+rewrite setTI.
+Admitted.
+
+HB.instance Definition _ := @Measure_isProbability.Build _ _ _
+  ubeta_nat ubeta_nat_setT.
+  
 Definition beta_nat (*: set [the measurableType (R.-ocitv.-measurable).-sigma of
   salgebraType R.-ocitv.-measurable] -> \bar R*) :=
   @mscale _ _ _ (invr_nonneg (NngNum (beta_nat_norm_ge0 a b))) ubeta_nat.
