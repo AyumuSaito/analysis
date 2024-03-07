@@ -453,22 +453,6 @@ Definition casino2' : @exp R _ [::] _ :=
     {[{56}:R * #{"p"} ^+ {5%nat} * {[{1}:R - #{"p"}]} ^+ {3%nat}]} in
    Sample {exp_bernoulli_trunc [{1}:R - {[{1}:R - #{"p"}]} ^+ {3%nat}]}].
 
-Lemma uniform_beta11 U :
-  uniform_probability a01 U = beta_nat 1 1 U.
-Proof.
-(* move=> mU. *)
-rewrite /uniform_probability /mscale/= subr0 invr1 mul1e.
-rewrite /beta_nat /ubeta_nat.
-rewrite /mscale/= /beta_nat_norm/=.
-rewrite factE/= !mul1r !invr1 mul1e.
-rewrite /ubeta_nat /ubeta_nat_pdf /ubeta_nat_pdf'.
-under eq_integral do rewrite !expr0 mulr1.
-rewrite integral_cst.
-  by rewrite mul1e.
-apply: measurableI.
-admit.
-Admitted.
-
 Lemma casino22' :
   @execD R [::] _ casino2 = @execD R [::] _ casino2'.
 Proof.
@@ -477,8 +461,9 @@ f_equal.
 apply: congr_normalize => x U.
 apply: congr_letin1 => // y V.
 rewrite !execP_sample execD_uniform execD_beta_nat/=.
-apply: uniform_beta11.
-Qed.
+rewrite beta11_uniform//.
+admit.
+Admitted.
 
 Definition casino3 : @exp R _ [::] _ :=
   [Normalize
@@ -492,36 +477,50 @@ Lemma ubeta_nat_dom_mu a b : @ubeta_nat R a b `<< mu.
 Proof.
 rewrite /measure_dominates/=. *)
 
-Lemma integral_ubeta_nat_cst a b U :
-  measurable U ->
+Lemma integral_ubeta_nat_cst a b :
+  (* measurable U -> *)
   @ubeta_nat R a b `<< mu ->
-  (ubeta_nat a b).-integrable U (cst 1%E) ->
-  (\int[ubeta_nat a b]_(x in U) (cst 1 x) =
-  \int[mu]_(x in U `&` `[0%R, 1%R]) ((ubeta_nat_pdf a b x)%:E) :> \bar R)%E.
+  (* (@ubeta_nat R a b).-integrable U (cst 1%E) -> *)
+  (\int[ubeta_nat a b]_x (cst 1 x) =
+  \int[mu]_(x in `[0%R, 1%R]) ((ubeta_nat_pdf a b x)%:E) :> \bar R)%E.
 Proof.
-move=> mU Bdom Binte.
-rewrite -(Radon_Nikodym_change_of_variables Bdom mU Binte).
+move=> Bdom.
+rewrite -(Radon_Nikodym_change_of_variables Bdom).
 under eq_integral do rewrite mul1e.
-by rewrite -Radon_Nikodym_integral.
-Qed.
+rewrite -Radon_Nikodym_integral /=.
+  by rewrite /ubeta_nat setTI.
+  apply: Bdom.
+  rewrite //.
+  rewrite //.
+  admit.
+Admitted.
 
-Lemma integral_ubeta_nat_f a b f U :
-  measurable U ->
+(* Check [the charge _ _ of charge_of_finite_measure (ubeta_nat 1 2)]. *)
+
+Lemma integral_ubeta_nat_f a b (f : R -> \bar R) :
+  (* measurable U -> *)
+  measurable_fun setT f -> (forall x, (0 <= f x)%E) ->
   (@ubeta_nat R a b `<< mu) ->
   (* (forall x, (0 <= f x)%E) -> *)
-  (\int[ubeta_nat a b]_(x in U) f x =
-  \int[mu]_(x in U `&` `[0%R, 1%R])
-    (f x * (x ^+ a.-1 * `1-x ^+ b.-1)%:E) :> \bar R)%E.
+  (\int[ubeta_nat a b]_(x in `[0%R, 1%R]) f x =
+  \int[mu]_(x in `[0%R, 1%R])
+    ((ubeta_nat_pdf a b x)%:E * f x) :> \bar R)%E.
 Proof.
-move=> mU Bdom.
-rewrite -(Radon_Nikodym_change_of_variables Bdom mU).
-under eq_integral => x _.
-  rewrite /Radon_Nikodym.
-  case: pselect => ? //.
-  rewrite -Radon_NikodymE.
-  over.
-rewrite //=.
-(* integral (_ * _)%E *)
+move=> mf f0 numu.
+rewrite -(Radon_Nikodym_change_of_variables numu) /=.
+rewrite (@Radon_NikodymE _ _ R [the charge _ _ of charge_of_finite_measure (ubeta_nat a b)] mu).
+rewrite Radon_Nikodym0.
+set ra := Radon_Nikodym _ _.
+have Rax: forall x, ra x = (ubeta_nat_pdf a b x)%:E.
+  rewrite /ra/Radon_Nikodym.
+  case: pselect => g /=.
+  case: cid => //= h [? ? H3].
+  rewrite /ubeta_nat_pdf/ubeta_nat_pdf'/=.
+  rewrite /ubeta_nat in H3.
+  admit.
+  admit.
+apply: eq_integral => x _.
+by rewrite Rax muleC.
 Admitted.
 
 Lemma integral_beta_nat_f a b f U :
@@ -564,11 +563,18 @@ rewrite integralZl.
 rewrite muleC.
 congr (_ * _)%E.
 rewrite /= setTI.
+rewrite /beta_nat_pdf.
+rewrite /ubeta_nat_pdf/ubeta_nat_pdf'/=.
+transitivity (\int[@mu R]_(x0 in `[0%R, 1%R])  
+  ((ubeta_nat_pdf 7 4 x0 / beta_nat_norm 6 4)%:E))%E.
+apply: eq_integral => p _.
+rewrite muleC -EFinM.
+rewrite -[X in X * _]divr1 mulf_div.
+congr (_ / _)%:E; last by rewrite mul1r.
+by rewrite /ubeta_nat_pdf/= /ubeta_nat_pdf' mulrA -exprS.
 
-rewrite /beta_nat_pdf /ubeta_nat_pdf/=.
-
-integral (_ + _)
-  rewrite /beta_nat_pdf/ubeta_nat_pdf/ubeta_nat_pdf'/=.
+(* integral (_ + _) *)
+  
 rewrite /beta_nat/mscale/=.
 transitivity (bernoulli_trunc ((@beta_nat_norm R 7 4) / (@beta_nat_norm R 6 4)) U); last first.
   (* congr (bernoulli_trunc _ _). *)
