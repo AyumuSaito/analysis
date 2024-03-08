@@ -505,7 +505,7 @@ rewrite /ubeta_nat_pdf.
 rewrite /ubeta_nat_pdf'. (* TODO: needs 0 <= t <= 1 *)
 Admitted.
 
-Lemma integral_ubeta_nat :
+Lemma integral_ubeta_nat' :
  (\int[ubeta_nat a b]_x (ubeta_nat_pdf a'.+1 b'.+1 x)%:E =
   \int[mu]_(x in `[0%R, 1%R])
       (x ^+ a'.-1 * `1-x ^+ b'.-1 * x ^+ a * `1-x ^+ b)%:E :> \bar R)%E.
@@ -587,7 +587,7 @@ congr adde.
     \int[mu]_(x in `[(0:R)%R, (1:R)%R]%classic)
        ((x ^+ a'.-1 * (`1- x) ^+ b'.-1 * x ^+ a * (`1- x) ^+ b)%:E)
   )%E.
-    by rewrite integral_ubeta_nat.
+    by rewrite integral_ubeta_nat'.
   transitivity (
     (\int[mu]_(x in `[0%R, 1%R])
         ((x ^+ (a + a').-1 * `1-x ^+ (b + b').-1)%:E))%E : \bar R).
@@ -610,7 +610,7 @@ rewrite {1}/ubeta_nat setTI.
 rewrite EFinB.
 congr (_ - _)%E.
   by rewrite -beta_nat_normE.
-rewrite integral_ubeta_nat//.
+rewrite integral_ubeta_nat'//.
 rewrite beta_nat_normE /ubeta_nat_pdf.
 rewrite /ubeta_nat_pdf'.
 under eq_integral => x _.

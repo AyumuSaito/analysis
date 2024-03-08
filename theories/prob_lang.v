@@ -5,7 +5,7 @@ From mathcomp Require Import rat.
 From mathcomp Require Import mathcomp_extra boolp classical_sets.
 From mathcomp Require Import functions cardinality fsbigop.
 Require Import reals ereal signed topology normedtype sequences esum measure.
-Require Import lebesgue_measure numfun lebesgue_integral exp kernel.
+Require Import charge lebesgue_measure numfun lebesgue_integral exp kernel.
 From mathcomp Require Import ring lra.
 
 (******************************************************************************)
@@ -808,6 +808,79 @@ exact: measurableI.
 Qed.
 
 End beta_probability11.
+
+Section integral_beta.
+Context (R : realType).
+
+Local Notation mu := lebesgue_measure.
+
+Lemma integral_ubeta_nat_cst a b :
+  @ubeta_nat R a b `<< mu ->
+  \int[ubeta_nat a b]_x (cst 1 x) =
+  \int[mu]_(x in `[0%R, 1%R]) ((ubeta_nat_pdf a b x)%:E) :> \bar R.
+Proof.
+move=> Bdom.
+rewrite -(Radon_Nikodym_change_of_variables Bdom).
+under eq_integral do rewrite mul1e.
+rewrite -Radon_Nikodym_integral /=.
+  by rewrite /ubeta_nat setTI.
+  apply: Bdom.
+  rewrite //.
+  rewrite //.
+  admit.
+Admitted.
+
+Lemma integralMl f g1 g2 A : (forall x, g1 x = (g2 x)%:E) ->
+  \int[mu]_(x in A) (f x * g1 x) =
+  \int[mu]_(x in A) (f x * (g2 x)%:E) :> \bar R.
+Proof.
+move=> Hg.
+apply: eq_integral => x _.
+by rewrite Hg.
+Qed.
+
+Lemma ubeta_nat_dom a b : (@ubeta_nat R a b `<< mu).
+Proof.
+apply: (@measure_dominates_trans _ _ _ _ (@ubeta_nat R 1 1)).
+  admit.
+rewrite /measure_dominates /ubeta_nat/=.
+rewrite //.
+Admitted.
+
+Lemma integral_ubeta_nat (a b : nat) f :
+  \int[ubeta_nat a b]_x f x =
+  (* \int[mu]_x ((f x)%:E * (ubeta_nat_pdf a b x)%:E) :> \bar R. *)
+  \int[mu]_(x in `[0%R, 1%R]) (f x * ubeta_nat_pdf a b x)%:E) :> \bar R.
+Proof.
+rewrite -(Radon_Nikodym_change_of_variables (ubeta_nat_dom a b)) //=.
+(* apply: integralMl => x.
+rewrite Radon_NikodymE => ?.
+  apply: (ubeta_nat_dom a b).
+case: cid => /= h [? ? Hp].
+rewrite /ubeta_nat in Hp. *)
+Admitted.
+
+Let beta_nat_dom a b : (@beta_nat R a b `<< mu).
+Proof.
+apply: (@measure_dominates_trans _ _ _ _ (@beta_nat R 1 1)).
+  admit.
+rewrite /measure_dominates /ubeta_nat/=.
+rewrite //.
+Admitted.
+
+Lemma integral_beta_nat (a b : nat) f :
+  \int[beta_nat a b]_x f x =
+  \int[mu]_(x in `[0%R, 1%R]) (f x * (beta_nat_pdf a b x)%:E) :> \bar R.
+Proof.
+rewrite -(Radon_Nikodym_change_of_variables (beta_nat_dom a b)) //=.
+(* apply: integralMl => x.
+rewrite Radon_NikodymE => ?.
+  apply: (beta_nat_dom a b).
+case: cid => /= h [? ? Hp].
+rewrite /ubeta_nat in Hp. *)
+Admitted.
+
+End integral_beta.
 
 Section mscore.
 Context d (T : measurableType d) (R : realType).
