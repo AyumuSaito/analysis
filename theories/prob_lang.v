@@ -850,7 +850,7 @@ Admitted.
 Lemma integral_ubeta_nat (a b : nat) f :
   \int[ubeta_nat a b]_x f x =
   (* \int[mu]_x ((f x)%:E * (ubeta_nat_pdf a b x)%:E) :> \bar R. *)
-  \int[mu]_(x in `[0%R, 1%R]) (f x * ubeta_nat_pdf a b x)%:E) :> \bar R.
+  \int[mu]_(x in `[0%R, 1%R]) (f x * (ubeta_nat_pdf a b x)%:E) :> \bar R.
 Proof.
 rewrite -(Radon_Nikodym_change_of_variables (ubeta_nat_dom a b)) //=.
 (* apply: integralMl => x.
