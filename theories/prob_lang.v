@@ -690,6 +690,11 @@ Definition ubeta_nat (U : set (measurableTypeR R)) : \bar R :=
   \int[mu]_(x in U `&` `[0, 1](*NB: is this correct?*)) (ubeta_nat_pdf x)%:E.
 (* TODO: define as \int[uniform_probability p01]_(t in U) (ubeta_nat_pdf t)%:E ? *)
 
+Lemma ubeta_natE U :
+  (ubeta_nat U =
+  \int[mu]_(x in U `&` `[0%R, 1%R]) (ubeta_nat_pdf x)%:E :> \bar R)%E.
+Proof. by []. Qed.
+
 Let ubeta_nat0 : ubeta_nat set0 = 0%:E.
 Proof. by rewrite /ubeta_nat set0I integral_set0. Qed.
 
@@ -731,15 +736,6 @@ Qed.
 HB.instance Definition _ := isMeasure.Build _ _ _ ubeta_nat
   ubeta_nat0 ubeta_nat_ge0 ubeta_nat_sigma_additive.
 
-Let ubeta_nat_setT : ubeta_nat setT = 1%:E.
-Proof.
-rewrite /ubeta_nat /ubeta_nat_pdf /ubeta_nat_pdf'.
-rewrite setTI.
-Admitted.
-
-HB.instance Definition _ := @Measure_isProbability.Build _ _ _
-  ubeta_nat ubeta_nat_setT.
-  
 Definition beta_nat (*: set [the measurableType (R.-ocitv.-measurable).-sigma of
   salgebraType R.-ocitv.-measurable] -> \bar R*) :=
   @mscale _ _ _ (invr_nonneg (NngNum (beta_nat_norm_ge0 a b))) ubeta_nat.
@@ -755,19 +751,6 @@ Proof. move=> /= F mF tF mUF; exact: measure_semi_sigma_additive. Qed.
 
 HB.instance Definition _ := isMeasure.Build _ _ _ beta_nat
   beta_nat0 beta_nat_ge0 beta_nat_sigma_additive.
-
-(* HB.instance Definition _ := Measure.on beta_nat. *)
-
-(*Let beta_nat0 : beta_nat set0 = 0.
-Proof. exact: measure0. Qed.
-
-Let beta_nat_ge0 U : (0 <= beta_nat U)%E.
-Proof. exact: measure_ge0. Qed.
-
-Let beta_nat_sigma_additive : semi_sigma_additive beta_nat.
-Proof. move=> /= F mF tF mUF; exact: measure_semi_sigma_additive. Qed.
-
-HB.instance Definition _ := isMeasure.Build _ _ _ beta_nat beta_nat0 beta_nat_ge0 beta_nat_sigma_additive.*)
 
 Let beta_nat_setT : beta_nat setT = 1%:E.
 Proof.
@@ -814,70 +797,104 @@ Context (R : realType).
 
 Local Notation mu := lebesgue_measure.
 
-Lemma integral_ubeta_nat_cst a b :
-  @ubeta_nat R a b `<< mu ->
-  \int[ubeta_nat a b]_x (cst 1 x) =
-  \int[mu]_(x in `[0%R, 1%R]) ((ubeta_nat_pdf a b x)%:E) :> \bar R.
-Proof.
-move=> Bdom.
-rewrite -(Radon_Nikodym_change_of_variables Bdom).
-under eq_integral do rewrite mul1e.
-rewrite -Radon_Nikodym_integral /=.
-  by rewrite /ubeta_nat setTI.
-  apply: Bdom.
-  rewrite //.
-  rewrite //.
-  admit.
-Admitted.
-
-Lemma integralMl f g1 g2 A : (forall x, g1 x = (g2 x)%:E) ->
+Lemma integralMl f g1 g2 A :
+measurable A -> measurable_fun A f ->
+  measurable_fun A g1 -> measurable_fun A g2 ->
+(ae_eq mu A g1 (EFin \o g2)) ->
   \int[mu]_(x in A) (f x * g1 x) =
   \int[mu]_(x in A) (f x * (g2 x)%:E) :> \bar R.
 Proof.
-move=> Hg.
-apply: eq_integral => x _.
-by rewrite Hg.
+move=> mA mf mg1 mg2 Hg.
+apply: ae_eq_integral => //.
+    by apply: emeasurable_funM.
+  apply: emeasurable_funM => //.
+  by apply/EFin_measurable_fun.
+by apply: ae_eq_mul2l.
 Qed.
-
-Lemma ubeta_nat_dom a b : (@ubeta_nat R a b `<< mu).
-Proof.
-apply: (@measure_dominates_trans _ _ _ _ (@ubeta_nat R 1 1)).
-  admit.
-rewrite /measure_dominates /ubeta_nat/=.
-rewrite //.
-Admitted.
-
-Lemma integral_ubeta_nat (a b : nat) f :
-  \int[ubeta_nat a b]_x f x =
-  (* \int[mu]_x ((f x)%:E * (ubeta_nat_pdf a b x)%:E) :> \bar R. *)
-  \int[mu]_(x in `[0%R, 1%R]) (f x * (ubeta_nat_pdf a b x)%:E) :> \bar R.
-Proof.
-rewrite -(Radon_Nikodym_change_of_variables (ubeta_nat_dom a b)) //=.
-(* apply: integralMl => x.
-rewrite Radon_NikodymE => ?.
-  apply: (ubeta_nat_dom a b).
-case: cid => /= h [? ? Hp].
-rewrite /ubeta_nat in Hp. *)
-Admitted.
 
 Let beta_nat_dom a b : (@beta_nat R a b `<< mu).
 Proof.
-apply: (@measure_dominates_trans _ _ _ _ (@beta_nat R 1 1)).
-  admit.
-rewrite /measure_dominates /ubeta_nat/=.
-rewrite //.
+move=> A mA muA0.
+rewrite /beta_nat /mscale/= /ubeta_nat.
+have -> : \int[mu]_(x0 in A `&` `[0%R, 1%R]) (ubeta_nat_pdf a b x0)%:E = 0%:E.
+  apply/eqP; rewrite eq_le.
+  apply/andP; split; last first.
+    apply: integral_ge0 => x [Ax /=].
+    rewrite in_itv /= => x01.
+    by rewrite lee_fin ubeta_nat_pdf_ge0.
+  apply: le_trans.
+    apply: (@subset_integral _ _ _ _ _ A).
+      by apply: measurableI.
+      by [].
+      admit.
+      admit.
+      admit.
+      rewrite /=.
+      (* rewrite integral_abs_eq0. *) (* without abs *)
+    admit.
+by rewrite mule0.
 Admitted.
 
 Lemma integral_beta_nat (a b : nat) f :
-  \int[beta_nat a b]_x f x =
+  measurable_fun setT f ->
+  \int[beta_nat a b]_(x in `[0%R, 1%R]) `|f x| < +oo ->
+  \int[beta_nat a b]_(x in `[0%R, 1%R]) f x =
   \int[mu]_(x in `[0%R, 1%R]) (f x * (beta_nat_pdf a b x)%:E) :> \bar R.
 Proof.
+move=> mf finf.
 rewrite -(Radon_Nikodym_change_of_variables (beta_nat_dom a b)) //=.
-(* apply: integralMl => x.
-rewrite Radon_NikodymE => ?.
-  apply: (beta_nat_dom a b).
-case: cid => /= h [? ? Hp].
-rewrite /ubeta_nat in Hp. *)
+apply: integralMl => //.
+  apply: (@measurable_funS _ _ _ _ [set: R]) => //.
+  apply: (@measurable_funS _ _ _ _ [set: R]) => //.
+    rewrite Radon_NikodymE.
+      by exact: (beta_nat_dom a b).
+      move=> /= H.
+      case: cid => /= h [h1 h2 h3].
+      have : (measurable_fun setT h /\ \int[mu]_x `|h x| < +oo).
+        apply/integrableP/h2.
+      move=> /= [mh _].
+      apply: mh.
+    apply: (@measurable_funS _ _ _ _ [set: R]) => //.
+    apply: measurable_beta_nat_pdf.
+  rewrite Radon_NikodymE => /= A.
+    by exact: (beta_nat_dom a b).
+case: cid => /= h [h1 h2 h3].
+apply: integral_ae_eq => //.
+  apply: integrableS h2 => //. (* integrableST? *)
+  apply: (@measurable_funS _ _ _ _ [set: R]) => //.
+  apply: measurableT_comp.
+    by apply/EFin_measurable_fun.
+  apply: measurable_beta_nat_pdf.
+  move=> E E01 mE.
+  have mB : measurable_fun E (EFin \o ubeta_nat_pdf a b).
+    apply: measurableT_comp.
+    apply/EFin_measurable_fun => //.
+    apply: (@measurable_funS _ _ _ _ [set: R]) => //.
+    apply: measurable_ubeta_nat_pdf.
+  rewrite -(h3 _ mE).
+    rewrite /beta_nat/mscale/ubeta_nat/beta_nat_pdf/=.
+    under eq_integral do rewrite mulrC EFinM.
+    rewrite (integralZl mE).
+    rewrite /ubeta_nat setIidl //.
+    rewrite /=.
+    apply/integrableP; split.
+      by apply: mB.
+    under eq_integral => x x01.
+      rewrite gee0_abs /=.
+      over.
+    apply: ubeta_nat_pdf_ge0.
+    have : x \in `[0%R, 1%R].
+      apply: (@subset_trans _ _ `[x,x] _ _ E01).
+      by rewrite set_interval.set_itv1 sub1set x01.
+      by rewrite /= in_itv/= lexx.
+  by rewrite in_itv/=.
+  rewrite /=.
+  have <- := (setIidl E01).
+  rewrite -ubeta_natE.
+  admit.
+apply/integrableP; split.
+  by apply: (@measurable_funS _ _ _ _ [set: R]).
+exact: finf.
 Admitted.
 
 End integral_beta.

@@ -62,6 +62,83 @@ Open Scope ring_scope.
 Open Scope lang_scope.
 Context {R : realType}.
 
+Lemma beta_bern610 :
+  @execP R [::] _ 
+  [let "p" :=
+    Sample {exp_beta 6 4} in Sample {exp_bernoulli_trunc [#{"p"}]}] =
+  execP [Sample {exp_bernoulli_trunc [{6 / 10}:R]}].
+Proof.
+rewrite execP_letin !execP_sample !execD_beta_nat !execD_bernoulli_trunc/=.
+rewrite execD_real exp_var'E !(execD_var_erefl "p")/=.
+apply: eq_sfkernel=> x U.
+rewrite letin'E/=.
+transitivity ((\int[beta_nat 6 4]_(y in `[0%R, 1%R]) bernoulli_trunc y U)%E : \bar R).
+  rewrite [in RHS]integral_mkcond /=.
+  apply: eq_integral => y _.
+  rewrite patchE.
+  case: ifPn => //.
+  (* Unset Printing Notations. *)
+  simpl in *.
+  rewrite mem_setE /= in_itv /= negb_and -!ltNge => /orP[y0|y1];
+    rewrite /bernoulli_trunc/=.
+    case: sumbool_ler.
+      move=> a.
+      by rewrite ltNge a in y0.
+      rewrite /prob_lang.bernoulli0 /bernoulli => _.
+      rewrite [LHS]measure_addE/= /mscale/=.
+  (* match default value *)
+    admit.
+    admit.
+  rewrite integral_beta_nat.
+under eq_integral => y y01.
+  rewrite bernoulli_truncE.
+  rewrite muleC muleDr// !muleA muleC [X in _ + X]muleC.
+  over.
+  admit.
+rewrite /= bernoulli_truncE.
+rewrite integralD//.
+congr (_ + _)%E.
+rewrite integralZl//.
+rewrite muleC.
+congr (_ * _)%E.
+(* rewrite /= setTI. *)
+rewrite /beta_nat_pdf.
+rewrite /ubeta_nat_pdf/ubeta_nat_pdf'/=.
+transitivity (\int[@lebesgue_measure R]_(x0 in `[0%R, 1%R])
+  ((ubeta_nat_pdf 7 4 x0 / beta_nat_norm 6 4)%:E))%E.
+  apply: eq_integral => p _.
+  rewrite muleC -EFinM.
+  rewrite -[X in X * _]divr1 mulf_div.
+  congr (_ / _)%:E; last by rewrite mul1r.
+  by rewrite /ubeta_nat_pdf/= /ubeta_nat_pdf' mulrA -exprS.
+under eq_integral do rewrite mulrC EFinM.
+rewrite integralZl//=.
+rewrite -beta_nat_normE /beta_nat_norm/= factE.
+rewrite -!EFinM/=.
+congr _%:E; lra.
+  admit.
+  admit.
+rewrite integralZl//.
+rewrite muleC.
+congr (_ * _)%E.
+rewrite /beta_nat_pdf.
+rewrite /ubeta_nat_pdf/ubeta_nat_pdf'/=.
+transitivity (\int[@lebesgue_measure R]_(x0 in `[0%R, 1%R])
+  ((ubeta_nat_pdf 6 5 x0 / beta_nat_norm 6 4)%:E))%E.
+  apply: eq_integral => p _.
+  by rewrite mulrC -EFinM -2!mulrA -exprSr mulrC.
+under eq_integral do rewrite mulrC EFinM.
+rewrite integralZl//=.
+rewrite -beta_nat_normE /beta_nat_norm/= factE.
+rewrite -!EFinM/onem/=.
+congr _%:E; lra.
+  admit.
+  admit.
+  admit.
+  admit.
+  lra.
+Admitted.
+
 Let p610 : ((6 / 10%:R)%:nng : {nonneg R})%:num <= 1.
 Proof. admit. Admitted.
 
@@ -470,66 +547,6 @@ Definition casino3 : @exp R _ [::] _ :=
    let "p" := Sample {exp_beta 6 4} in
    Sample {exp_bernoulli_trunc [{1}:R - {[{1}:R - #{"p"}]} ^+ {3%nat}]}].
 
-Lemma beta_bern610 :
-  @execP R [::] _ 
-  [let "p" :=
-    Sample {exp_beta 6 4} in Sample {exp_bernoulli_trunc [#{"p"}]}] =
-  execP [Sample {exp_bernoulli_trunc [{6 / 10}:R]}].
-Proof.
-rewrite execP_letin !execP_sample !execD_beta_nat !execD_bernoulli_trunc/=.
-rewrite execD_real exp_var'E !(execD_var_erefl "p")/=.
-apply: eq_sfkernel=> x U.
-rewrite letin'E/=.
-rewrite integral_beta_nat.
-under eq_integral => y _.
-  rewrite bernoulli_truncE.
-  rewrite muleC muleDr// !muleA muleC [X in _ + X]muleC.
-  over.
-  admit.
-rewrite /= bernoulli_truncE.
-rewrite integralD//.
-congr (_ + _)%E.
-rewrite integralZl//.
-rewrite muleC.
-congr (_ * _)%E.
-(* rewrite /= setTI. *)
-rewrite /beta_nat_pdf.
-rewrite /ubeta_nat_pdf/ubeta_nat_pdf'/=.
-transitivity (\int[@lebesgue_measure R]_(x0 in `[0%R, 1%R])
-  ((ubeta_nat_pdf 7 4 x0 / beta_nat_norm 6 4)%:E))%E.
-  apply: eq_integral => p _.
-  rewrite muleC -EFinM.
-  rewrite -[X in X * _]divr1 mulf_div.
-  congr (_ / _)%:E; last by rewrite mul1r.
-  by rewrite /ubeta_nat_pdf/= /ubeta_nat_pdf' mulrA -exprS.
-under eq_integral do rewrite mulrC EFinM.
-rewrite integralZl//=.
-rewrite -beta_nat_normE /beta_nat_norm/= factE.
-rewrite -!EFinM/=.
-congr _%:E; lra.
-  admit.
-  admit.
-rewrite integralZl//.
-rewrite muleC.
-congr (_ * _)%E.
-rewrite /beta_nat_pdf.
-rewrite /ubeta_nat_pdf/ubeta_nat_pdf'/=.
-transitivity (\int[@lebesgue_measure R]_(x0 in `[0%R, 1%R])
-  ((ubeta_nat_pdf 6 5 x0 / beta_nat_norm 6 4)%:E))%E.
-  apply: eq_integral => p _.
-  by rewrite mulrC -EFinM -2!mulrA -exprSr mulrC.
-under eq_integral do rewrite mulrC EFinM.
-rewrite integralZl//=.
-rewrite -beta_nat_normE /beta_nat_norm/= factE.
-rewrite -!EFinM/onem/=.
-congr _%:E; lra.
-  admit.
-  admit.
-  admit.
-  admit.
-  lra.
-Admitted.
-
 Lemma casino23 :
   @execD R [::] _ casino2' = @execD R [::] _ casino3.
 Proof.
@@ -541,36 +558,33 @@ rewrite !execD_bernoulli_trunc/= !(@execD_bin _ _ binop_mult).
 rewrite !execD_pow !(@execD_bin _ _ binop_minus) !execD_real/=.
 rewrite !execD_pow !(@execD_bin _ _ binop_minus) !execD_real/=.
 rewrite !exp_var'E !(execD_var_erefl "p")/=.
-rewrite !letin'E/= !ge0_integral_mscale//=.
-rewrite /beta_nat_norm/= fact0 !mul1r !invr1 mul1e.
-under eq_integral => y _.
-  rewrite letin'E/= ge0_integral_mscale//=.
-  rewrite integral_dirac// diracE mem_set//= mul1e.
-  over.
-rewrite integral_dirac// diracT/= mul1e.
-rewrite letin'E ge0_integral_mscale//=.
-rewrite /beta_nat_norm/= ger0_norm//.
-rewrite !muleA.
-under eq_integral => y _.
-  rewrite -mulrA normrM ger0_norm; last by lra.
-  over.
-rewrite /=.
-transitivity ((56%:E * \int[ubeta_nat 1 1]_y ((normr (y ^+ 5 * (1 - y) ^+ 3))%:E * bernoulli_trunc (1 - (1 - y) ^+ 3) U))%E :> \bar R).
+rewrite !letin'E/= ![in RHS]ge0_integral_mscale//=.
+set f := letin' _ _.
+transitivity (\int[beta_nat 1 1]_(y in `[0%R, 1%R]) f (y, x) U)%E.
   admit.
-congr (_ * _)%E.
-congr _%:E.
-  rewrite factE/=; lra.
-under eq_integral => y _.
+rewrite integral_beta_nat.
+  rewrite ger0_norm// integral_dirac// diracT mul1e letin'E/=.
+  transitivity (((1 / 9)%:E * \int[beta_nat 6 4]_(y in `[0%R, 1%R]) 
+    bernoulli_trunc (1 - (1 - y) ^+ 3) U)%E : \bar R); last by admit.
+rewrite integral_beta_nat//=.
+rewrite -integralZl//=.
+  apply: eq_integral => y y01.
+  rewrite /f letin'E /= !ge0_integral_mscale//= integral_dirac// diracT mul1e.
+  rewrite -muleAC muleC -[in RHS]muleCA.
+  congr (_ * _)%E.
   rewrite ger0_norm.
-  over.
-  admit.
-rewrite /=.
-rewrite integral_ubeta_nat/=.
-transitivity ((\int[lebesgue_measure]_(x0 in `[0%R, 1%R]) ((x0 ^+ 5 * `1-x0 ^+ 3)%:E * bernoulli_trunc (1 - (1 - x0) ^+ 3) U))%E :> \bar R).
-apply: eq_integral => y _.
-by rewrite ubeta_nat_pdf11/= mule1 /onem.
-rewrite integral_ubeta_nat.
-by under eq_integral do rewrite muleC.
+  rewrite /beta_nat_pdf ubeta_nat_pdf11/= muleC -!EFinM.
+  rewrite !div1r.
+  rewrite /beta_nat_norm/= /ubeta_nat_pdf/ubeta_nat_pdf' factE/=/onem.
+  congr _%:E; lra.
+  rewrite inE/= in_itv/= in y01.
+  move: y01 => /andP[y0 y1].
+  apply/mulr_ge0/exprn_ge0 => //.
+    apply/mulr_ge0/exprn_ge0 => //.
+    lra.
+admit.
+admit.
+admit.
 admit.
 admit.
 Admitted.
@@ -583,7 +597,51 @@ Proof.
 rewrite execP_letin !execP_sample execD_beta_nat !execD_bernoulli_trunc/=.
 rewrite execD_pow/= (@execD_bin _ _ binop_minus) !execD_real/=.
 rewrite exp_var'E (execD_var_erefl "p")/=.
-transitivity (beta_nat_bern 6 4 0 3 tt U : \bar R).
+(* TODO: generalize *)
+rewrite letin'E/=.
+transitivity ((\int[beta_nat 6 4]_(y in `[0%R, 1%R])
+  bernoulli_trunc ((1 - y) ^+ 3) U)%E : \bar R).
+  admit.
+rewrite integral_beta_nat//=.
+  under eq_integral => x.
+    rewrite inE/= in_itv/= => /andP[x0 x1].
+    rewrite bernoulli_truncE.
+    over.
+    apply/andP; split.
+      apply/exprn_ge0/onem_ge0/x1.
+    apply/exprn_ile1/onem_le1/x0/onem_ge0/x1.
+  rewrite bernoulli_truncE; last by lra.
+  under eq_integral => x _.
+    rewrite muleC muleDr//.
+    over.
+  rewrite integralD.
+  congr (_ + _).
+  under eq_integral do rewrite muleA muleC.
+  rewrite integralZl//=.
+  rewrite muleC.
+  congr (_ * _)%E.
+  rewrite /beta_nat_pdf.
+  under eq_integral do rewrite EFinM -muleA muleC -muleA.
+  rewrite integralZl//=.
+  transitivity (((beta_nat_norm 6 4)^-1)%:E * \int[lebesgue_measure]_(x in `[0%R, 1%R]) ((ubeta_nat_pdf 6 7 x)%:E) : \bar R)%E.
+    congr (_ * _)%E.
+    apply: eq_integral => x x01.
+    rewrite /ubeta_nat_pdf /ubeta_nat_pdf' muleC /onem -EFinM/=.
+    rewrite -mulrA -exprD.
+    congr (_ * _)%:E.
+  rewrite -beta_nat_normE /beta_nat_norm/= factE/=.
+  congr _%:E; lra.
+
+  admit.
+  admit.
+  admit.
+  by [].
+  admit.
+  admit.
+  admit.
+  admit.
+
+(* transitivity (beta_nat_bern 6 4 0 3 tt U : \bar R).
   rewrite /beta_nat_bern !letin'E/= /ubeta_nat_pdf/= /onem.
   apply: eq_integral => x _.
   do 2 f_equal.
@@ -598,60 +656,7 @@ under eq_integral => x _.
   rewrite bernoulli_truncE.
   rewrite muleC muleDr//.
   over.
-  admit.
-rewrite integralD//.
-  congr (_ + _).
-  under eq_integral => x _.
-    rewrite mulrC !muleA muleC.
-    over.
-  rewrite integralZl//.
-  rewrite muleC.
-  congr (_ * _)%E.
-  under eq_integral do rewrite EFinM -muleA.
-  rewrite integralZl//.
-  under eq_integral => x _.
-    rewrite /ubeta_nat_pdf /ubeta_nat_pdf' -EFinM mulrAC.
-    rewrite -mulrA -[X in _ * X]mulrA -exprD/= mulrA -exprD addn0.
-    over.
-  transitivity (
-    ((beta_nat_norm 6 4)^-1)%:E *
-    \int[@lebesgue_measure R]_(x in `[0%R, 1%R]) (ubeta_nat_pdf 6 7 x)%:E)%E.
-    by rewrite -beta_nat_normE.
-  rewrite -beta_nat_normE /beta_nat_norm factE/=; congr _%:E; lra.
-  admit.
-  admit.
-  under eq_integral => x _.
-    rewrite mulrC !muleA muleC.
-    over.
-  rewrite integralZl//.
-  rewrite muleC.
-  congr (_ * _)%E.
-  under eq_integral do rewrite EFinM -muleA.
-  rewrite integralZl//.
-  under eq_integral => x _.
-    rewrite /ubeta_nat_pdf /ubeta_nat_pdf'.
-    rewrite -EFinM mulrBr/= mulr1.
-    rewrite [X in _ - X]mulrAC -[X in _ - X]mulrA.
-    rewrite -[X in _ - _ * X]mulrA.
-    rewrite -[X in _ - (_ * (_ * X))]exprD/= [X in _ - X]mulrA.
-    rewrite -exprD addn0.
-    over.
-  transitivity (
-    ((beta_nat_norm 6 4)^-1)%:E *
-    \int[@lebesgue_measure R]_(x in `[0%R, 1%R]) (ubeta_nat_pdf 6 4 x - ubeta_nat_pdf 6 7 x)%:E)%E.
-    congr (_ * _)%E.
-    rewrite integralB_EFin//.
-    rewrite -!beta_nat_normE -EFinM mulrBr.
-    rewrite [X in X - _]mulVf /onem.
-    congr (_ - _)%:E.
-    rewrite /beta_nat_norm factE/=; congr _%E; lra.
-    rewrite /beta_nat_norm factE/=. admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
+  admit. *)
 Admitted.
 
 Lemma bern_onem (f : _ -> R) U p :
