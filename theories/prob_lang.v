@@ -695,6 +695,10 @@ Lemma ubeta_natE U :
   \int[mu]_(x in U `&` `[0%R, 1%R]) (ubeta_nat_pdf x)%:E :> \bar R)%E.
 Proof. by []. Qed.
 
+Lemma ubeta_nat_lty U : (ubeta_nat U < +oo)%E.
+Proof.
+Admitted.
+
 Let ubeta_nat0 : ubeta_nat set0 = 0%:E.
 Proof. by rewrite /ubeta_nat set0I integral_set0. Qed.
 
@@ -826,12 +830,18 @@ have -> : \int[mu]_(x0 in A `&` `[0%R, 1%R]) (ubeta_nat_pdf a b x0)%:E = 0%:E.
     apply: (@subset_integral _ _ _ _ _ A).
       by apply: measurableI.
       by [].
-      admit.
-      admit.
-      admit.
-      rewrite /=.
+      apply/EFin_measurable_fun.
+      apply: (@measurable_funS _ _ _ _ setT) => //=.
+        apply: measurable_ubeta_nat_pdf.
+      move=> x Ax.
+      have : (`[0%R, 1%R]%classic x).
+        admit.
+      rewrite /= in_itv/=.
+    apply: ubeta_nat_pdf_ge0.
+    apply: subIsetl.
+  rewrite /=.
       (* rewrite integral_abs_eq0. *) (* without abs *)
-    admit.
+  admit.
 by rewrite mule0.
 Admitted.
 
@@ -862,13 +872,11 @@ case: cid => /= h [h1 h2 h3].
 apply: integral_ae_eq => //.
   apply: integrableS h2 => //. (* integrableST? *)
   apply: (@measurable_funS _ _ _ _ [set: R]) => //.
-  apply: measurableT_comp.
-    by apply/EFin_measurable_fun.
+  apply: measurableT_comp => //.
   apply: measurable_beta_nat_pdf.
   move=> E E01 mE.
   have mB : measurable_fun E (EFin \o ubeta_nat_pdf a b).
-    apply: measurableT_comp.
-    apply/EFin_measurable_fun => //.
+    apply: measurableT_comp => //.
     apply: (@measurable_funS _ _ _ _ [set: R]) => //.
     apply: measurable_ubeta_nat_pdf.
   rewrite -(h3 _ mE).
@@ -890,12 +898,11 @@ apply: integral_ae_eq => //.
   by rewrite in_itv/=.
   rewrite /=.
   have <- := (setIidl E01).
-  rewrite -ubeta_natE.
-  admit.
+  by rewrite -ubeta_natE ubeta_nat_lty.
 apply/integrableP; split.
   by apply: (@measurable_funS _ _ _ _ [set: R]).
 exact: finf.
-Admitted.
+Qed.
 
 End integral_beta.
 
