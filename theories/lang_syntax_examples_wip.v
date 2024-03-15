@@ -23,40 +23,6 @@ Local Open Scope classical_set_scope.
 Local Open Scope ring_scope.
 (* Local Open Scope ereal_scope. *)
 
-Section trunc_lemmas.
-Open Scope ring_scope.
-Open Scope lang_scope.
-Context (R : realType).
-
-Lemma bernoulli_truncE (p : R) U :
-  (0 <= p <= 1)%R ->
-  (bernoulli_trunc p U =
-  p%:E * \d_true U + (`1-p)%:E * \d_false U)%E.
-Proof.
-move=> /andP[p0 p1].
-rewrite /bernoulli_trunc.
-case: (sumbool_ler 0 p) => [{}p0/=|].
-  case: (sumbool_ler p 1) => [{}p1/=|].
-    by rewrite /bernoulli/= measure_addE.
-  by rewrite ltNge p1.
-by rewrite ltNge p0.
-Qed.
-
-Lemma __ p p1 :
-  @execD R [::] _ (exp_bernoulli p p1) =
-  execD (exp_bernoulli_trunc [{p%:num}:R]).
-Proof.
-apply: eq_execD.
-rewrite execD_bernoulli execD_bernoulli_trunc execD_real/=.
-apply: funext=> x /=.
-rewrite /bernoulli_trunc.
-case: (sumbool_ler 0 p%:num) => [{}p0/=|].
-  case: (sumbool_ler p%:num 1) => [{}p1'/=|].
-    admit.
-Abort.
-
-End trunc_lemmas.
-
 Section beta_example.
 Open Scope ring_scope.
 Open Scope lang_scope.
@@ -429,14 +395,17 @@ Lemma exec_beta_a1 U :
 Proof.
 rewrite execP_letin !execP_sample execD_beta_nat !execD_bernoulli_trunc/=.
 rewrite !execD_real/= exp_var'E (execD_var_erefl "p")/=.
-transitivity (beta_nat_bern 6 4 1 0 tt U : \bar R).
+transitivity (beta_nat_bern 6 4 1 0 U : \bar R).
   rewrite /beta_nat_bern !letin'E/= /ubeta_nat_pdf/= /onem.
   apply: eq_integral => x _.
   rewrite /=.
   do 2 f_equal.
   by rewrite /ubeta_nat_pdf' expr1 expr0 mulr1.
-rewrite beta_nat_bern_bern/= /bernoulli/= bernoulli_truncE; last by lra.
-rewrite measure_addE/= /mscale/=.
+rewrite beta_nat_bern_bern// !bernoulli_truncE; last 2 first.
+  by lra.
+  apply/andP; split.
+    by apply/Baa'bb'Bab_ge0.
+  by apply/Baa'bb'Bab_le1.
 congr (_ * _ + _ * _)%:E.
   rewrite /Baa'bb'Bab /beta_nat_norm/=.
   rewrite !factS/= fact0.
@@ -599,65 +568,13 @@ rewrite execD_pow/= (@execD_bin _ _ binop_minus) !execD_real/=.
 rewrite exp_var'E (execD_var_erefl "p")/=.
 (* TODO: generalize *)
 rewrite letin'E/=.
-transitivity ((\int[beta_nat 6 4]_(y in `[0%R, 1%R])
-  bernoulli_trunc ((1 - y) ^+ 3) U)%E : \bar R).
-  admit.
-rewrite integral_beta_nat//=.
-  under eq_integral => x.
-    rewrite inE/= in_itv/= => /andP[x0 x1].
-    rewrite bernoulli_truncE.
-    over.
-    apply/andP; split.
-      apply/exprn_ge0/onem_ge0/x1.
-    apply/exprn_ile1/onem_le1/x0/onem_ge0/x1.
-  rewrite bernoulli_truncE; last by lra.
-  under eq_integral => x _.
-    rewrite muleC muleDr//.
-    over.
-  rewrite integralD.
-  congr (_ + _).
-  under eq_integral do rewrite muleA muleC.
-  rewrite integralZl//=.
-  rewrite muleC.
-  congr (_ * _)%E.
-  rewrite /beta_nat_pdf.
-  under eq_integral do rewrite EFinM -muleA muleC -muleA.
-  rewrite integralZl//=.
-  transitivity (((beta_nat_norm 6 4)^-1)%:E * \int[lebesgue_measure]_(x in `[0%R, 1%R]) ((ubeta_nat_pdf 6 7 x)%:E) : \bar R)%E.
-    congr (_ * _)%E.
-    apply: eq_integral => x x01.
-    rewrite /ubeta_nat_pdf /ubeta_nat_pdf' muleC /onem -EFinM/=.
-    rewrite -mulrA -exprD.
-    congr (_ * _)%:E.
-  rewrite -beta_nat_normE /beta_nat_norm/= factE/=.
-  congr _%:E; lra.
-
-  admit.
-  admit.
-  admit.
-  by [].
-  admit.
-  admit.
-  admit.
-  admit.
-
-(* transitivity (beta_nat_bern 6 4 0 3 tt U : \bar R).
-  rewrite /beta_nat_bern !letin'E/= /ubeta_nat_pdf/= /onem.
-  apply: eq_integral => x _.
-  do 2 f_equal.
-  rewrite /ubeta_nat_pdf'.
-  rewrite expr0.
-  by rewrite mul1r.
-rewrite bernoulli_truncE; last by lra.
-rewrite /beta_nat_bern letin'E/=.
-rewrite integral_beta_nat//.
-rewrite /ubeta_nat_pdf /beta_nat_pdf/=.
-under eq_integral => x _.
-  rewrite bernoulli_truncE.
-  rewrite muleC muleDr//.
-  over.
-  admit. *)
-Admitted.
+have := (@beta_nat_bern_bern R 6 4 0 3 U).
+rewrite /beta_nat_bern /ubeta_nat_pdf/ubeta_nat_pdf'/=.
+under eq_integral do rewrite expr0 mul1r.
+move=> ->//.
+rewrite /Baa'bb'Bab addn0 /beta_nat_norm/= factE/=.
+by congr (bernoulli_trunc _ _); field.
+Qed.
 
 Lemma bern_onem (f : _ -> R) U p :
   (\int[beta_nat 6 4]_y bernoulli_trunc (f y) U = p%:E * \d_true U + `1-p%:E * \d_false U)%E ->
@@ -690,15 +607,17 @@ transitivity (\int[beta_nat 6 4]_y bernoulli_trunc (1 - (1 - y) ^+ 3) U : \bar R
 rewrite bernoulli_truncE; last by lra.
 have -> := (@bern_onem (fun x => (1 - x) ^+ 3) U (1 / 11) _).
   congr (_ * _ + _ * _)%E; congr _%:E; rewrite /onem; lra.
-transitivity (beta_nat_bern 6 4 0 3 tt U : \bar R).
-  rewrite /beta_nat_bern !letin'E/= /ubeta_nat_pdf/= /onem.
+transitivity (beta_nat_bern 6 4 0 3 U : \bar R).
+  rewrite /beta_nat_bern /ubeta_nat_pdf/= /onem.
   apply: eq_integral => y0 _.
   do 2 f_equal.
   rewrite /ubeta_nat_pdf'/=.
   rewrite expr0.
   by rewrite mul1r.
-rewrite beta_nat_bern_bern/= /bernoulli/=.
-rewrite measure_addE/= /mscale/=.
+rewrite beta_nat_bern_bern//= bernoulli_truncE; last first.
+  apply/andP; split.
+    apply/Baa'bb'Bab_ge0.
+  apply/Baa'bb'Bab_le1.
 congr (_ * _ + _ * _)%:E; rewrite /onem.
   rewrite /Baa'bb'Bab /beta_nat_norm/=.
   by rewrite !factS/= fact0; field.
