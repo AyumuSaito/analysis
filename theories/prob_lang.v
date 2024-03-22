@@ -219,7 +219,7 @@ case: (sumbool_ler 0 p) => [{}p0/=|].
 by rewrite ltNge p0.
 Qed.
 
-(*HB.instance Definition _ (p : R) := Probability.on (bernoulli_trunc p).*)
+(* HB.instance Definition _ (p : R) := Probability.on (bernoulli_trunc p). *)
 
 Let simpe := (@mule0 R, @adde0 R, @mule1 R, @add0e R).
 
@@ -796,6 +796,8 @@ Qed.
 
 End beta_probability.
 
+Arguments beta_nat {R}.
+
 Section beta_probability11.
 Local Open Scope ring_scope.
 Context {R : realType}.
@@ -990,6 +992,7 @@ Qed.
 
 Local Open Scope ring_scope.
 
+(* TODO: `[0, 1]? *)
 Definition beta_nat_bern U : \bar R :=
   \int[beta_nat a b]_y bernoulli_trunc (ubeta_nat_pdf a'.+1 b'.+1 y) U.
 
@@ -1084,7 +1087,11 @@ transitivity ((\int[beta_nat a b]_(y in `[0%R, 1%R])
   bernoulli_trunc (ubeta_nat_pdf a'.+1 b'.+1 y) U)%E : \bar R).
     admit.
 rewrite integral_beta_nat /=; last 2 first.
-  admit.
+  apply: (@measurableT_comp _ _ _ _ _ _ (bernoulli_trunc ^~ U)).
+    apply: (measurability (ErealGenInftyO.measurableE R)) => //=.
+    move=> /= _ [_ [x ->] <-]; apply: measurableI => //.
+    admit.
+  exact: measurable_ubeta_nat_pdf.
   admit.
 under eq_integral => x.
   rewrite inE/= in_itv/= => x01.
@@ -1102,6 +1109,7 @@ under eq_integral => x _.
   rewrite muleC muleDr//.
   over.
 rewrite integralD//=; last 2 first.
+  (* TODO: integrableM *)
   admit.
   admit.
 congr (_ + _).
@@ -1149,7 +1157,12 @@ rewrite integralB_EFin//=; last 2 first.
   admit.
   admit.
 rewrite -!beta_nat_normE -EFinM mulrBr /onem mulVf; last first.
-  admit.
+  rewrite /B mulf_eq0 negb_or.
+  apply/andP; split.
+    rewrite mulf_eq0 negb_or.
+    rewrite gt_eqF ?ltr0n ?fact_gt0//=.
+    rewrite gt_eqF ?ltr0n ?fact_gt0//=.
+    rewrite invr_eq0 gt_eqF ?ltr0n ?fact_gt0//=.
 congr (_ - _)%:E.
 by rewrite mulrC.
 Admitted.
